@@ -9,8 +9,7 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 
@@ -181,25 +180,25 @@
 
         const Sidebar = ({ activePage, setActivePage, isMobileMenuOpen, setIsMobileMenuOpen }) => {
             const navItems = [
-                { id: 'dashboard', icon: 'layout-dashboard', label: 'Dashboard' },
-                { id: 'wheel', icon: 'pie-chart', label: 'Holistic Wheel' },
-                { id: 'mood', icon: 'smile', label: 'Mood Space' },
-                { id: 'journal', icon: 'book-image', label: 'Memory Journal' },
-                { id: 'goals', icon: 'check-square', label: 'Goal Tracker' },
-                { id: 'soundtrack', icon: 'music', label: 'Soundtrack' },
-                { id: 'wellness', icon: 'heart', label: 'Wellness & Focus' },
-                { id: 'growth', icon: 'trending-up', label: 'Growth Arc' }
+                { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+                { id: 'wheel', icon: '🎡', label: 'Holistic Wheel' },
+                { id: 'mood', icon: '😊', label: 'Mood Space' },
+                { id: 'journal', icon: '📸', label: 'Memory Journal' },
+                { id: 'goals', icon: '✅', label: 'Goal Tracker' },
+                { id: 'soundtrack', icon: '🎵', label: 'Soundtrack' },
+                { id: 'wellness', icon: '💖', label: 'Wellness & Focus' },
+                { id: 'growth', icon: '📈', label: 'Growth Arc' }
             ];
             return (
                 <aside className={`w-64 fixed top-0 left-0 h-screen bg-white border-r-3 border-tech-blue p-6 flex flex-col gap-4 z-50 overflow-y-auto transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
                     <div className="flex items-center gap-3 border-b-3 border-tech-blue pb-6 mt-4 mb-4">
-                        <div className="w-10 h-10 bg-sunflower border-3 border-tech-blue rounded-lg shadow-brutal-active flex items-center justify-center shrink-0"><i data-lucide="sun" className="w-6 h-6"></i></div>
+                        <div className="w-10 h-10 bg-sunflower border-3 border-tech-blue rounded-lg shadow-brutal-active flex items-center justify-center shrink-0 text-xl">☀️</div>
                         <h1 className="font-black text-2xl tracking-widest">LUMINA</h1>
                     </div>
                     <nav className="flex flex-col gap-3">
                         {navItems.map(item => (
                             <button key={item.id} onClick={() => { setActivePage(item.id); setIsMobileMenuOpen(false); }} className={`brutal-btn flex items-center gap-3 p-3 rounded-xl border-3 border-tech-blue font-bold transition-all text-left ${activePage === item.id ? 'bg-sunflower shadow-brutal-sm translate-x-1' : 'bg-paper hover:bg-yellow-50'}`}>
-                                <i data-lucide={item.icon} className="w-5 h-5 shrink-0"></i>{item.label}
+                                <span className="w-5 h-5 flex items-center justify-center shrink-0 text-lg">{item.icon}</span>{item.label}
                             </button>
                         ))}
                     </nav>
@@ -231,7 +230,7 @@
 
             const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
 
-            useEffect(() => { lucide.createIcons(); }, [activePage, moods, memories, macroGoals, selectedMemory, isSpotifyConnected]);
+            // Removed lucide init to prevent React crashes
 
             // Handlers
             const addMood = (mood, emoji) => {
@@ -254,11 +253,11 @@
                     {/* Mobile Header */}
                     <div className="md:hidden fixed top-0 left-0 w-full bg-white border-b-3 border-tech-blue p-4 z-40 flex justify-between items-center shadow-brutal-sm">
                         <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-sunflower border-2 border-tech-blue rounded flex items-center justify-center shrink-0"><i data-lucide="sun" className="w-5 h-5"></i></div>
+                            <div className="w-8 h-8 bg-sunflower border-2 border-tech-blue rounded flex items-center justify-center shrink-0 text-lg">☀️</div>
                             <h1 className="font-black text-xl tracking-widest">LUMINA</h1>
                         </div>
-                        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="brutal-btn p-2 border-2 border-tech-blue bg-paper rounded-lg">
-                            <i data-lucide={isMobileMenuOpen ? "x" : "menu"} className="w-6 h-6"></i>
+                        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="brutal-btn p-2 border-2 border-tech-blue bg-paper rounded-lg w-10 h-10 flex items-center justify-center text-xl">
+                            {isMobileMenuOpen ? "❌" : "☰"}
                         </button>
                     </div>
 
@@ -314,10 +313,10 @@
                                 <div className="bg-white border-3 border-tech-blue p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
                                     <h2 className="font-black text-2xl border-b-3 border-tech-blue pb-4">Quick Actions</h2>
                                     <div className="grid grid-cols-2 gap-4 h-full">
-                                        <button className="brutal-btn bg-sunflower border-3 border-tech-blue rounded-xl font-bold flex flex-col items-center justify-center p-4" onClick={() => setActivePage('mood')}><i data-lucide="smile" className="w-8 h-8 mb-2"></i> Log Mood</button>
-                                        <button className="brutal-btn bg-partner-blue border-3 border-tech-blue rounded-xl font-bold flex flex-col items-center justify-center p-4" onClick={() => setActivePage('journal')}><i data-lucide="camera" className="w-8 h-8 mb-2"></i> Add Memory</button>
-                                        <button className="brutal-btn bg-white border-3 border-tech-blue rounded-xl font-bold flex flex-col items-center justify-center p-4" onClick={() => setActivePage('goals')}><i data-lucide="check-square" className="w-8 h-8 mb-2"></i> View Goals</button>
-                                        <button className="brutal-btn bg-white border-3 border-tech-blue rounded-xl font-bold flex flex-col items-center justify-center p-4" onClick={() => { setIsAnimating(true); setTimeout(() => setIsAnimating(false), 1500); }}><i data-lucide="zap" className="w-8 h-8 mb-2"></i> Send Ping</button>
+                                        <button className="brutal-btn bg-sunflower border-3 border-tech-blue rounded-xl font-bold flex flex-col items-center justify-center p-4" onClick={() => setActivePage('mood')}><span className="text-3xl mb-2">😊</span> Log Mood</button>
+                                        <button className="brutal-btn bg-partner-blue border-3 border-tech-blue rounded-xl font-bold flex flex-col items-center justify-center p-4" onClick={() => setActivePage('journal')}><span className="text-3xl mb-2">📸</span> Add Memory</button>
+                                        <button className="brutal-btn bg-white border-3 border-tech-blue rounded-xl font-bold flex flex-col items-center justify-center p-4" onClick={() => setActivePage('goals')}><span className="text-3xl mb-2">✅</span> View Goals</button>
+                                        <button className="brutal-btn bg-white border-3 border-tech-blue rounded-xl font-bold flex flex-col items-center justify-center p-4" onClick={() => { setIsAnimating(true); setTimeout(() => setIsAnimating(false), 1500); }}><span className="text-3xl mb-2">⚡</span> Send Ping</button>
                                     </div>
                                 </div>
                             </div>
@@ -327,7 +326,7 @@
                         {activePage === 'wheel' && (
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-16">
                                 <div className="lg:col-span-4 bg-white border-3 border-tech-blue p-6 rounded-3xl shadow-brutal flex flex-col gap-6">
-                                    <div className="flex items-center gap-2 mb-2"><i data-lucide="sliders" className="w-6 h-6"></i><h2 className="font-extrabold text-xl">Adjust Balance</h2></div>
+                                    <div className="flex items-center gap-2 mb-2"><span className="text-xl">🎚️</span><h2 className="font-extrabold text-xl">Adjust Balance</h2></div>
                                     <div className="overflow-y-auto pr-2" style={{maxHeight: '500px'}}>
                                         {CATEGORIES.map((cat, i) => (
                                             <div key={i} className="mb-6 pb-6 border-b-2 border-tech-blue border-dashed last:border-0 last:pb-0">
@@ -355,7 +354,7 @@
                                         </button>
                                     </div>
                                     <div className="bg-white border-3 border-tech-blue rounded-3xl shadow-brutal overflow-hidden">
-                                        <div className="border-b-3 border-tech-blue p-4 bg-paper flex items-center gap-2"><i data-lucide="book-open" className="w-5 h-5"></i><h2 className="font-extrabold text-lg">The Crucible (Reflections)</h2></div>
+                                        <div className="border-b-3 border-tech-blue p-4 bg-paper flex items-center gap-2"><span className="text-xl">📖</span><h2 className="font-extrabold text-lg">The Crucible (Reflections)</h2></div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 divide-y-3 md:divide-y-0 md:divide-x-3 divide-tech-blue">
                                             <div className="p-6 bg-yellow-50/30">
                                                 <div className="flex items-center gap-2 mb-4"><div className="w-6 h-6 rounded-full bg-sunflower border-2 border-tech-blue"></div><span className="font-bold">Your Notes</span></div>
@@ -442,28 +441,34 @@
                             <div>
                                 {!isSpotifyConnected ? (
                                     <div className="bg-white border-3 border-tech-blue p-12 rounded-3xl shadow-brutal text-center flex flex-col items-center max-w-xl mx-auto">
-                                        <i data-lucide="music" className="w-16 h-16 mb-4"></i>
+                                        <span className="text-6xl mb-4">🎵</span>
                                         <h2 className="font-black text-2xl mb-4">Connect Soundtrack</h2>
                                         <p className="font-bold opacity-70 mb-8">Link your Spotify account to share playlists and sync live listening.</p>
                                         <button className="brutal-btn bg-sunflower border-3 border-tech-blue p-4 rounded-xl font-bold px-8 w-full" onClick={() => setIsSpotifyConnected(true)}>Connect Spotify</button>
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                        <div className="bg-white border-3 border-tech-blue p-6 rounded-3xl shadow-brutal flex flex-col items-center text-center">
-                                            <div className="w-32 h-32 rounded-full border-3 border-tech-blue bg-sunflower shadow-brutal overflow-hidden mb-4 animate-[spin_10s_linear_infinite]">
-                                                <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80" className="w-full h-full object-cover opacity-80" />
-                                            </div>
-                                            <h3 className="font-extrabold text-2xl">Yellow</h3>
-                                            <p className="font-bold opacity-70">Coldplay</p>
-                                            <button className="brutal-btn bg-tech-blue text-white w-full border-3 border-tech-blue p-3 rounded-xl mt-6 font-black flex items-center justify-center gap-2"><i data-lucide="play" className="w-5 h-5"></i> Play on Spotify</button>
+                                    <div className="flex flex-col gap-8">
+                                        <div className="flex justify-between items-center bg-white border-3 border-tech-blue p-4 rounded-2xl shadow-brutal-sm">
+                                            <div className="flex items-center gap-3"><span className="text-2xl">🟢</span><h3 className="font-bold">Spotify Connected</h3></div>
+                                            <button className="brutal-btn border-2 border-tech-blue bg-paper px-4 py-2 rounded-lg font-bold text-sm" onClick={() => setIsSpotifyConnected(false)}>Disconnect</button>
                                         </div>
-                                        <div className="bg-white border-3 border-tech-blue p-6 rounded-3xl shadow-brutal flex flex-col items-center text-center">
-                                            <div className="w-32 h-32 rounded-full border-3 border-tech-blue bg-partner-blue shadow-brutal overflow-hidden mb-4 animate-[spin_10s_linear_infinite]">
-                                                <img src="https://images.unsplash.com/photo-1493225457124-a1a2a5fa3685?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80" className="w-full h-full object-cover opacity-80" />
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                            <div className="bg-white border-3 border-tech-blue p-6 rounded-3xl shadow-brutal flex flex-col items-center text-center">
+                                                <div className="w-32 h-32 rounded-full border-3 border-tech-blue bg-sunflower shadow-brutal overflow-hidden mb-4 animate-[spin_10s_linear_infinite]">
+                                                    <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80" className="w-full h-full object-cover opacity-80" />
+                                                </div>
+                                                <h3 className="font-extrabold text-2xl">Yellow</h3>
+                                                <p className="font-bold opacity-70">Coldplay</p>
+                                                <button className="brutal-btn bg-tech-blue text-white w-full border-3 border-tech-blue p-3 rounded-xl mt-6 font-black flex items-center justify-center gap-2" onClick={() => alert("Opening Spotify...")}><span className="text-lg">▶️</span> Play on Spotify</button>
                                             </div>
-                                            <h3 className="font-extrabold text-2xl">Sweater Weather</h3>
-                                            <p className="font-bold opacity-70">The Neighbourhood</p>
-                                            <button className="brutal-btn bg-tech-blue text-white w-full border-3 border-tech-blue p-3 rounded-xl mt-6 font-black flex items-center justify-center gap-2"><i data-lucide="play" className="w-5 h-5"></i> Play on Spotify</button>
+                                            <div className="bg-white border-3 border-tech-blue p-6 rounded-3xl shadow-brutal flex flex-col items-center text-center">
+                                                <div className="w-32 h-32 rounded-full border-3 border-tech-blue bg-partner-blue shadow-brutal overflow-hidden mb-4 animate-[spin_10s_linear_infinite]">
+                                                    <img src="https://images.unsplash.com/photo-1493225457124-a1a2a5fa3685?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80" className="w-full h-full object-cover opacity-80" />
+                                                </div>
+                                                <h3 className="font-extrabold text-2xl">Sweater Weather</h3>
+                                                <p className="font-bold opacity-70">The Neighbourhood</p>
+                                                <button className="brutal-btn bg-tech-blue text-white w-full border-3 border-tech-blue p-3 rounded-xl mt-6 font-black flex items-center justify-center gap-2" onClick={() => alert("Opening Spotify...")}><span className="text-lg">▶️</span> Play on Spotify</button>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -474,14 +479,14 @@
                         {activePage === 'wellness' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div className="bg-white border-3 border-tech-blue p-8 rounded-3xl shadow-brutal flex flex-col gap-2">
-                                    <h3 className="font-black text-2xl flex items-center gap-3 mb-2"><i data-lucide="moon" className="w-8 h-8"></i> Sleep Cycle</h3>
+                                    <h3 className="font-black text-2xl flex items-center gap-3 mb-2"><span className="text-3xl">🌙</span> Sleep Cycle</h3>
                                     <div className="border-b-3 border-tech-blue border-dashed pb-4 mb-2">
                                         <p className="font-extrabold text-lg text-tech-blue">Partner slept 6.5h last night.</p>
                                     </div>
                                     <p className="font-bold opacity-80">Low energy expected today. Recommendation: Don't bring up heavy topics before dinner.</p>
                                 </div>
                                 <div className="bg-white border-3 border-tech-blue p-8 rounded-3xl shadow-brutal flex flex-col gap-2">
-                                    <h3 className="font-black text-2xl flex items-center gap-3 mb-2"><i data-lucide="droplet" className="w-8 h-8"></i> Flo App</h3>
+                                    <h3 className="font-black text-2xl flex items-center gap-3 mb-2"><span className="text-3xl">💧</span> Flo App</h3>
                                     <div className="border-b-3 border-tech-blue border-dashed pb-4 mb-2">
                                         <p className="font-extrabold text-lg text-tech-blue">Partner is in Luteal phase.</p>
                                     </div>
