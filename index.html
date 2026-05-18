@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumina - A Shared Emotional Space</title>
+    <meta name="description" content="A beautifully designed emotional home for two people growing together across distance.">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital@0;1&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Ambient Background -->
+    <div class="ambient-background">
+        <div class="glow-orb blue-orb"></div>
+        <div class="glow-orb gold-orb"></div>
+        <div class="noise-overlay"></div>
+    </div>
+
+    <!-- App Container -->
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="glass-sidebar">
+            <div class="brand">
+                <i data-lucide="moon-star"></i>
+            </div>
+            <ul class="nav-links">
+                <li class="active" data-tooltip="Home"><i data-lucide="home"></i></li>
+                <li data-tooltip="Mood Space"><i data-lucide="heart"></i></li>
+                <li data-tooltip="Memory Journal"><i data-lucide="book-open"></i></li>
+                <li data-tooltip="Shared Soundtrack"><i data-lucide="music"></i></li>
+                <li data-tooltip="Open When Vault"><i data-lucide="lock"></i></li>
+                <li data-tooltip="Goals & Rituals"><i data-lucide="target"></i></li>
+            </ul>
+            <div class="user-profiles">
+                <div class="avatar my-avatar">
+                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" alt="Me">
+                </div>
+                <div class="connection-line"></div>
+                <div class="avatar partner-avatar">
+                    <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" alt="Partner">
+                    <div class="status-dot"></div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header: Ambient Presence -->
+            <header class="ambient-header fade-in-up">
+                <div class="greeting">
+                    <h1>Good evening, love.</h1>
+                    <p>It's 11:24 PM in New York, and Sarah is currently listening to <span>"Sweater Weather"</span>.</p>
+                </div>
+                <div class="presence-widgets">
+                    <div class="widget small-widget glass">
+                        <i data-lucide="cloud-moon"></i>
+                        <div class="widget-info">
+                            <span class="label">New York</span>
+                            <span class="value">62° Night</span>
+                        </div>
+                    </div>
+                    <div class="widget small-widget glass">
+                        <i data-lucide="battery-medium"></i>
+                        <div class="widget-info">
+                            <span class="label">Sarah's Phone</span>
+                            <span class="value">45%</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Grid -->
+            <div class="dashboard-grid">
+                
+                <!-- Mood Space -->
+                <div class="glass-card mood-card fade-in-up" style="animation-delay: 0.1s;">
+                    <div class="card-header">
+                        <h2>Today's Mood</h2>
+                        <i data-lucide="sparkles"></i>
+                    </div>
+                    <div class="mood-content">
+                        <div class="partner-mood">
+                            <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" alt="Partner">
+                            <div class="mood-bubble">
+                                <span class="emoji">☁️</span>
+                                <span>Missing you</span>
+                            </div>
+                        </div>
+                        <div class="my-mood action-required">
+                            <button class="check-in-btn">
+                                <i data-lucide="plus"></i>
+                                Log your mood
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Next Reunion -->
+                <div class="glass-card countdown-card fade-in-up" style="animation-delay: 0.2s;">
+                    <div class="card-header">
+                        <h2>Next Reunion</h2>
+                        <i data-lucide="plane"></i>
+                    </div>
+                    <div class="countdown-content">
+                        <div class="destination">Tokyo, Japan</div>
+                        <div class="timer">
+                            <div class="time-unit">
+                                <span class="number">14</span>
+                                <span class="label">Days</span>
+                            </div>
+                            <div class="time-unit">
+                                <span class="number">08</span>
+                                <span class="label">Hours</span>
+                            </div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: 85%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shared Soundtrack -->
+                <div class="glass-card music-card fade-in-up" style="animation-delay: 0.3s;">
+                    <div class="card-header">
+                        <h2>Shared Soundtrack</h2>
+                        <i data-lucide="headphones"></i>
+                    </div>
+                    <div class="music-content">
+                        <div class="album-art">
+                            <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80" alt="Album Art">
+                            <div class="play-overlay">
+                                <i data-lucide="play-circle"></i>
+                            </div>
+                        </div>
+                        <div class="track-info">
+                            <h3>Yellow</h3>
+                            <p>Coldplay</p>
+                            <div class="added-by">
+                                <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=50&q=80" alt="Partner">
+                                <span>Added to 'Late Night Drives'</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Memory Journal (Spans 2 columns) -->
+                <div class="glass-card memory-card fade-in-up" style="animation-delay: 0.4s;">
+                    <div class="card-header">
+                        <h2>On This Day</h2>
+                        <i data-lucide="camera"></i>
+                    </div>
+                    <div class="memory-content">
+                        <div class="memory-image-container">
+                            <img src="https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Memory" class="memory-img">
+                            <div class="memory-overlay">
+                                <p class="memory-date">1 Year Ago • Paris</p>
+                                <p class="memory-caption">"Coffee in Montmartre. You spilled yours immediately after this."</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Open When Vault -->
+                <div class="glass-card vault-card fade-in-up" style="animation-delay: 0.5s;">
+                    <div class="card-header">
+                        <h2>Open When...</h2>
+                        <i data-lucide="mail"></i>
+                    </div>
+                    <div class="vault-content">
+                        <div class="vault-item locked">
+                            <div class="vault-icon"><i data-lucide="lock"></i></div>
+                            <div class="vault-text">
+                                <h4>You're feeling anxious</h4>
+                                <span>1 letter waiting</span>
+                            </div>
+                        </div>
+                        <div class="vault-item available">
+                            <div class="vault-icon"><i data-lucide="unlock"></i></div>
+                            <div class="vault-text">
+                                <h4>You miss me</h4>
+                                <span>Tap to open</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="script.js"></script>
+</body>
+</html>
