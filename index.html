@@ -72,11 +72,10 @@
         .monoline-checkbox.checked { background: #FFD700; box-shadow: 1px 1px 0px 0px #1E3A8A; transform: translate(1px, 1px); }
         .monoline-checkbox.checked::after { content: "X"; color: #1E3A8A; font-weight: 900; font-size: 16px; line-height: 1; }
         
-        /* Photo Polaroid */
         .polaroid {
             background: white; padding: 12px 12px 40px 12px; border: 3px solid #1E3A8A;
             box-shadow: 6px 6px 0px 0px #1E3A8A; transform: rotate(calc(-3deg + 6deg * var(--rand)));
-            transition: transform 0.2s;
+            transition: transform 0.2s; cursor: pointer;
         }
         .polaroid:hover { transform: scale(1.05) rotate(0deg); z-index: 10; }
         .polaroid img { width: 100%; height: 200px; object-fit: cover; border: 3px solid #1E3A8A; }
@@ -182,19 +181,22 @@
 
         const Sidebar = ({ activePage, setActivePage }) => {
             const navItems = [
-                { id: 'dashboard', icon: 'pie-chart', label: 'Dashboard & Wheel' },
-                { id: 'goals', icon: 'check-square', label: 'Goal Tracker' },
+                { id: 'dashboard', icon: 'layout-dashboard', label: 'Dashboard' },
+                { id: 'wheel', icon: 'pie-chart', label: 'Holistic Wheel' },
                 { id: 'mood', icon: 'smile', label: 'Mood Space' },
                 { id: 'journal', icon: 'book-image', label: 'Memory Journal' },
-                { id: 'soundtrack', icon: 'music', label: 'Soundtrack' }
+                { id: 'goals', icon: 'check-square', label: 'Goal Tracker' },
+                { id: 'soundtrack', icon: 'music', label: 'Soundtrack' },
+                { id: 'wellness', icon: 'heart', label: 'Wellness & Focus' },
+                { id: 'growth', icon: 'trending-up', label: 'Growth Arc' }
             ];
             return (
-                <aside className="w-64 fixed top-0 left-0 h-screen bg-white border-r-3 border-tech-blue p-6 flex flex-col gap-8 z-50">
-                    <div className="flex items-center gap-3 border-b-3 border-tech-blue pb-6 mt-4">
+                <aside className="w-64 fixed top-0 left-0 h-screen bg-white border-r-3 border-tech-blue p-6 flex flex-col gap-4 z-50 overflow-y-auto">
+                    <div className="flex items-center gap-3 border-b-3 border-tech-blue pb-6 mt-4 mb-4">
                         <div className="w-10 h-10 bg-sunflower border-3 border-tech-blue rounded-lg shadow-brutal-active flex items-center justify-center shrink-0"><i data-lucide="sun" className="w-6 h-6"></i></div>
                         <h1 className="font-black text-2xl tracking-widest">LUMINA</h1>
                     </div>
-                    <nav className="flex flex-col gap-4">
+                    <nav className="flex flex-col gap-3">
                         {navItems.map(item => (
                             <button key={item.id} onClick={() => setActivePage(item.id)} className={`brutal-btn flex items-center gap-3 p-3 rounded-xl border-3 border-tech-blue font-bold transition-all text-left ${activePage === item.id ? 'bg-sunflower shadow-brutal-sm translate-x-1' : 'bg-paper hover:bg-yellow-50'}`}>
                                 <i data-lucide={item.icon} className="w-5 h-5 shrink-0"></i>{item.label}
@@ -207,11 +209,11 @@
 
         const App = () => {
             const [activePage, setActivePage] = useState('dashboard');
+            const [isAnimating, setIsAnimating] = useState(false);
             
             // App Data State
             const [userScores, setUserScores] = useState([7, 6, 8, 5, 7, 9]);
             const [partnerScores, setPartnerScores] = useState([6, 8, 7, 4, 8, 9]);
-            const [isAnimating, setIsAnimating] = useState(false);
             
             const [moods, setMoods] = useState([{ mood: 'Happy', emoji: '😊', note: 'Feeling great about our progress!', date: 'Today, 9:00 AM' }]);
             const [newMoodNote, setNewMoodNote] = useState('');
@@ -219,13 +221,16 @@
             const [memories, setMemories] = useState([{ id: 1, url: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', caption: 'Coffee in Montmartre.', date: 'Oct 12' }]);
             const [newMemoryUrl, setNewMemoryUrl] = useState('');
             const [newMemoryCap, setNewMemoryCap] = useState('');
+            const [selectedMemory, setSelectedMemory] = useState(null);
 
             const [macroGoals, setMacroGoals] = useState([
                 { id: 1, title: "Plan Anniversary Trip", category: "Romance", miniGoals: [ {id: 101, text: "Book flights to Kyoto", completed: false}, {id: 102, text: "Reserve ryokan", completed: true} ] },
                 { id: 2, title: "Build Emergency Fund", category: "Finances", miniGoals: [ {id: 201, text: "Save first $1000", completed: true}, {id: 202, text: "Automate transfers", completed: false} ] }
             ]);
 
-            useEffect(() => { lucide.createIcons(); }, [activePage, moods, memories, macroGoals]);
+            const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
+
+            useEffect(() => { lucide.createIcons(); }, [activePage, moods, memories, macroGoals, selectedMemory, isSpotifyConnected]);
 
             // Handlers
             const addMood = (mood, emoji) => {
@@ -247,6 +252,18 @@
                 <div className="min-h-screen pl-64 relative pb-20">
                     <Sidebar activePage={activePage} setActivePage={setActivePage} />
                     
+                    {/* Memory Detail Modal Overlay */}
+                    {selectedMemory && (
+                        <div className="fixed inset-0 bg-tech-blue/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setSelectedMemory(null)}>
+                            <div className="bg-white border-3 border-tech-blue p-6 rounded-3xl shadow-brutal max-w-2xl w-full" onClick={e => e.stopPropagation()}>
+                                <img src={selectedMemory.url} className="w-full h-[400px] object-cover border-3 border-tech-blue rounded-xl mb-6"/>
+                                <h3 className="font-black text-3xl mb-2">{selectedMemory.caption}</h3>
+                                <p className="font-bold opacity-50 uppercase tracking-widest">{selectedMemory.date}</p>
+                                <button className="brutal-btn bg-sunflower border-3 border-tech-blue p-4 mt-8 rounded-xl w-full font-black text-lg" onClick={() => setSelectedMemory(null)}>Close Memory</button>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="max-w-6xl mx-auto p-4 md:p-8">
                         {/* Header */}
                         <header className="flex justify-between items-center mb-8 bg-white border-3 border-tech-blue p-4 rounded-2xl shadow-brutal">
@@ -255,7 +272,7 @@
                                 <div><h2 className="font-extrabold text-xl leading-tight">Your Journey</h2><p className="text-xs font-bold opacity-70">Chapter 4</p></div>
                             </div>
                             <h1 className="font-black text-2xl tracking-widest uppercase hidden md:block">
-                                {activePage === 'dashboard' ? 'DASHBOARD' : activePage}
+                                {activePage === 'wheel' ? 'HOLISTIC WHEEL' : activePage.replace('-', ' ')}
                             </h1>
                             <div className="flex items-center gap-3 text-right">
                                 <div><h2 className="font-extrabold text-xl leading-tight">Partner</h2><p className="text-xs font-bold opacity-70">Sync: 85%</p></div>
@@ -267,6 +284,32 @@
 
                         {/* PAGE: DASHBOARD */}
                         {activePage === 'dashboard' && (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
+                                <div className="bg-white border-3 border-tech-blue p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
+                                    <h2 className="font-black text-2xl border-b-3 border-tech-blue pb-4">Today's Summary</h2>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-16 h-16 rounded-full bg-sunflower border-3 border-tech-blue flex items-center justify-center text-3xl">{moods[0]?.emoji || '✨'}</div>
+                                        <div><h3 className="font-bold text-lg">Your Mood: {moods[0]?.mood || 'Not logged'}</h3><p className="opacity-70 font-bold">"{moods[0]?.note || 'No notes yet'}"</p></div>
+                                    </div>
+                                    <div className="flex items-center gap-4 mt-4">
+                                        <div className="w-16 h-16 rounded-full bg-partner-blue border-3 border-tech-blue flex items-center justify-center text-3xl">🎧</div>
+                                        <div><h3 className="font-bold text-lg">Partner Status</h3><p className="opacity-70 font-bold">Listening to Coldplay, 300 miles away.</p></div>
+                                    </div>
+                                </div>
+                                <div className="bg-white border-3 border-tech-blue p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
+                                    <h2 className="font-black text-2xl border-b-3 border-tech-blue pb-4">Quick Actions</h2>
+                                    <div className="grid grid-cols-2 gap-4 h-full">
+                                        <button className="brutal-btn bg-sunflower border-3 border-tech-blue rounded-xl font-bold flex flex-col items-center justify-center p-4" onClick={() => setActivePage('mood')}><i data-lucide="smile" className="w-8 h-8 mb-2"></i> Log Mood</button>
+                                        <button className="brutal-btn bg-partner-blue border-3 border-tech-blue rounded-xl font-bold flex flex-col items-center justify-center p-4" onClick={() => setActivePage('journal')}><i data-lucide="camera" className="w-8 h-8 mb-2"></i> Add Memory</button>
+                                        <button className="brutal-btn bg-white border-3 border-tech-blue rounded-xl font-bold flex flex-col items-center justify-center p-4" onClick={() => setActivePage('goals')}><i data-lucide="check-square" className="w-8 h-8 mb-2"></i> View Goals</button>
+                                        <button className="brutal-btn bg-white border-3 border-tech-blue rounded-xl font-bold flex flex-col items-center justify-center p-4" onClick={() => { setIsAnimating(true); setTimeout(() => setIsAnimating(false), 1500); }}><i data-lucide="zap" className="w-8 h-8 mb-2"></i> Send Ping</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PAGE: WHEEL */}
+                        {activePage === 'wheel' && (
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-16">
                                 <div className="lg:col-span-4 bg-white border-3 border-tech-blue p-6 rounded-3xl shadow-brutal flex flex-col gap-6">
                                     <div className="flex items-center gap-2 mb-2"><i data-lucide="sliders" className="w-6 h-6"></i><h2 className="font-extrabold text-xl">Adjust Balance</h2></div>
@@ -369,7 +412,7 @@
                                 </div>
                                 <div className="flex flex-wrap gap-12 justify-center pt-8">
                                     {memories.map((mem, i) => (
-                                        <div key={mem.id} className="polaroid w-64" style={{'--rand': Math.random()}}>
+                                        <div key={mem.id} className="polaroid w-64" style={{'--rand': Math.random()}} onClick={() => setSelectedMemory(mem)}>
                                             <img src={mem.url} alt="Memory" />
                                             <p className="mt-4 font-black text-lg text-center tracking-wide">{mem.caption}</p>
                                             <p className="text-center text-xs font-bold opacity-50 mt-1">{mem.date}</p>
@@ -381,22 +424,74 @@
 
                         {/* PAGE: SOUNDTRACK */}
                         {activePage === 'soundtrack' && (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                <div className="bg-white border-3 border-tech-blue p-6 rounded-3xl shadow-brutal flex flex-col items-center text-center">
-                                    <div className="w-32 h-32 rounded-full border-3 border-tech-blue bg-sunflower shadow-brutal overflow-hidden mb-4 animate-[spin_10s_linear_infinite]">
-                                        <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80" className="w-full h-full object-cover opacity-80" />
+                            <div>
+                                {!isSpotifyConnected ? (
+                                    <div className="bg-white border-3 border-tech-blue p-12 rounded-3xl shadow-brutal text-center flex flex-col items-center max-w-xl mx-auto">
+                                        <i data-lucide="music" className="w-16 h-16 mb-4"></i>
+                                        <h2 className="font-black text-2xl mb-4">Connect Soundtrack</h2>
+                                        <p className="font-bold opacity-70 mb-8">Link your Spotify account to share playlists and sync live listening.</p>
+                                        <button className="brutal-btn bg-sunflower border-3 border-tech-blue p-4 rounded-xl font-bold px-8 w-full" onClick={() => setIsSpotifyConnected(true)}>Connect Spotify</button>
                                     </div>
-                                    <h3 className="font-extrabold text-2xl">Yellow</h3>
-                                    <p className="font-bold opacity-70">Coldplay</p>
-                                    <button className="brutal-btn bg-tech-blue text-white w-full border-3 border-tech-blue p-3 rounded-xl mt-6 font-black flex items-center justify-center gap-2"><i data-lucide="play" className="w-5 h-5"></i> Play on Spotify</button>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                        <div className="bg-white border-3 border-tech-blue p-6 rounded-3xl shadow-brutal flex flex-col items-center text-center">
+                                            <div className="w-32 h-32 rounded-full border-3 border-tech-blue bg-sunflower shadow-brutal overflow-hidden mb-4 animate-[spin_10s_linear_infinite]">
+                                                <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80" className="w-full h-full object-cover opacity-80" />
+                                            </div>
+                                            <h3 className="font-extrabold text-2xl">Yellow</h3>
+                                            <p className="font-bold opacity-70">Coldplay</p>
+                                            <button className="brutal-btn bg-tech-blue text-white w-full border-3 border-tech-blue p-3 rounded-xl mt-6 font-black flex items-center justify-center gap-2"><i data-lucide="play" className="w-5 h-5"></i> Play on Spotify</button>
+                                        </div>
+                                        <div className="bg-white border-3 border-tech-blue p-6 rounded-3xl shadow-brutal flex flex-col items-center text-center">
+                                            <div className="w-32 h-32 rounded-full border-3 border-tech-blue bg-partner-blue shadow-brutal overflow-hidden mb-4 animate-[spin_10s_linear_infinite]">
+                                                <img src="https://images.unsplash.com/photo-1493225457124-a1a2a5fa3685?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80" className="w-full h-full object-cover opacity-80" />
+                                            </div>
+                                            <h3 className="font-extrabold text-2xl">Sweater Weather</h3>
+                                            <p className="font-bold opacity-70">The Neighbourhood</p>
+                                            <button className="brutal-btn bg-tech-blue text-white w-full border-3 border-tech-blue p-3 rounded-xl mt-6 font-black flex items-center justify-center gap-2"><i data-lucide="play" className="w-5 h-5"></i> Play on Spotify</button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* PAGE: WELLNESS */}
+                        {activePage === 'wellness' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="bg-white border-3 border-tech-blue p-8 rounded-3xl shadow-brutal flex flex-col gap-2">
+                                    <h3 className="font-black text-2xl flex items-center gap-3 mb-2"><i data-lucide="moon" className="w-8 h-8"></i> Sleep Cycle</h3>
+                                    <div className="border-b-3 border-tech-blue border-dashed pb-4 mb-2">
+                                        <p className="font-extrabold text-lg text-tech-blue">Partner slept 6.5h last night.</p>
+                                    </div>
+                                    <p className="font-bold opacity-80">Low energy expected today. Recommendation: Don't bring up heavy topics before dinner.</p>
                                 </div>
-                                <div className="bg-white border-3 border-tech-blue p-6 rounded-3xl shadow-brutal flex flex-col items-center text-center">
-                                    <div className="w-32 h-32 rounded-full border-3 border-tech-blue bg-partner-blue shadow-brutal overflow-hidden mb-4">
-                                        <img src="https://images.unsplash.com/photo-1493225457124-a1a2a5fa3685?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80" className="w-full h-full object-cover opacity-80" />
+                                <div className="bg-white border-3 border-tech-blue p-8 rounded-3xl shadow-brutal flex flex-col gap-2">
+                                    <h3 className="font-black text-2xl flex items-center gap-3 mb-2"><i data-lucide="droplet" className="w-8 h-8"></i> Flo App</h3>
+                                    <div className="border-b-3 border-tech-blue border-dashed pb-4 mb-2">
+                                        <p className="font-extrabold text-lg text-tech-blue">Partner is in Luteal phase.</p>
                                     </div>
-                                    <h3 className="font-extrabold text-2xl">Sweater Weather</h3>
-                                    <p className="font-bold opacity-70">The Neighbourhood</p>
-                                    <button className="brutal-btn bg-tech-blue text-white w-full border-3 border-tech-blue p-3 rounded-xl mt-6 font-black flex items-center justify-center gap-2"><i data-lucide="play" className="w-5 h-5"></i> Play on Spotify</button>
+                                    <p className="font-bold opacity-80">Recommendation: Send chocolate and extra supportive messages.</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PAGE: GROWTH ARC */}
+                        {activePage === 'growth' && (
+                            <div className="bg-white border-3 border-tech-blue p-8 rounded-3xl shadow-brutal max-w-3xl mx-auto">
+                                <h2 className="font-black text-3xl mb-8 border-b-3 border-tech-blue pb-4">Our Journey</h2>
+                                <div className="border-l-3 border-tech-blue ml-4 pl-10 flex flex-col gap-10">
+                                    <div className="relative">
+                                        <div className="absolute -left-[43.5px] top-0 w-8 h-8 bg-sunflower border-3 border-tech-blue rounded-full shadow-brutal-sm"></div>
+                                        <h3 className="font-black text-2xl">Chapter 1: The Meeting</h3>
+                                        <p className="opacity-70 font-bold uppercase tracking-widest text-sm mb-2">August 2024</p>
+                                        <p className="font-bold">The day we first met at the coffee shop in downtown.</p>
+                                    </div>
+                                    <div className="relative">
+                                        <div className="absolute -left-[43.5px] top-0 w-8 h-8 bg-partner-blue border-3 border-tech-blue rounded-full shadow-brutal-sm"></div>
+                                        <h3 className="font-black text-2xl">Chapter 2: The Distance</h3>
+                                        <p className="opacity-70 font-bold uppercase tracking-widest text-sm mb-2">December 2024</p>
+                                        <p className="font-bold">Moving 300 miles apart for the new job opportunity. Hard, but worth it.</p>
+                                    </div>
                                 </div>
                             </div>
                         )}
