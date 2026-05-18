@@ -3,377 +3,442 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lumina - Shared Emotional Space</title>
+    <title>Stationery Hollistic Wheel</title>
     
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital@0;1&display=swap" rel="stylesheet">
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     
-    <!-- Icons -->
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
-    <!-- CSS -->
-    <link rel="stylesheet" href="styles.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind Config & Custom CSS -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'paper': '#F9F8F6',
+                        'sunflower': '#FFD700',
+                        'tech-blue': '#1E3A8A',
+                        'partner-blue': '#93C5FD'
+                    },
+                    fontFamily: {
+                        'nunito': ['Nunito', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'brutal': '6px 6px 0px 0px #1E3A8A',
+                        'brutal-sm': '3px 3px 0px 0px #1E3A8A',
+                        'brutal-active': '1px 1px 0px 0px #1E3A8A',
+                    },
+                    borderWidth: {
+                        '3': '3px',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #F9F8F6;
+            color: #1E3A8A;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        /* Dot Grid Overlay */
+        .dot-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: radial-gradient(rgba(30, 58, 138, 0.15) 1.5px, transparent 1.5px);
+            background-size: 24px 24px;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Tactile Button Spring Physics */
+        .brutal-btn {
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .brutal-btn:active {
+            transform: translate(5px, 5px);
+            box-shadow: 1px 1px 0px 0px #1E3A8A;
+        }
+
+        /* Notebook Styling */
+        .notebook-textarea {
+            background-color: transparent;
+            background-image: repeating-linear-gradient(transparent, transparent 31px, rgba(30, 58, 138, 0.2) 32px);
+            line-height: 32px;
+            padding-top: 6px;
+            border: none;
+            resize: vertical;
+            outline: none;
+            font-family: 'Nunito', sans-serif;
+            font-weight: 600;
+            color: #1E3A8A;
+            width: 100%;
+            min-height: 150px;
+        }
+
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #FFD700;
+            cursor: pointer;
+            border: 3px solid #1E3A8A;
+            margin-top: -8px;
+            box-shadow: 2px 2px 0px 0px #1E3A8A;
+        }
+        input[type=range].partner-slider::-webkit-slider-thumb {
+            background: #93C5FD;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: rgba(30, 58, 138, 0.1);
+            border-radius: 3px;
+            border: 1px solid #1E3A8A;
+        }
+
+        /* Animation for Paper Airplane */
+        @keyframes flyAirplane {
+            0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+            50% { transform: translate(150px, -100px) rotate(15deg) scale(1.2); opacity: 1; }
+            100% { transform: translate(300px, -200px) rotate(30deg) scale(0.5); opacity: 0; }
+        }
+        .fly-animation {
+            animation: flyAirplane 1.5s ease-out forwards;
+        }
+        
+        /* Animation for Sweat Drop */
+        @keyframes sweatDrop {
+            0% { transform: translateY(0) scale(0); opacity: 0; }
+            50% { transform: translateY(10px) scale(1); opacity: 1; }
+            100% { transform: translateY(20px) scale(0.5); opacity: 0; }
+        }
+        .sweat-animation {
+            animation: sweatDrop 1s ease-in forwards;
+        }
+    </style>
 </head>
 <body>
-    <!-- Ambient Background -->
-    <div class="ambient-background" id="ambient-bg">
-        <div class="glow-orb blue-orb"></div>
-        <div class="glow-orb gold-orb"></div>
-        <div class="noise-overlay"></div>
-    </div>
+    <div class="dot-grid"></div>
+    <div id="root"></div>
 
-    <!-- App Container -->
-    <div class="app-container">
-        <!-- Sidebar Navigation -->
-        <nav class="glass-sidebar">
-            <div class="brand">
-                <i data-lucide="moon-star"></i>
-            </div>
-            <ul class="nav-links" id="main-nav">
-                <li class="active" data-target="home" data-tooltip="Dashboard"><i data-lucide="home"></i></li>
-                <li data-target="mood" data-tooltip="Mood Space"><i data-lucide="heart"></i></li>
-                <li data-target="journal" data-tooltip="Memory Journal"><i data-lucide="book-open"></i></li>
-                <li data-target="goals" data-tooltip="Goals & Rituals"><i data-lucide="target"></i></li>
-                <li data-target="soundtrack" data-tooltip="Shared Soundtrack"><i data-lucide="music"></i></li>
-                <li data-target="integrations" data-tooltip="Wellness Hub"><i data-lucide="activity"></i></li>
-                <li data-target="growth" data-tooltip="Growth Arc"><i data-lucide="trending-up"></i></li>
-            </ul>
-            <div class="user-profiles">
-                <div class="avatar my-avatar sunflower-glow">
-                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" alt="Me (Sunflower)">
-                </div>
-                <div class="connection-line"></div>
-                <div class="avatar partner-avatar blue-glow">
-                    <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" alt="Him (Deep Blue)">
-                    <div class="status-dot"></div>
-                </div>
-            </div>
-        </nav>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
 
-        <!-- Main Content Area -->
-        <main class="main-content">
-            <!-- Header: Ambient Presence -->
-            <header class="ambient-header fade-in-up">
-                <div class="greeting">
-                    <h1 id="dynamic-greeting">Good evening, love.</h1>
-                    <p id="dynamic-presence">It's 11:24 PM where he is, currently listening to <span>"Sweater Weather"</span>.</p>
-                </div>
-                <div class="presence-widgets">
-                    <button class="widget small-widget glass action-btn" onclick="openModal('pingModal')">
-                        <i data-lucide="zap"></i>
-                        <div class="widget-info">
-                            <span class="label">Send</span>
-                            <span class="value">Quick Ping</span>
-                        </div>
-                    </button>
-                    <div class="widget small-widget glass">
-                        <i data-lucide="cloud-moon"></i>
-                        <div class="widget-info">
-                            <span class="label">His Location</span>
-                            <span class="value">62° Night</span>
-                        </div>
+        const CATEGORIES = [
+            'Finances', 
+            'Career & Projects', 
+            'Health & Wellness', 
+            'Spirituality', 
+            'Personal Growth', 
+            'Romance'
+        ];
+
+        // --- MATH UTILS FOR RADAR CHART ---
+        const polarToCartesian = (centerX, centerY, radius, angleInDegrees) => {
+            const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+            return {
+                x: centerX + (radius * Math.cos(angleInRadians)),
+                y: centerY + (radius * Math.sin(angleInRadians))
+            };
+        };
+
+        const RadarChart = ({ userScores, partnerScores }) => {
+            const size = 300;
+            const center = size / 2;
+            const maxRadius = 100;
+            const numAxes = CATEGORIES.length;
+            const angleStep = 360 / numAxes;
+
+            // Generate polygon points
+            const getPoints = (scores) => {
+                return scores.map((score, i) => {
+                    const radius = (score / 10) * maxRadius;
+                    const pos = polarToCartesian(center, center, radius, i * angleStep);
+                    return `${pos.x},${pos.y}`;
+                }).join(' ');
+            };
+
+            // Grid backgrounds (pentagons/hexagons)
+            const gridRings = [0.2, 0.4, 0.6, 0.8, 1].map((scale, index) => {
+                const radius = maxRadius * scale;
+                const points = Array.from({length: numAxes}).map((_, i) => {
+                    const pos = polarToCartesian(center, center, radius, i * angleStep);
+                    return `${pos.x},${pos.y}`;
+                }).join(' ');
+                return (
+                    <polygon 
+                        key={index} 
+                        points={points} 
+                        fill="none" 
+                        stroke="#1E3A8A" 
+                        strokeWidth={scale === 1 ? "3" : "1"} 
+                        strokeDasharray={scale === 1 ? "none" : "4 4"}
+                        className="opacity-50"
+                    />
+                );
+            });
+
+            // Axis Lines and Labels
+            const axes = CATEGORIES.map((cat, i) => {
+                const outer = polarToCartesian(center, center, maxRadius, i * angleStep);
+                const labelPos = polarToCartesian(center, center, maxRadius + 25, i * angleStep);
+                return (
+                    <g key={i}>
+                        <line x1={center} y1={center} x2={outer.x} y2={outer.y} stroke="#1E3A8A" strokeWidth="2" strokeDasharray="4 4" className="opacity-40" />
+                        <text 
+                            x={labelPos.x} 
+                            y={labelPos.y} 
+                            textAnchor="middle" 
+                            alignmentBaseline="middle" 
+                            className="text-xs font-bold fill-tech-blue"
+                        >
+                            {cat}
+                        </text>
+                    </g>
+                );
+            });
+
+            return (
+                <div className="relative w-full max-w-sm mx-auto p-4 bg-white border-3 border-tech-blue rounded-3xl shadow-brutal">
+                    <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-auto overflow-visible">
+                        {gridRings}
+                        {axes}
+                        
+                        {/* Partner Polygon */}
+                        <polygon 
+                            points={getPoints(partnerScores)} 
+                            fill="rgba(147, 197, 253, 0.6)" 
+                            stroke="#1E3A8A" 
+                            strokeWidth="3" 
+                            strokeLinejoin="round"
+                        />
+                        
+                        {/* User Polygon */}
+                        <polygon 
+                            points={getPoints(userScores)} 
+                            fill="rgba(255, 215, 0, 0.7)" 
+                            stroke="#1E3A8A" 
+                            strokeWidth="3" 
+                            strokeLinejoin="round"
+                        />
+                    </svg>
+                    
+                    <div className="absolute top-4 left-4 flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-sunflower border-2 border-tech-blue"></div>
+                        <span className="text-xs font-bold">You</span>
+                    </div>
+                    <div className="absolute top-4 right-4 flex items-center gap-2">
+                        <span className="text-xs font-bold">Partner</span>
+                        <div className="w-3 h-3 rounded-full bg-partner-blue border-2 border-tech-blue"></div>
                     </div>
                 </div>
-            </header>
+            );
+        };
 
-            <!-- PAGE: HOME DASHBOARD -->
-            <section id="home" class="page active">
-                <div class="dashboard-grid">
-                    <!-- Mood Card -->
-                    <div class="glass-card clickable-card fade-in-up" onclick="navigateTo('mood')" style="animation-delay: 0.1s;">
-                        <div class="card-header">
-                            <h2>Today's Mood</h2>
-                            <i data-lucide="sparkles"></i>
-                        </div>
-                        <div class="mood-content" id="home-mood-display">
-                            <!-- Populated by JS -->
-                        </div>
-                    </div>
+        const App = () => {
+            const [userScores, setUserScores] = useState([7, 6, 8, 5, 7, 9]);
+            const [partnerScores, setPartnerScores] = useState([6, 8, 7, 4, 8, 9]);
+            const [isAnimating, setIsAnimating] = useState(false);
 
-                    <!-- Next Goal/Reunion -->
-                    <div class="glass-card clickable-card fade-in-up" onclick="navigateTo('goals')" style="animation-delay: 0.2s;">
-                        <div class="card-header">
-                            <h2>Next Milestone</h2>
-                            <i data-lucide="flag"></i>
-                        </div>
-                        <div class="countdown-content" id="home-goal-display">
-                            <!-- Populated by JS -->
-                        </div>
-                    </div>
+            // Calculate lowest combined category
+            const combinedScores = userScores.map((s, i) => s + partnerScores[i]);
+            const minScoreIndex = combinedScores.indexOf(Math.min(...combinedScores));
+            const focusCategory = CATEGORIES[minScoreIndex];
 
-                    <!-- Growth Stats -->
-                    <div class="glass-card clickable-card fade-in-up" onclick="navigateTo('growth')" style="animation-delay: 0.3s;">
-                        <div class="card-header">
-                            <h2>Current Season</h2>
-                            <i data-lucide="trending-up"></i>
-                        </div>
-                        <div class="stats-content">
-                            <h3 class="stat-large">Chapter 4</h3>
-                            <p class="stat-label">"Building the Foundation"</p>
-                            <div class="progress-bar mt-16">
-                                <div class="progress gradient-fusion" style="width: 75%;"></div>
+            const handleGoalClick = () => {
+                setIsAnimating(true);
+                setTimeout(() => setIsAnimating(false), 1500);
+            };
+
+            return (
+                <div className="min-h-screen p-4 md:p-8 max-w-6xl mx-auto relative">
+                    
+                    {/* Header with Chibi Avatars */}
+                    <header className="flex justify-between items-center mb-8 bg-white border-3 border-tech-blue p-4 rounded-2xl shadow-brutal">
+                        <div className="flex items-center gap-3">
+                            {/* User Avatar */}
+                            <div className="w-12 h-12 rounded-full bg-sunflower border-3 border-tech-blue flex items-center justify-center shadow-brutal-sm relative">
+                                <span className="text-2xl">🌻</span>
                             </div>
-                            <p class="text-sm mt-8 text-muted">214 Days Together</p>
+                            <div>
+                                <h2 className="font-extrabold text-xl leading-tight">Your Journey</h2>
+                                <p className="text-xs font-bold opacity-70">Chapter 4</p>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Memory Journal Feature -->
-                    <div class="glass-card memory-card clickable-card fade-in-up" onclick="navigateTo('journal')" style="animation-delay: 0.4s;">
-                        <div class="card-header">
-                            <h2>On This Day</h2>
-                            <i data-lucide="camera"></i>
+                        <h1 className="font-black text-2xl md:text-3xl tracking-wide hidden md:block">HOLISTIC WHEEL</h1>
+
+                        <div className="flex items-center gap-3 text-right">
+                            <div>
+                                <h2 className="font-extrabold text-xl leading-tight">Partner</h2>
+                                <p className="text-xs font-bold opacity-70">Sync: 85%</p>
+                            </div>
+                            {/* Partner Avatar */}
+                            <div className="w-12 h-12 rounded-full bg-partner-blue border-3 border-tech-blue flex items-center justify-center shadow-brutal-sm relative">
+                                <span className="text-2xl">🎧</span>
+                                {isAnimating && (
+                                    <div className="absolute -top-4 -right-2 text-xl sweat-animation">💦</div>
+                                )}
+                            </div>
                         </div>
-                        <div class="memory-content">
-                            <div class="memory-image-container">
-                                <img src="https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Memory" class="memory-img">
-                                <div class="memory-overlay">
-                                    <p class="memory-date">1 Year Ago</p>
-                                    <p class="memory-caption">"Coffee in Montmartre."</p>
+                    </header>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        
+                        {/* Left Column: Sliders */}
+                        <div className="lg:col-span-4 bg-white border-3 border-tech-blue p-6 rounded-3xl shadow-brutal flex flex-col gap-6">
+                            <div className="flex items-center gap-2 mb-2">
+                                <i data-lucide="sliders" className="w-6 h-6"></i>
+                                <h2 className="font-extrabold text-xl">Adjust Balance</h2>
+                            </div>
+                            
+                            <div className="overflow-y-auto pr-2" style={{maxHeight: '500px'}}>
+                                {CATEGORIES.map((cat, i) => (
+                                    <div key={i} className="mb-6 pb-6 border-b-2 border-tech-blue border-dashed last:border-0 last:pb-0">
+                                        <h3 className="font-bold text-sm mb-3">{cat}</h3>
+                                        
+                                        <div className="flex items-center gap-4 mb-3">
+                                            <div className="w-8 h-8 rounded-full bg-sunflower border-2 border-tech-blue flex items-center justify-center font-bold text-xs shadow-brutal-active shrink-0">
+                                                {userScores[i]}
+                                            </div>
+                                            <input 
+                                                type="range" min="1" max="10" 
+                                                value={userScores[i]} 
+                                                onChange={(e) => {
+                                                    const newScores = [...userScores];
+                                                    newScores[i] = parseInt(e.target.value);
+                                                    setUserScores(newScores);
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-8 h-8 rounded-full bg-partner-blue border-2 border-tech-blue flex items-center justify-center font-bold text-xs shadow-brutal-active shrink-0">
+                                                {partnerScores[i]}
+                                            </div>
+                                            <input 
+                                                type="range" min="1" max="10" 
+                                                className="partner-slider"
+                                                value={partnerScores[i]} 
+                                                onChange={(e) => {
+                                                    const newScores = [...partnerScores];
+                                                    newScores[i] = parseInt(e.target.value);
+                                                    setPartnerScores(newScores);
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Center Column: Chart & Action */}
+                        <div className="lg:col-span-8 flex flex-col gap-8">
+                            
+                            <RadarChart userScores={userScores} partnerScores={partnerScores} />
+
+                            {/* Actionable Goal Setting */}
+                            <div className="relative">
+                                {isAnimating && (
+                                    <div className="absolute top-1/2 left-1/2 z-50 text-4xl fly-animation pointer-events-none">
+                                        ✈️
+                                    </div>
+                                )}
+                                <button 
+                                    onClick={handleGoalClick}
+                                    className="brutal-btn w-full bg-sunflower border-3 border-tech-blue rounded-2xl shadow-brutal p-6 flex flex-col items-center justify-center text-center cursor-pointer relative overflow-hidden"
+                                >
+                                    <span className="text-sm font-extrabold uppercase tracking-widest opacity-80 mb-1">Recommended Action</span>
+                                    <h3 className="text-2xl font-black">Plan a {focusCategory} Activity</h3>
+                                    <p className="font-bold text-sm mt-2 opacity-90">This area has the lowest combined score. Time for teamwork!</p>
+                                    
+                                    <div className="absolute -right-4 -bottom-4 opacity-20">
+                                        <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                                    </div>
+                                </button>
+                            </div>
+
+                            {/* The Crucible (Reflection Space) */}
+                            <div className="bg-white border-3 border-tech-blue rounded-3xl shadow-brutal overflow-hidden">
+                                <div className="border-b-3 border-tech-blue p-4 bg-paper flex items-center gap-2">
+                                    <i data-lucide="book-open" className="w-5 h-5"></i>
+                                    <h2 className="font-extrabold text-lg">The Crucible (Reflections)</h2>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 divide-y-3 md:divide-y-0 md:divide-x-3 divide-tech-blue">
+                                    
+                                    {/* User Notebook */}
+                                    <div className="p-6 bg-yellow-50/30">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <div className="w-6 h-6 rounded-full bg-sunflower border-2 border-tech-blue"></div>
+                                            <span className="font-bold">Your Notes</span>
+                                        </div>
+                                        <textarea 
+                                            className="notebook-textarea" 
+                                            placeholder="Write your reflections here..."
+                                            defaultValue="I think we should focus more on saving for our next trip to Tokyo. My career feels stable right now."
+                                        ></textarea>
+                                    </div>
+
+                                    {/* Partner Notebook */}
+                                    <div className="p-6 bg-blue-50/30">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <div className="w-6 h-6 rounded-full bg-partner-blue border-2 border-tech-blue"></div>
+                                            <span className="font-bold">Partner's Notes</span>
+                                        </div>
+                                        <textarea 
+                                            className="notebook-textarea" 
+                                            placeholder="Partner's reflections..."
+                                            defaultValue="Agreed! Though I'm feeling a bit burnt out with work. Could use some wellness time this weekend."
+                                        ></textarea>
+                                    </div>
+
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- PAGE: MOOD SPACE -->
-            <section id="mood" class="page">
-                <div class="page-header">
-                    <h2>Mood Space</h2>
-                    <p>How are you feeling in this chapter?</p>
-                </div>
-                
-                <div class="grid-2">
-                    <div class="glass-card flex-col">
-                        <h3>Log Your Mood</h3>
-                        <div class="mood-selector mt-16" id="mood-selector">
-                            <button class="mood-btn" data-mood="Happy">😊</button>
-                            <button class="mood-btn" data-mood="Calm">😌</button>
-                            <button class="mood-btn" data-mood="Missing You">🥺</button>
-                            <button class="mood-btn" data-mood="Stressed">😫</button>
-                            <button class="mood-btn" data-mood="Tired">😴</button>
-                        </div>
-                        <textarea id="mood-note" class="glass-input mt-16" placeholder="Add a note about your day..."></textarea>
                         
-                        <div class="upload-actions mt-16">
-                            <button class="action-btn outline" onclick="alert('Photo upload dialog would open here')"><i data-lucide="camera"></i> Add Photo</button>
-                            <button class="action-btn outline" onclick="alert('Voice note recorder would open here')"><i data-lucide="mic"></i> Voice Note</button>
-                        </div>
-                        <button class="action-btn primary full-width mt-16" onclick="saveMood()">Save Check-in</button>
-                    </div>
-
-                    <div class="glass-card">
-                        <h3>Timeline</h3>
-                        <div class="timeline mt-16" id="mood-timeline">
-                            <!-- Populated by JS -->
-                        </div>
                     </div>
                 </div>
-            </section>
+            );
+        };
 
-            <!-- PAGE: MEMORY JOURNAL -->
-            <section id="journal" class="page">
-                <div class="page-header flex-between">
-                    <div>
-                        <h2>Memory Journal</h2>
-                        <p>Our shared scrapbook.</p>
-                    </div>
-                    <button class="action-btn primary" onclick="openModal('addMemoryModal')">
-                        <i data-lucide="plus"></i> New Memory
-                    </button>
-                </div>
-                <div class="masonry-grid mt-24" id="journal-grid">
-                    <!-- Populated by JS -->
-                </div>
-            </section>
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
 
-            <!-- PAGE: GOALS & RITUALS -->
-            <section id="goals" class="page">
-                <div class="page-header flex-between">
-                    <div>
-                        <h2>Goals & Rituals</h2>
-                        <p>Teamwork makes the dream work.</p>
-                    </div>
-                    <button class="action-btn primary" onclick="openModal('addGoalModal')">
-                        <i data-lucide="plus"></i> Add Goal
-                    </button>
-                </div>
-                <div class="grid-2 mt-24" id="goals-grid">
-                    <!-- Populated by JS -->
-                </div>
-            </section>
-
-            <!-- PAGE: SHARED SOUNDTRACK -->
-            <section id="soundtrack" class="page">
-                <div class="page-header">
-                    <h2>Shared Soundtrack</h2>
-                    <p>The frequency of us.</p>
-                </div>
-                
-                <div class="glass-card flex-between mb-24">
-                    <div class="flex-row items-center gap-16">
-                        <i data-lucide="music" class="text-blue"></i>
-                        <div>
-                            <h3>Spotify Connected</h3>
-                            <p class="text-sm text-muted">Syncing "Late Night Drives" playlist</p>
-                        </div>
-                    </div>
-                    <button class="action-btn outline" onclick="alert('OAuth flow simulation: Disconnect Spotify')">Disconnect</button>
-                </div>
-
-                <div class="grid-3" id="soundtrack-grid">
-                    <!-- Populated by JS -->
-                </div>
-            </section>
-
-            <!-- PAGE: WELLNESS HUB -->
-            <section id="integrations" class="page">
-                <div class="page-header">
-                    <h2>Wellness Hub</h2>
-                    <p>Supporting each other's well-being.</p>
-                </div>
-                
-                <div class="grid-2">
-                    <div class="glass-card">
-                        <div class="flex-between mb-16">
-                            <h3>Health Connection</h3>
-                            <i data-lucide="heart-pulse" class="text-gold"></i>
-                        </div>
-                        <p class="text-sm text-muted mb-16">Connected to Apple Health / Flo to share gentle ambient signals (No private data exposed).</p>
-                        <div class="integration-status active">
-                            <span class="status-indicator"></span>
-                            <span>Currently in Luteal Phase - Needs extra warmth 🌻</span>
-                        </div>
-                        <button class="action-btn outline full-width mt-16" onclick="alert('Opening Integration Settings')">Manage Connections</button>
-                    </div>
-
-                    <div class="glass-card">
-                        <div class="flex-between mb-16">
-                            <h3>Focus Mode</h3>
-                            <i data-lucide="moon" class="text-blue"></i>
-                        </div>
-                        <p class="text-sm text-muted mb-16">He is currently in Deep Work mode.</p>
-                        <div class="integration-status active">
-                            <span class="status-indicator blue"></span>
-                            <span>Do Not Disturb (Ends in 1hr)</span>
-                        </div>
-                        <button class="action-btn primary full-width mt-16" onclick="alert('Sending a silent hug to Focus Mode')">Send Silent Support 💙</button>
-                    </div>
-                </div>
-            </section>
-
-            <!-- PAGE: GROWTH ARC -->
-            <section id="growth" class="page">
-                <div class="page-header">
-                    <h2>Our Growth Arc</h2>
-                    <p>Visualizing our journey.</p>
-                </div>
-                
-                <div class="glass-card text-center mb-24 fusion-bg">
-                    <h1 class="huge-text">214</h1>
-                    <p class="text-lg">Days of Teamwork</p>
-                </div>
-
-                <div class="grid-2">
-                    <div class="glass-card">
-                        <h3>Emotional Trends</h3>
-                        <div class="mock-chart mt-16">
-                            <!-- Visual representation using flex bars -->
-                            <div class="bar-container"><div class="bar gold" style="height: 60%"></div></div>
-                            <div class="bar-container"><div class="bar blue" style="height: 40%"></div></div>
-                            <div class="bar-container"><div class="bar gold" style="height: 80%"></div></div>
-                            <div class="bar-container"><div class="bar fusion" style="height: 100%"></div></div>
-                            <div class="bar-container"><div class="bar blue" style="height: 70%"></div></div>
-                        </div>
-                        <p class="text-sm text-muted text-center mt-16">A highly positive week!</p>
-                    </div>
-                    
-                    <div class="glass-card">
-                        <h3>Milestones Unlocked</h3>
-                        <ul class="milestone-list mt-16">
-                            <li><i data-lucide="check-circle" class="text-gold"></i> <span>Survived 1st Month apart</span></li>
-                            <li><i data-lucide="check-circle" class="text-blue"></i> <span>100 Hours on FaceTime</span></li>
-                            <li><i data-lucide="lock" class="text-muted"></i> <span class="text-muted">First Airport Reunion (Locked)</span></li>
-                        </ul>
-                    </div>
-                </div>
-            </section>
-        </main>
-    </div>
-
-    <!-- MODALS -->
-    <!-- Ping Modal -->
-    <div id="pingModal" class="modal-overlay">
-        <div class="modal-content glass-card">
-            <div class="modal-header">
-                <h3>Send a Ping</h3>
-                <button class="icon-btn" onclick="closeModal('pingModal')"><i data-lucide="x"></i></button>
-            </div>
-            <div class="ping-options mt-16">
-                <button class="action-btn full-width mb-8" onclick="sendPing('Thinking of you 🌻')">Thinking of you 🌻</button>
-                <button class="action-btn full-width mb-8" onclick="sendPing('Missing you 💙')">Missing you 💙</button>
-                <button class="action-btn full-width mb-8" onclick="sendPing('Call me when free 📞')">Call me when free 📞</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Add Memory Modal -->
-    <div id="addMemoryModal" class="modal-overlay">
-        <div class="modal-content glass-card">
-            <div class="modal-header">
-                <h3>Add to Chapter</h3>
-                <button class="icon-btn" onclick="closeModal('addMemoryModal')"><i data-lucide="x"></i></button>
-            </div>
-            <div class="form-group mt-16">
-                <label>Photo URL (Simulation)</label>
-                <input type="text" id="memory-img-url" class="glass-input" placeholder="https://unsplash.com/...">
-                
-                <label class="mt-16">Caption</label>
-                <textarea id="memory-caption" class="glass-input" placeholder="What happened today?"></textarea>
-                
-                <button class="action-btn primary full-width mt-24" onclick="saveMemory()">Save to Journal</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Add Goal Modal -->
-    <div id="addGoalModal" class="modal-overlay">
-        <div class="modal-content glass-card">
-            <div class="modal-header">
-                <h3>Set a New Goal</h3>
-                <button class="icon-btn" onclick="closeModal('addGoalModal')"><i data-lucide="x"></i></button>
-            </div>
-            <div class="form-group mt-16">
-                <label>Goal Title</label>
-                <input type="text" id="goal-title" class="glass-input" placeholder="e.g. Save for Tokyo trip">
-                <label class="mt-16">Type</label>
-                <select id="goal-type" class="glass-input">
-                    <option value="ritual">Weekly Ritual</option>
-                    <option value="milestone">Big Milestone</option>
-                    <option value="countdown">Countdown</option>
-                </select>
-                <button class="action-btn primary full-width mt-24" onclick="saveGoal()">Add Goal</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Memory Detail Modal -->
-    <div id="memoryDetailModal" class="modal-overlay">
-        <div class="modal-content glass-card large-modal">
-            <div class="modal-header absolute-header">
-                <button class="icon-btn glass" onclick="closeModal('memoryDetailModal')"><i data-lucide="x"></i></button>
-            </div>
-            <img id="detail-img" src="" alt="Memory" class="modal-hero-img">
-            <div class="p-24">
-                <p id="detail-date" class="text-sm text-gold mb-8"></p>
-                <h3 id="detail-caption" class="font-serif text-xl"></h3>
-            </div>
-        </div>
-    </div>
-
-    <!-- Scripts -->
-    <script src="script.js"></script>
+        // Initialize lucide after render
+        setTimeout(() => {
+            lucide.createIcons();
+        }, 100);
+    </script>
 </body>
 </html>
