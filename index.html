@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lumina - A Shared Emotional Space</title>
-    <meta name="description" content="A beautifully designed emotional home for two people growing together across distance.">
+    <title>Lumina - Shared Emotional Space</title>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +18,7 @@
 </head>
 <body>
     <!-- Ambient Background -->
-    <div class="ambient-background">
+    <div class="ambient-background" id="ambient-bg">
         <div class="glow-orb blue-orb"></div>
         <div class="glow-orb gold-orb"></div>
         <div class="noise-overlay"></div>
@@ -32,21 +31,22 @@
             <div class="brand">
                 <i data-lucide="moon-star"></i>
             </div>
-            <ul class="nav-links">
-                <li class="active" data-tooltip="Home"><i data-lucide="home"></i></li>
-                <li data-tooltip="Mood Space"><i data-lucide="heart"></i></li>
-                <li data-tooltip="Memory Journal"><i data-lucide="book-open"></i></li>
-                <li data-tooltip="Shared Soundtrack"><i data-lucide="music"></i></li>
-                <li data-tooltip="Open When Vault"><i data-lucide="lock"></i></li>
-                <li data-tooltip="Goals & Rituals"><i data-lucide="target"></i></li>
+            <ul class="nav-links" id="main-nav">
+                <li class="active" data-target="home" data-tooltip="Dashboard"><i data-lucide="home"></i></li>
+                <li data-target="mood" data-tooltip="Mood Space"><i data-lucide="heart"></i></li>
+                <li data-target="journal" data-tooltip="Memory Journal"><i data-lucide="book-open"></i></li>
+                <li data-target="goals" data-tooltip="Goals & Rituals"><i data-lucide="target"></i></li>
+                <li data-target="soundtrack" data-tooltip="Shared Soundtrack"><i data-lucide="music"></i></li>
+                <li data-target="integrations" data-tooltip="Wellness Hub"><i data-lucide="activity"></i></li>
+                <li data-target="growth" data-tooltip="Growth Arc"><i data-lucide="trending-up"></i></li>
             </ul>
             <div class="user-profiles">
-                <div class="avatar my-avatar">
-                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" alt="Me">
+                <div class="avatar my-avatar sunflower-glow">
+                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" alt="Me (Sunflower)">
                 </div>
                 <div class="connection-line"></div>
-                <div class="avatar partner-avatar">
-                    <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" alt="Partner">
+                <div class="avatar partner-avatar blue-glow">
+                    <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" alt="Him (Deep Blue)">
                     <div class="status-dot"></div>
                 </div>
             </div>
@@ -57,144 +57,320 @@
             <!-- Header: Ambient Presence -->
             <header class="ambient-header fade-in-up">
                 <div class="greeting">
-                    <h1>Good evening, love.</h1>
-                    <p>It's 11:24 PM in New York, and Sarah is currently listening to <span>"Sweater Weather"</span>.</p>
+                    <h1 id="dynamic-greeting">Good evening, love.</h1>
+                    <p id="dynamic-presence">It's 11:24 PM where he is, currently listening to <span>"Sweater Weather"</span>.</p>
                 </div>
                 <div class="presence-widgets">
+                    <button class="widget small-widget glass action-btn" onclick="openModal('pingModal')">
+                        <i data-lucide="zap"></i>
+                        <div class="widget-info">
+                            <span class="label">Send</span>
+                            <span class="value">Quick Ping</span>
+                        </div>
+                    </button>
                     <div class="widget small-widget glass">
                         <i data-lucide="cloud-moon"></i>
                         <div class="widget-info">
-                            <span class="label">New York</span>
+                            <span class="label">His Location</span>
                             <span class="value">62° Night</span>
-                        </div>
-                    </div>
-                    <div class="widget small-widget glass">
-                        <i data-lucide="battery-medium"></i>
-                        <div class="widget-info">
-                            <span class="label">Sarah's Phone</span>
-                            <span class="value">45%</span>
                         </div>
                     </div>
                 </div>
             </header>
 
-            <!-- Dashboard Grid -->
-            <div class="dashboard-grid">
+            <!-- PAGE: HOME DASHBOARD -->
+            <section id="home" class="page active">
+                <div class="dashboard-grid">
+                    <!-- Mood Card -->
+                    <div class="glass-card clickable-card fade-in-up" onclick="navigateTo('mood')" style="animation-delay: 0.1s;">
+                        <div class="card-header">
+                            <h2>Today's Mood</h2>
+                            <i data-lucide="sparkles"></i>
+                        </div>
+                        <div class="mood-content" id="home-mood-display">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Next Goal/Reunion -->
+                    <div class="glass-card clickable-card fade-in-up" onclick="navigateTo('goals')" style="animation-delay: 0.2s;">
+                        <div class="card-header">
+                            <h2>Next Milestone</h2>
+                            <i data-lucide="flag"></i>
+                        </div>
+                        <div class="countdown-content" id="home-goal-display">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Growth Stats -->
+                    <div class="glass-card clickable-card fade-in-up" onclick="navigateTo('growth')" style="animation-delay: 0.3s;">
+                        <div class="card-header">
+                            <h2>Current Season</h2>
+                            <i data-lucide="trending-up"></i>
+                        </div>
+                        <div class="stats-content">
+                            <h3 class="stat-large">Chapter 4</h3>
+                            <p class="stat-label">"Building the Foundation"</p>
+                            <div class="progress-bar mt-16">
+                                <div class="progress gradient-fusion" style="width: 75%;"></div>
+                            </div>
+                            <p class="text-sm mt-8 text-muted">214 Days Together</p>
+                        </div>
+                    </div>
+
+                    <!-- Memory Journal Feature -->
+                    <div class="glass-card memory-card clickable-card fade-in-up" onclick="navigateTo('journal')" style="animation-delay: 0.4s;">
+                        <div class="card-header">
+                            <h2>On This Day</h2>
+                            <i data-lucide="camera"></i>
+                        </div>
+                        <div class="memory-content">
+                            <div class="memory-image-container">
+                                <img src="https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Memory" class="memory-img">
+                                <div class="memory-overlay">
+                                    <p class="memory-date">1 Year Ago</p>
+                                    <p class="memory-caption">"Coffee in Montmartre."</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PAGE: MOOD SPACE -->
+            <section id="mood" class="page">
+                <div class="page-header">
+                    <h2>Mood Space</h2>
+                    <p>How are you feeling in this chapter?</p>
+                </div>
                 
-                <!-- Mood Space -->
-                <div class="glass-card mood-card fade-in-up" style="animation-delay: 0.1s;">
-                    <div class="card-header">
-                        <h2>Today's Mood</h2>
-                        <i data-lucide="sparkles"></i>
-                    </div>
-                    <div class="mood-content">
-                        <div class="partner-mood">
-                            <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" alt="Partner">
-                            <div class="mood-bubble">
-                                <span class="emoji">☁️</span>
-                                <span>Missing you</span>
-                            </div>
+                <div class="grid-2">
+                    <div class="glass-card flex-col">
+                        <h3>Log Your Mood</h3>
+                        <div class="mood-selector mt-16" id="mood-selector">
+                            <button class="mood-btn" data-mood="Happy">😊</button>
+                            <button class="mood-btn" data-mood="Calm">😌</button>
+                            <button class="mood-btn" data-mood="Missing You">🥺</button>
+                            <button class="mood-btn" data-mood="Stressed">😫</button>
+                            <button class="mood-btn" data-mood="Tired">😴</button>
                         </div>
-                        <div class="my-mood action-required">
-                            <button class="check-in-btn">
-                                <i data-lucide="plus"></i>
-                                Log your mood
-                            </button>
+                        <textarea id="mood-note" class="glass-input mt-16" placeholder="Add a note about your day..."></textarea>
+                        
+                        <div class="upload-actions mt-16">
+                            <button class="action-btn outline" onclick="alert('Photo upload dialog would open here')"><i data-lucide="camera"></i> Add Photo</button>
+                            <button class="action-btn outline" onclick="alert('Voice note recorder would open here')"><i data-lucide="mic"></i> Voice Note</button>
+                        </div>
+                        <button class="action-btn primary full-width mt-16" onclick="saveMood()">Save Check-in</button>
+                    </div>
+
+                    <div class="glass-card">
+                        <h3>Timeline</h3>
+                        <div class="timeline mt-16" id="mood-timeline">
+                            <!-- Populated by JS -->
                         </div>
                     </div>
                 </div>
+            </section>
 
-                <!-- Next Reunion -->
-                <div class="glass-card countdown-card fade-in-up" style="animation-delay: 0.2s;">
-                    <div class="card-header">
-                        <h2>Next Reunion</h2>
-                        <i data-lucide="plane"></i>
+            <!-- PAGE: MEMORY JOURNAL -->
+            <section id="journal" class="page">
+                <div class="page-header flex-between">
+                    <div>
+                        <h2>Memory Journal</h2>
+                        <p>Our shared scrapbook.</p>
                     </div>
-                    <div class="countdown-content">
-                        <div class="destination">Tokyo, Japan</div>
-                        <div class="timer">
-                            <div class="time-unit">
-                                <span class="number">14</span>
-                                <span class="label">Days</span>
-                            </div>
-                            <div class="time-unit">
-                                <span class="number">08</span>
-                                <span class="label">Hours</span>
-                            </div>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress" style="width: 85%;"></div>
+                    <button class="action-btn primary" onclick="openModal('addMemoryModal')">
+                        <i data-lucide="plus"></i> New Memory
+                    </button>
+                </div>
+                <div class="masonry-grid mt-24" id="journal-grid">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- PAGE: GOALS & RITUALS -->
+            <section id="goals" class="page">
+                <div class="page-header flex-between">
+                    <div>
+                        <h2>Goals & Rituals</h2>
+                        <p>Teamwork makes the dream work.</p>
+                    </div>
+                    <button class="action-btn primary" onclick="openModal('addGoalModal')">
+                        <i data-lucide="plus"></i> Add Goal
+                    </button>
+                </div>
+                <div class="grid-2 mt-24" id="goals-grid">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- PAGE: SHARED SOUNDTRACK -->
+            <section id="soundtrack" class="page">
+                <div class="page-header">
+                    <h2>Shared Soundtrack</h2>
+                    <p>The frequency of us.</p>
+                </div>
+                
+                <div class="glass-card flex-between mb-24">
+                    <div class="flex-row items-center gap-16">
+                        <i data-lucide="music" class="text-blue"></i>
+                        <div>
+                            <h3>Spotify Connected</h3>
+                            <p class="text-sm text-muted">Syncing "Late Night Drives" playlist</p>
                         </div>
                     </div>
+                    <button class="action-btn outline" onclick="alert('OAuth flow simulation: Disconnect Spotify')">Disconnect</button>
                 </div>
 
-                <!-- Shared Soundtrack -->
-                <div class="glass-card music-card fade-in-up" style="animation-delay: 0.3s;">
-                    <div class="card-header">
-                        <h2>Shared Soundtrack</h2>
-                        <i data-lucide="headphones"></i>
+                <div class="grid-3" id="soundtrack-grid">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- PAGE: WELLNESS HUB -->
+            <section id="integrations" class="page">
+                <div class="page-header">
+                    <h2>Wellness Hub</h2>
+                    <p>Supporting each other's well-being.</p>
+                </div>
+                
+                <div class="grid-2">
+                    <div class="glass-card">
+                        <div class="flex-between mb-16">
+                            <h3>Health Connection</h3>
+                            <i data-lucide="heart-pulse" class="text-gold"></i>
+                        </div>
+                        <p class="text-sm text-muted mb-16">Connected to Apple Health / Flo to share gentle ambient signals (No private data exposed).</p>
+                        <div class="integration-status active">
+                            <span class="status-indicator"></span>
+                            <span>Currently in Luteal Phase - Needs extra warmth 🌻</span>
+                        </div>
+                        <button class="action-btn outline full-width mt-16" onclick="alert('Opening Integration Settings')">Manage Connections</button>
                     </div>
-                    <div class="music-content">
-                        <div class="album-art">
-                            <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80" alt="Album Art">
-                            <div class="play-overlay">
-                                <i data-lucide="play-circle"></i>
-                            </div>
+
+                    <div class="glass-card">
+                        <div class="flex-between mb-16">
+                            <h3>Focus Mode</h3>
+                            <i data-lucide="moon" class="text-blue"></i>
                         </div>
-                        <div class="track-info">
-                            <h3>Yellow</h3>
-                            <p>Coldplay</p>
-                            <div class="added-by">
-                                <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=50&q=80" alt="Partner">
-                                <span>Added to 'Late Night Drives'</span>
-                            </div>
+                        <p class="text-sm text-muted mb-16">He is currently in Deep Work mode.</p>
+                        <div class="integration-status active">
+                            <span class="status-indicator blue"></span>
+                            <span>Do Not Disturb (Ends in 1hr)</span>
                         </div>
+                        <button class="action-btn primary full-width mt-16" onclick="alert('Sending a silent hug to Focus Mode')">Send Silent Support 💙</button>
                     </div>
                 </div>
+            </section>
 
-                <!-- Memory Journal (Spans 2 columns) -->
-                <div class="glass-card memory-card fade-in-up" style="animation-delay: 0.4s;">
-                    <div class="card-header">
-                        <h2>On This Day</h2>
-                        <i data-lucide="camera"></i>
-                    </div>
-                    <div class="memory-content">
-                        <div class="memory-image-container">
-                            <img src="https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Memory" class="memory-img">
-                            <div class="memory-overlay">
-                                <p class="memory-date">1 Year Ago • Paris</p>
-                                <p class="memory-caption">"Coffee in Montmartre. You spilled yours immediately after this."</p>
-                            </div>
-                        </div>
-                    </div>
+            <!-- PAGE: GROWTH ARC -->
+            <section id="growth" class="page">
+                <div class="page-header">
+                    <h2>Our Growth Arc</h2>
+                    <p>Visualizing our journey.</p>
+                </div>
+                
+                <div class="glass-card text-center mb-24 fusion-bg">
+                    <h1 class="huge-text">214</h1>
+                    <p class="text-lg">Days of Teamwork</p>
                 </div>
 
-                <!-- Open When Vault -->
-                <div class="glass-card vault-card fade-in-up" style="animation-delay: 0.5s;">
-                    <div class="card-header">
-                        <h2>Open When...</h2>
-                        <i data-lucide="mail"></i>
+                <div class="grid-2">
+                    <div class="glass-card">
+                        <h3>Emotional Trends</h3>
+                        <div class="mock-chart mt-16">
+                            <!-- Visual representation using flex bars -->
+                            <div class="bar-container"><div class="bar gold" style="height: 60%"></div></div>
+                            <div class="bar-container"><div class="bar blue" style="height: 40%"></div></div>
+                            <div class="bar-container"><div class="bar gold" style="height: 80%"></div></div>
+                            <div class="bar-container"><div class="bar fusion" style="height: 100%"></div></div>
+                            <div class="bar-container"><div class="bar blue" style="height: 70%"></div></div>
+                        </div>
+                        <p class="text-sm text-muted text-center mt-16">A highly positive week!</p>
                     </div>
-                    <div class="vault-content">
-                        <div class="vault-item locked">
-                            <div class="vault-icon"><i data-lucide="lock"></i></div>
-                            <div class="vault-text">
-                                <h4>You're feeling anxious</h4>
-                                <span>1 letter waiting</span>
-                            </div>
-                        </div>
-                        <div class="vault-item available">
-                            <div class="vault-icon"><i data-lucide="unlock"></i></div>
-                            <div class="vault-text">
-                                <h4>You miss me</h4>
-                                <span>Tap to open</span>
-                            </div>
-                        </div>
+                    
+                    <div class="glass-card">
+                        <h3>Milestones Unlocked</h3>
+                        <ul class="milestone-list mt-16">
+                            <li><i data-lucide="check-circle" class="text-gold"></i> <span>Survived 1st Month apart</span></li>
+                            <li><i data-lucide="check-circle" class="text-blue"></i> <span>100 Hours on FaceTime</span></li>
+                            <li><i data-lucide="lock" class="text-muted"></i> <span class="text-muted">First Airport Reunion (Locked)</span></li>
+                        </ul>
                     </div>
                 </div>
-
-            </div>
+            </section>
         </main>
+    </div>
+
+    <!-- MODALS -->
+    <!-- Ping Modal -->
+    <div id="pingModal" class="modal-overlay">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h3>Send a Ping</h3>
+                <button class="icon-btn" onclick="closeModal('pingModal')"><i data-lucide="x"></i></button>
+            </div>
+            <div class="ping-options mt-16">
+                <button class="action-btn full-width mb-8" onclick="sendPing('Thinking of you 🌻')">Thinking of you 🌻</button>
+                <button class="action-btn full-width mb-8" onclick="sendPing('Missing you 💙')">Missing you 💙</button>
+                <button class="action-btn full-width mb-8" onclick="sendPing('Call me when free 📞')">Call me when free 📞</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Memory Modal -->
+    <div id="addMemoryModal" class="modal-overlay">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h3>Add to Chapter</h3>
+                <button class="icon-btn" onclick="closeModal('addMemoryModal')"><i data-lucide="x"></i></button>
+            </div>
+            <div class="form-group mt-16">
+                <label>Photo URL (Simulation)</label>
+                <input type="text" id="memory-img-url" class="glass-input" placeholder="https://unsplash.com/...">
+                
+                <label class="mt-16">Caption</label>
+                <textarea id="memory-caption" class="glass-input" placeholder="What happened today?"></textarea>
+                
+                <button class="action-btn primary full-width mt-24" onclick="saveMemory()">Save to Journal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Goal Modal -->
+    <div id="addGoalModal" class="modal-overlay">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h3>Set a New Goal</h3>
+                <button class="icon-btn" onclick="closeModal('addGoalModal')"><i data-lucide="x"></i></button>
+            </div>
+            <div class="form-group mt-16">
+                <label>Goal Title</label>
+                <input type="text" id="goal-title" class="glass-input" placeholder="e.g. Save for Tokyo trip">
+                <label class="mt-16">Type</label>
+                <select id="goal-type" class="glass-input">
+                    <option value="ritual">Weekly Ritual</option>
+                    <option value="milestone">Big Milestone</option>
+                    <option value="countdown">Countdown</option>
+                </select>
+                <button class="action-btn primary full-width mt-24" onclick="saveGoal()">Add Goal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Memory Detail Modal -->
+    <div id="memoryDetailModal" class="modal-overlay">
+        <div class="modal-content glass-card large-modal">
+            <div class="modal-header absolute-header">
+                <button class="icon-btn glass" onclick="closeModal('memoryDetailModal')"><i data-lucide="x"></i></button>
+            </div>
+            <img id="detail-img" src="" alt="Memory" class="modal-hero-img">
+            <div class="p-24">
+                <p id="detail-date" class="text-sm text-gold mb-8"></p>
+                <h3 id="detail-caption" class="font-serif text-xl"></h3>
+            </div>
+        </div>
     </div>
 
     <!-- Scripts -->
