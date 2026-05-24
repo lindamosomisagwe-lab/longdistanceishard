@@ -19,6 +19,9 @@
     <!-- Google Identity Services for Sign-In with Google -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
+    <!-- Google API Client for Google Drive access -->
+    <script src="https://apis.google.com/js/api.js"></script>
+
     <!-- Google Fonts: Nunito -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -164,74 +167,130 @@
         // --- GOOGLE DRIVE APP DATA SYNCING HELPERS ---
         
         const GOOGLE_CLIENT_ID = "887230704768-mh4ea4sl361fjhq20k03056bjmc49mkv.apps.googleusercontent.com";
+               // Helper to load and initialize standard Google API Client (gapi.client) silently and securely
+        let isGapiInitialized = false;
+        let gapiInitPromise = null;
         
+        const ensureGapiInitialized = async (accessToken) => {
+            if (isGapiInitialized) {
+                if (accessToken && window.gapi && gapi.client) {
+                    gapi.client.setToken({ access_token: accessToken });
+                }
+                return;
+            }
+            
+            if (!gapiInitPromise) {
+                gapiInitPromise = (async () => {
+                    // 1. Wait for standard window.gapi script to load completely (with a 10s timeout)
+                    let attempts = 0;
+                    while (!window.gapi) {
+                        attempts++;
+                        if (attempts > 100) { // 100 * 100ms = 10 seconds
+                            throw new Error("Google API library (gapi) failed to load. Please check your network connection.");
+                        }
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                    
+                    // 2. Load the 'client' module
+                    await new Promise((resolve) => gapi.load('client', resolve));
+                    
+                    // 3. Initialize the Google API client with Discovery Docs
+                    await gapi.client.init({
+                        clientId: GOOGLE_CLIENT_ID,
+                        discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/discovery"],
+                    });
+                    
+                    isGapiInitialized = true;
+                })();
+            }
+            
+            await gapiInitPromise;
+            if (accessToken && window.gapi && gapi.client) {
+                gapi.client.setToken({ access_token: accessToken });
+            }
+        };
+
+        // Safety wrapper to guarantee that any Google API call only executes after full client initialization
+        const executeGapiOperation = async (accessToken, operation) => {
+            await ensureGapiInitialized(accessToken);
+            if (!isGapiInitialized || !window.gapi || !gapi.client) {
+                throw new Error("The gapi client has not been initialized yet. Call gapi.client.init() first.");
+            }
+            return await operation();
+        };
+
         // Silent production fallback to create a new sync file in Google Drive AppDataFolder
         const createNewSyncFile = async (accessToken, content) => {
-            const metadata = {
-                name: "anti_gravity_sync.json",
-                parents: ["appDataFolder"]
-            };
-            const boundary = "314159265358979323846";
-            const multipartBody = 
-                `\r\n--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}` +
-                `\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(content)}` +
-                `\r\n--${boundary}--`;
-            
-            const createRes = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${accessToken}`,
-                    "Content-Type": `multipart/related; boundary=${boundary}`
-                },
-                body: multipartBody
+            return await executeGapiOperation(accessToken, async () => {
+                const boundary = "314159265358979323846";
+                const metadata = {
+                    name: "anti_gravity_sync.json",
+                    parents: ["appDataFolder"]
+                };
+                const response = await gapi.client.request({
+                    path: '/upload/drive/v3/files',
+                    method: 'POST',
+                    params: { uploadType: 'multipart' },
+                    headers: {
+                        'Content-Type': `multipart/related; boundary=${boundary}`
+                    },
+                    body: `\r\n--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}` +
+                          `\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(content)}` +
+                          `\r\n--${boundary}--`
+                });
+                return response.result.id;
             });
-            if (!createRes.ok) throw new Error("Failed to create anti_gravity_sync.json file in Drive.");
-            const createData = await createRes.json();
-            return createData.id;
         };
 
         // Searches for anti_gravity_sync.json inside appDataFolder or creates it if missing. Returns file ID.
         const checkOrCreateSyncFile = async (accessToken, initialContent) => {
-            const listUrl = "https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='anti_gravity_sync.json' and 'appDataFolder' in parents&fields=files(id, name)";
-            const listRes = await fetch(listUrl, {
-                headers: { "Authorization": `Bearer ${accessToken}` }
+            return await executeGapiOperation(accessToken, async () => {
+                const response = await gapi.client.drive.files.list({
+                    spaces: 'appDataFolder',
+                    q: "name = 'anti_gravity_sync.json' and 'appDataFolder' in parents",
+                    fields: 'files(id, name)'
+                });
+                const files = response.result.files;
+                if (files && files.length > 0) {
+                    return files[0].id;
+                } else {
+                    return await createNewSyncFile(accessToken, initialContent);
+                }
             });
-            if (!listRes.ok) throw new Error("Failed to query Google Drive.");
-            const listData = await listRes.json();
-            
-            if (listData.files && listData.files.length > 0) {
-                return listData.files[0].id;
-            } else {
-                return await createNewSyncFile(accessToken, initialContent);
-            }
         };
 
         // Download contents of anti_gravity_sync.json from Google Drive appDataFolder. Returns null if 404.
         const downloadSyncState = async (accessToken, fileId) => {
-            const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-            const res = await fetch(url, {
-                headers: { "Authorization": `Bearer ${accessToken}` }
+            return await executeGapiOperation(accessToken, async () => {
+                try {
+                    const response = await gapi.client.drive.files.get({
+                        fileId: fileId,
+                        alt: 'media'
+                    });
+                    return response.result;
+                } catch (err) {
+                    if (err.status === 404) {
+                        return null;
+                    }
+                    throw err;
+                }
             });
-            if (res.status === 404) {
-                return null; // Return null on 404 to trigger silent recreation
-            }
-            if (!res.ok) throw new Error("Failed to download state from Google Drive.");
-            return await res.json();
         };
 
         // Upload/Save contents of anti_gravity_sync.json to Google Drive appDataFolder
         const uploadSyncState = async (accessToken, fileId, content) => {
-            const url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`;
-            const res = await fetch(url, {
-                method: "PATCH",
-                headers: {
-                    "Authorization": `Bearer ${accessToken}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(content)
+            return await executeGapiOperation(accessToken, async () => {
+                const response = await gapi.client.request({
+                    path: `/upload/drive/v3/files/${fileId}`,
+                    method: 'PATCH',
+                    params: { uploadType: 'media' },
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(content)
+                });
+                return response.result;
             });
-            if (!res.ok) throw new Error("Failed to upload state to Google Drive.");
-            return await res.json();
         };
 
         // Retrieve user profile metadata using access token
@@ -479,8 +538,25 @@
             const [googleUser, setGoogleUser] = useState(null);
             const [syncFileId, setSyncFileId] = useState(() => localStorage.getItem('antigravity_file_id') || '');
             const [syncStatus, setSyncStatus] = useState('offline'); // 'offline' | 'connecting' | 'synced' | 'error'
+            const [gapiLoading, setGapiLoading] = useState(false);
+            const [gapiStatus, setGapiStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
 
             const tokenClientRef = React.useRef(null);
+
+            // Warm up GAPI library on mount to ensure gapi.client is pre-loaded and ready
+            useEffect(() => {
+                const warmUpGapi = async () => {
+                    try {
+                        await ensureGapiInitialized(accessToken);
+                        setGapiStatus('ready');
+                    } catch (err) {
+                        console.error("GAPI warmup failed:", err);
+                        setGapiStatus('error');
+                        setLocalAlert("⚠️ Google API library loading error. Please check your connection.");
+                    }
+                };
+                warmUpGapi();
+            }, []);
 
             // Initialize Token Client when Google library is ready with the production Client ID
             useEffect(() => {
@@ -552,6 +628,7 @@
                 }
 
                 const setupSync = async () => {
+                    setGapiLoading(true);
                     try {
                         const userInfo = await fetchGoogleUserInfo(accessToken);
                         setGoogleUser(userInfo);
@@ -580,6 +657,8 @@
                         console.error("Sync setup failed:", err);
                         setSyncStatus('error');
                         setLocalAlert("❌ Google Drive connection error. Please reconnect.");
+                    } finally {
+                        setGapiLoading(false);
                     }
                 };
 
@@ -790,16 +869,61 @@
                                 Welcome to your private, cozy space. Please sign in with Google to align your orbits and synchronize your wellness data, memories, and soundtrack in real-time with your partner.
                             </p>
                             
-                            <button 
-                                onClick={handleConnectDrive} 
-                                className="brutal-btn w-full bg-blush border-3 border-clay rounded-2xl font-black p-4 text-center text-charcoal shadow-brutal text-base flex items-center justify-center gap-3 hover:translate-y-[-2px] transition-all"
-                            >
-                                🔑 Sign In with Google
-                            </button>
+                            {gapiStatus === 'loading' ? (
+                                <div className="w-full flex flex-col items-center gap-2">
+                                    <button 
+                                        disabled
+                                        className="w-full bg-beige border-3 border-clay border-dashed rounded-2xl font-black p-4 text-center text-clay text-base flex items-center justify-center gap-3 opacity-60 cursor-not-allowed"
+                                    >
+                                        ⏳ Loading Google API...
+                                    </button>
+                                    <span className="text-[10px] font-black text-clay uppercase tracking-widest animate-pulse">Establishing orbital link...</span>
+                                </div>
+                            ) : gapiStatus === 'error' ? (
+                                <div className="w-full flex flex-col items-center gap-2">
+                                    <button 
+                                        onClick={() => window.location.reload()}
+                                        className="w-full bg-red-100 border-3 border-red-400 rounded-2xl font-black p-4 text-center text-red-800 text-base flex items-center justify-center gap-3 hover:bg-red-200 transition-all brutal-btn"
+                                    >
+                                        ⚠️ Connection Failed (Tap to Retry)
+                                    </button>
+                                    <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Check network or adblockers</span>
+                                </div>
+                            ) : (
+                                <button 
+                                    onClick={handleConnectDrive} 
+                                    className="brutal-btn w-full bg-blush border-3 border-clay rounded-2xl font-black p-4 text-center text-charcoal shadow-brutal text-base flex items-center justify-center gap-3 hover:translate-y-[-2px] transition-all"
+                                >
+                                    🔑 Sign In with Google
+                                </button>
+                            )}
                             
                             <div className="text-[10px] font-black text-clay uppercase tracking-widest mt-2">
                                 Protected Client-Side Encryption
                             </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (gapiLoading) {
+                return (
+                    <div className="min-h-screen bg-beige flex items-center justify-center p-4 relative overflow-hidden">
+                        {/* Dot Grid Background */}
+                        <div className="dot-grid"></div>
+                        
+                        {/* Cozy Spinner */}
+                        <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal max-w-sm w-full text-center flex flex-col items-center gap-6 relative overflow-hidden animate-pulse">
+                            <div className="w-12 h-12 bg-blush border-3 border-clay rounded-xl shadow-brutal-sm flex items-center justify-center text-charcoal text-xl relative">
+                                🔄
+                            </div>
+                            <div>
+                                <h2 className="font-black text-2xl tracking-wide text-charcoal mb-2">Aligning Orbits...</h2>
+                                <p className="text-xs font-black text-clay uppercase tracking-widest">Connecting to Google Drive</p>
+                            </div>
+                            <p className="text-sm font-bold text-charcoal/70 leading-relaxed bg-beige/50 p-4 border-3 border-clay border-dashed rounded-2xl">
+                                Silent GAPI initialization is active in the background. Please wait a brief moment while we establish your private secure sync.
+                            </p>
                         </div>
                     </div>
                 );
