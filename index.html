@@ -194,9 +194,8 @@
                     // 2. Load the 'client' module
                     await new Promise((resolve) => gapi.load('client', resolve));
                     
-                    // 3. Initialize the Google API client with Discovery Docs
+                    // 3. Initialize the Google API client purely with Discovery Docs (no clientId to avoid legacy auth2 loading)
                     await gapi.client.init({
-                        clientId: GOOGLE_CLIENT_ID,
                         discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/discovery"],
                     });
                     
@@ -554,47 +553,88 @@
                         setGapiStatus('error');
                         setLocalAlert("⚠️ Google API library loading error. Please check your connection.");
                     }
-                };
-                warmUpGapi();
-            }, []);
-
-            // Initialize Token Client when Google library is ready with the production Client ID
+                        // Initialize Token Client and standard GIS authentication button when Google library is ready
             useEffect(() => {
-                const initGsi = () => {
-                    if (window.google) {
-                        tokenClientRef.current = google.accounts.oauth2.initTokenClient({
-                            client_id: GOOGLE_CLIENT_ID,
-                            scope: 'https://www.googleapis.com/auth/drive.appdata',
-                            callback: async (tokenResponse) => {
-                                if (tokenResponse.error) {
-                                    setSyncStatus('error');
-                                    setLocalAlert(`❌ Google Sign-In failed: ${tokenResponse.error}`);
-                                    return;
-                                }
-                                if (tokenResponse.access_token) {
-                                    setAccessToken(tokenResponse.access_token);
-                                    localStorage.setItem('antigravity_access_token', tokenResponse.access_token);
-                                    setSyncStatus('connecting');
-                                    setLocalAlert("🔌 Connecting to Google Drive...");
-                                }
-                            },
-                        });
+                if (gapiStatus !== 'ready' || !window.google) return;
+
+                const initGis = () => {
+                    // 1. Initialize modern Sign-In with Google (Authentication)
+                    google.accounts.id.initialize({
+                        client_id: GOOGLE_CLIENT_ID,
+                        callback: async (credentialResponse) => {
+                            // Decode JWT to extract user profile details instantly
+                            try {
+                                const base64Url = credentialResponse.credential.split('.')[1];
+                                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                                const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+                                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                                }).join(''));
+                                const decodedUser = JSON.parse(jsonPayload);
+                                setGoogleUser({
+                                    name: decodedUser.name,
+                                    email: decodedUser.email,
+                                    picture: decodedUser.picture
+                                });
+                            } catch (e) {
+                                console.error("Failed to decode JWT:", e);
+                            }
+
+                            // Trigger standard OAuth 2.0 Authorization for Drive API access token
+                            if (tokenClientRef.current) {
+                                setSyncStatus('connecting');
+                                setLocalAlert("🔌 Connecting to Google Drive...");
+                                tokenClientRef.current.requestAccessToken();
+                            }
+                        }
+                    });
+
+                    // 2. Render the official native Sign-In button
+                    const btnParent = document.getElementById("gis-login-btn");
+                    if (btnParent) {
+                        google.accounts.id.renderButton(
+                            btnParent,
+                            { theme: "filled_blue", size: "large", width: btnParent.clientWidth || 320, shape: "rectangular" }
+                        );
                     }
+
+                    // 3. Initialize standard OAuth 2.0 Token Client (Authorization)
+                    tokenClientRef.current = google.accounts.oauth2.initTokenClient({
+                        client_id: GOOGLE_CLIENT_ID,
+                        scope: 'https://www.googleapis.com/auth/drive.appdata',
+                        callback: async (tokenResponse) => {
+                            if (tokenResponse.error) {
+                                setSyncStatus('error');
+                                setLocalAlert(`❌ Google Sync authorization failed: ${tokenResponse.error}`);
+                                return;
+                            }
+                            if (tokenResponse.access_token) {
+                                setAccessToken(tokenResponse.access_token);
+                                localStorage.setItem('antigravity_access_token', tokenResponse.access_token);
+                                setSyncStatus('connecting');
+                                setLocalAlert("🔌 Synchronizing Google Drive...");
+                            }
+                        },
+                    });
                 };
 
-                // Retry if window.google is not loaded yet
-                if (window.google) {
-                    initGsi();
-                } else {
-                    const timer = setInterval(() => {
-                        if (window.google) {
-                            initGsi();
-                            clearInterval(timer);
-                        }
-                    }, 500);
-                    return () => clearInterval(timer);
-                }
-            }, []);
+                // Initialize GIS
+                initGis();
+                
+                // Set up polling in case DOM elements were slow to render
+                const renderTimer = setInterval(() => {
+                    const btnParent = document.getElementById("gis-login-btn");
+                    if (btnParent && btnParent.innerHTML === "") {
+                        google.accounts.id.renderButton(
+                            btnParent,
+                            { theme: "filled_blue", size: "large", width: btnParent.clientWidth || 320, shape: "rectangular" }
+                        );
+                    } else if (btnParent) {
+                        clearInterval(renderTimer);
+                    }
+                }, 300);
+                
+                return () => clearInterval(renderTimer);
+            }, [gapiStatus]);
 
             // Request active authorization token
             const handleConnectDrive = () => {
@@ -890,12 +930,10 @@
                                     <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Check network or adblockers</span>
                                 </div>
                             ) : (
-                                <button 
-                                    onClick={handleConnectDrive} 
-                                    className="brutal-btn w-full bg-blush border-3 border-clay rounded-2xl font-black p-4 text-center text-charcoal shadow-brutal text-base flex items-center justify-center gap-3 hover:translate-y-[-2px] transition-all"
-                                >
-                                    🔑 Sign In with Google
-                                </button>
+                                <div className="w-full flex flex-col items-center gap-3 bg-beige/40 p-4 border-3 border-clay border-dashed rounded-2xl">
+                                    <div id="gis-login-btn" className="w-full min-h-[44px] flex justify-center"></div>
+                                    <p className="text-[10px] font-bold text-clay uppercase tracking-widest mt-1">Safe single-tap secure sign-in</p>
+                                </div>
                             )}
                             
                             <div className="text-[10px] font-black text-clay uppercase tracking-widest mt-2">
