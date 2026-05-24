@@ -165,6 +165,31 @@
         
         const GOOGLE_CLIENT_ID = "887230704768-mh4ea4sl361fjhq20k03056bjmc49mkv.apps.googleusercontent.com";
         
+        // Silent production fallback to create a new sync file in Google Drive AppDataFolder
+        const createNewSyncFile = async (accessToken, content) => {
+            const metadata = {
+                name: "anti_gravity_sync.json",
+                parents: ["appDataFolder"]
+            };
+            const boundary = "314159265358979323846";
+            const multipartBody = 
+                `\r\n--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}` +
+                `\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(content)}` +
+                `\r\n--${boundary}--`;
+            
+            const createRes = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${accessToken}`,
+                    "Content-Type": `multipart/related; boundary=${boundary}`
+                },
+                body: multipartBody
+            });
+            if (!createRes.ok) throw new Error("Failed to create anti_gravity_sync.json file in Drive.");
+            const createData = await createRes.json();
+            return createData.id;
+        };
+
         // Searches for anti_gravity_sync.json inside appDataFolder or creates it if missing. Returns file ID.
         const checkOrCreateSyncFile = async (accessToken, initialContent) => {
             const listUrl = "https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='anti_gravity_sync.json' and 'appDataFolder' in parents&fields=files(id, name)";
@@ -177,42 +202,24 @@
             if (listData.files && listData.files.length > 0) {
                 return listData.files[0].id;
             } else {
-                // File does not exist, let's create it in appDataFolder
-                const metadata = {
-                    name: "anti_gravity_sync.json",
-                    parents: ["appDataFolder"]
-                };
-                const boundary = "314159265358979323846";
-                const multipartBody = 
-                    `\r\n--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}` +
-                    `\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(initialContent)}` +
-                    `\r\n--${boundary}--`;
-                
-                const createRes = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
-                    method: "POST",
-                    headers: {
-                        "Authorization": `Bearer ${accessToken}`,
-                        "Content-Type": `multipart/related; boundary=${boundary}`
-                    },
-                    body: multipartBody
-                });
-                if (!createRes.ok) throw new Error("Failed to create state.json file in Drive.");
-                const createData = await createRes.json();
-                return createData.id;
+                return await createNewSyncFile(accessToken, initialContent);
             }
         };
 
-        // Download contents of state.json from Google Drive appDataFolder
+        // Download contents of anti_gravity_sync.json from Google Drive appDataFolder. Returns null if 404.
         const downloadSyncState = async (accessToken, fileId) => {
             const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
             const res = await fetch(url, {
                 headers: { "Authorization": `Bearer ${accessToken}` }
             });
+            if (res.status === 404) {
+                return null; // Return null on 404 to trigger silent recreation
+            }
             if (!res.ok) throw new Error("Failed to download state from Google Drive.");
             return await res.json();
         };
 
-        // Upload/Save contents of state.json to Google Drive appDataFolder
+        // Upload/Save contents of anti_gravity_sync.json to Google Drive appDataFolder
         const uploadSyncState = async (accessToken, fileId, content) => {
             const url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`;
             const res = await fetch(url, {
@@ -549,11 +556,19 @@
                         const userInfo = await fetchGoogleUserInfo(accessToken);
                         setGoogleUser(userInfo);
 
-                        const fileId = await checkOrCreateSyncFile(accessToken, relationship);
+                        let fileId = await checkOrCreateSyncFile(accessToken, relationship);
                         setSyncFileId(fileId);
                         localStorage.setItem('antigravity_file_id', fileId);
 
-                        const driveState = await downloadSyncState(accessToken, fileId);
+                        let driveState = await downloadSyncState(accessToken, fileId);
+                        if (driveState === null) {
+                            // Silently trigger file creation if the file doesn't exist or fileId was stale/deleted
+                            fileId = await createNewSyncFile(accessToken, relationship);
+                            setSyncFileId(fileId);
+                            localStorage.setItem('antigravity_file_id', fileId);
+                            driveState = relationship;
+                        }
+
                         if (driveState && driveState.scores_a) {
                             setRelationship(driveState);
                         }
