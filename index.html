@@ -16,6 +16,9 @@
     <!-- Chart.js for premium circular charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <!-- Google Identity Services for Sign-In with Google -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
     <!-- Google Fonts: Nunito -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -156,6 +159,79 @@
                 return `${cleanUrl}=w1000-h1000`;
             }
             return extractedUrl;
+        };
+
+        // --- GOOGLE DRIVE APP DATA SYNCING HELPERS ---
+        
+        // Searches for state.json inside appDataFolder or creates it if missing. Returns file ID.
+        const checkOrCreateSyncFile = async (accessToken, initialContent) => {
+            const listUrl = "https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='state.json' and 'appDataFolder' in parents&fields=files(id, name)";
+            const listRes = await fetch(listUrl, {
+                headers: { "Authorization": `Bearer ${accessToken}` }
+            });
+            if (!listRes.ok) throw new Error("Failed to query Google Drive.");
+            const listData = await listRes.json();
+            
+            if (listData.files && listData.files.length > 0) {
+                return listData.files[0].id;
+            } else {
+                // File does not exist, let's create it in appDataFolder
+                const metadata = {
+                    name: "state.json",
+                    parents: ["appDataFolder"]
+                };
+                const boundary = "314159265358979323846";
+                const multipartBody = 
+                    `\r\n--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}` +
+                    `\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(initialContent)}` +
+                    `\r\n--${boundary}--`;
+                
+                const createRes = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${accessToken}`,
+                        "Content-Type": `multipart/related; boundary=${boundary}`
+                    },
+                    body: multipartBody
+                });
+                if (!createRes.ok) throw new Error("Failed to create state.json file in Drive.");
+                const createData = await createRes.json();
+                return createData.id;
+            }
+        };
+
+        // Download contents of state.json from Google Drive appDataFolder
+        const downloadSyncState = async (accessToken, fileId) => {
+            const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+            const res = await fetch(url, {
+                headers: { "Authorization": `Bearer ${accessToken}` }
+            });
+            if (!res.ok) throw new Error("Failed to download state from Google Drive.");
+            return await res.json();
+        };
+
+        // Upload/Save contents of state.json to Google Drive appDataFolder
+        const uploadSyncState = async (accessToken, fileId, content) => {
+            const url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`;
+            const res = await fetch(url, {
+                method: "PATCH",
+                headers: {
+                    "Authorization": `Bearer ${accessToken}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(content)
+            });
+            if (!res.ok) throw new Error("Failed to upload state to Google Drive.");
+            return await res.json();
+        };
+
+        // Retrieve user profile metadata using access token
+        const fetchGoogleUserInfo = async (accessToken) => {
+            const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+                headers: { "Authorization": `Bearer ${accessToken}` }
+            });
+            if (!res.ok) throw new Error("Failed to fetch Google profile.");
+            return await res.json();
         };
 
         // --- COMPONENTS ---
@@ -389,6 +465,138 @@
                 }
             }, [currentView, nudgeState]);
 
+            // --- GOOGLE DRIVE SYNC STATES ---
+            const [googleClientId, setGoogleClientId] = useState(() => localStorage.getItem('antigravity_client_id') || '');
+            const [accessToken, setAccessToken] = useState(() => localStorage.getItem('antigravity_access_token') || '');
+            const [googleUser, setGoogleUser] = useState(null);
+            const [syncFileId, setSyncFileId] = useState(() => localStorage.getItem('antigravity_file_id') || '');
+            const [syncStatus, setSyncStatus] = useState('offline'); // 'offline' | 'connecting' | 'synced' | 'error'
+
+            const tokenClientRef = React.useRef(null);
+
+            // Save Client ID when modified
+            const handleSaveClientId = (id) => {
+                setGoogleClientId(id);
+                localStorage.setItem('antigravity_client_id', id);
+                setLocalAlert("🔑 Client ID saved locally!");
+                setTimeout(() => setLocalAlert(""), 3000);
+            };
+
+            // Initialize Token Client when Google library is ready and Client ID exists
+            useEffect(() => {
+                if (window.google && googleClientId) {
+                    tokenClientRef.current = google.accounts.oauth2.initTokenClient({
+                        client_id: googleClientId,
+                        scope: 'https://www.googleapis.com/auth/drive.appdata',
+                        callback: async (tokenResponse) => {
+                            if (tokenResponse.error) {
+                                setSyncStatus('error');
+                                setLocalAlert(`❌ Google Sign-In failed: ${tokenResponse.error}`);
+                                return;
+                            }
+                            if (tokenResponse.access_token) {
+                                setAccessToken(tokenResponse.access_token);
+                                localStorage.setItem('antigravity_access_token', tokenResponse.access_token);
+                                setSyncStatus('connecting');
+                                setLocalAlert("🔌 Connecting to Google Drive...");
+                            }
+                        },
+                    });
+                }
+            }, [googleClientId]);
+
+            // Request active authorization token
+            const handleConnectDrive = () => {
+                if (!googleClientId) {
+                    setLocalAlert("⚠️ Please enter your Google Cloud OAuth Client ID first!");
+                    return;
+                }
+                if (tokenClientRef.current) {
+                    tokenClientRef.current.requestAccessToken({ prompt: 'consent' });
+                } else {
+                    setLocalAlert("⚠️ Google API library loading. Please wait a second and retry!");
+                }
+            };
+
+            // Revoke current session
+            const handleDisconnectDrive = () => {
+                if (accessToken) {
+                    google.accounts.oauth2.revoke(accessToken, () => {});
+                }
+                setAccessToken('');
+                setGoogleUser(null);
+                setSyncFileId('');
+                setSyncStatus('offline');
+                localStorage.removeItem('antigravity_access_token');
+                localStorage.removeItem('antigravity_file_id');
+                setLocalAlert("🔌 Disconnected from Google Drive.");
+                setTimeout(() => setLocalAlert(""), 3000);
+            };
+
+            // Authenticated Setup Loop (Queries user, matches state file)
+            useEffect(() => {
+                if (!accessToken) {
+                    setSyncStatus('offline');
+                    return;
+                }
+
+                const setupSync = async () => {
+                    try {
+                        const userInfo = await fetchGoogleUserInfo(accessToken);
+                        setGoogleUser(userInfo);
+
+                        const fileId = await checkOrCreateSyncFile(accessToken, relationship);
+                        setSyncFileId(fileId);
+                        localStorage.setItem('antigravity_file_id', fileId);
+
+                        const driveState = await downloadSyncState(accessToken, fileId);
+                        if (driveState && driveState.scores_a) {
+                            setRelationship(driveState);
+                        }
+                        
+                        setSyncStatus('synced');
+                        setLocalAlert("🟢 Synced with Google Drive appDataFolder successfully!");
+                        setTimeout(() => setLocalAlert(""), 3000);
+                    } catch (err) {
+                        console.error("Sync setup failed:", err);
+                        setSyncStatus('error');
+                        setLocalAlert("❌ Google Drive connection error. Please reconnect.");
+                    }
+                };
+
+                setupSync();
+            }, [accessToken]);
+
+            // Background Polling loop (pulls partner updates every 8 seconds)
+            useEffect(() => {
+                if (syncStatus !== 'synced' || !accessToken || !syncFileId) return;
+
+                const interval = setInterval(async () => {
+                    try {
+                        const driveState = await downloadSyncState(accessToken, syncFileId);
+                        if (driveState && driveState.scores_a) {
+                            if (JSON.stringify(driveState) !== JSON.stringify(relationship)) {
+                                setRelationship(driveState);
+                            }
+                        }
+                    } catch (err) {
+                        console.error("Background pull failed:", err);
+                    }
+                }, 8000);
+
+                return () => clearInterval(interval);
+            }, [syncStatus, accessToken, syncFileId, relationship]);
+
+            // Push State Updates to Drive
+            const pushStateToDrive = async (updatedRelationship) => {
+                if (syncStatus !== 'synced' || !accessToken || !syncFileId) return;
+                try {
+                    await uploadSyncState(accessToken, syncFileId, updatedRelationship);
+                } catch (err) {
+                    console.error("State push failed:", err);
+                }
+            };
+
             // Derived States based on Active View
             const userScores = currentView === 'A' ? relationship.scores_a : relationship.scores_b;
             const partnerScores = currentView === 'A' ? relationship.scores_b : relationship.scores_a;
@@ -415,33 +623,41 @@
             const updateMyScores = (index, value) => {
                 const newScores = [...userScores];
                 newScores[index] = value;
-                setRelationship(prev => ({
-                    ...prev,
+                const next = {
+                    ...relationship,
                     [currentView === 'A' ? 'scores_a' : 'scores_b']: newScores
-                }));
+                };
+                setRelationship(next);
+                pushStateToDrive(next);
             };
 
             const toggleMeal = (mealKey) => {
                 const currentMeals = { ...myMeals };
                 currentMeals[mealKey] = !currentMeals[mealKey];
-                setRelationship(prev => ({
-                    ...prev,
+                const next = {
+                    ...relationship,
                     [currentView === 'A' ? 'meals_a' : 'meals_b']: currentMeals
-                }));
+                };
+                setRelationship(next);
+                pushStateToDrive(next);
             };
 
             const triggerNudge = () => {
-                setLocalAlert(`🔔 Local Nudge sent! A popup notification has been simulated on ${partnerName}'s view.`);
+                const target = currentView === 'A' ? 'B' : 'A';
+                setNudgeState(prev => ({ ...prev, [target]: true }));
+                setLocalAlert(`🔔 Local Nudge sent! Switching to ${partnerName}'s view will simulate receiving this reminder.`);
                 setTimeout(() => setLocalAlert(""), 4000);
             };
 
             const updateCycle = (updates) => {
                 const currentCycle = { ...myCycle };
                 const newCycle = { ...currentCycle, ...updates };
-                setRelationship(prev => ({
-                    ...prev,
+                const next = {
+                    ...relationship,
                     [currentView === 'A' ? 'cycle_a' : 'cycle_b']: newCycle
-                }));
+                };
+                setRelationship(next);
+                pushStateToDrive(next);
             };
 
             const addMemory = () => {
@@ -453,37 +669,47 @@
                     caption: newMemoryCap || 'A sweet memory',
                     date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                 };
-                setRelationship(prev => ({
-                    ...prev,
-                    memories: [newMem, ...prev.memories]
-                }));
+                const next = {
+                    ...relationship,
+                    memories: [newMem, ...relationship.memories]
+                };
+                setRelationship(next);
+                pushStateToDrive(next);
                 setNewMemoryUrl(''); setNewMemoryCap('');
             };
 
             const toggleMiniGoal = (mId, miId) => {
-                const updatedGoals = relationship.goals.map(g => {
-                    if (g.id === mId) {
-                        return {
-                            ...g,
-                            miniGoals: g.miniGoals.map(m => m.id === miId ? { ...m, completed: !m.completed } : m)
-                        };
-                    }
-                    return g;
-                });
-                setRelationship(prev => ({ ...prev, goals: updatedGoals }));
+                const next = {
+                    ...relationship,
+                    goals: relationship.goals.map(g => {
+                        if (g.id === mId) {
+                            return {
+                                ...g,
+                                miniGoals: g.miniGoals.map(m => m.id === miId ? { ...m, completed: !m.completed } : m)
+                            };
+                        }
+                        return g;
+                    })
+                };
+                setRelationship(next);
+                pushStateToDrive(next);
             };
 
             const addMiniGoal = (mId, text) => {
-                const updatedGoals = relationship.goals.map(g => {
-                    if (g.id === mId) {
-                        return {
-                            ...g,
-                            miniGoals: [...g.miniGoals, { id: Date.now(), text, completed: false }]
-                        };
-                    }
-                    return g;
-                });
-                setRelationship(prev => ({ ...prev, goals: updatedGoals }));
+                const next = {
+                    ...relationship,
+                    goals: relationship.goals.map(g => {
+                        if (g.id === mId) {
+                            return {
+                                ...g,
+                                miniGoals: [...g.miniGoals, { id: Date.now(), text, completed: false }]
+                            };
+                        }
+                        return g;
+                    })
+                };
+                setRelationship(next);
+                pushStateToDrive(next);
             };
 
             const addMacroGoal = () => {
@@ -495,11 +721,21 @@
                     category: "Romance, Intimacy & Relationships",
                     miniGoals: []
                 };
-                setRelationship(prev => ({ ...prev, goals: [...prev.goals, newGoal] }));
+                const next = {
+                    ...relationship,
+                    goals: [...relationship.goals, newGoal]
+                };
+                setRelationship(next);
+                pushStateToDrive(next);
             };
 
             const saveSpotifyPlaylist = (url) => {
-                setRelationship(prev => ({ ...prev, spotify_url: url }));
+                const next = {
+                    ...relationship,
+                    spotify_url: url
+                };
+                setRelationship(next);
+                pushStateToDrive(next);
             };
 
             // Radar computations
@@ -660,8 +896,70 @@
                                     )}
                                 </div>
 
-                                {/* 4. Quick Spaces */}
-                                <div className="md:col-span-2 lg:col-span-3 bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
+                                {/* 4. Google Drive Sync Settings Widget */}
+                                <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
+                                    <div className="border-b-3 border-clay pb-4 w-full flex justify-between items-center">
+                                        <h2 className="font-black text-2xl text-charcoal text-left">Google Sync</h2>
+                                        <span className={`text-xs uppercase font-extrabold border-2 border-clay px-2.5 py-0.5 rounded-full ${syncStatus === 'synced' ? 'bg-green-200 text-green-800' : 'bg-blush text-charcoal'}`}>
+                                            {syncStatus}
+                                        </span>
+                                    </div>
+                                    
+                                    {syncStatus === 'offline' || syncStatus === 'error' ? (
+                                        <div className="flex flex-col gap-4">
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-xs font-black text-clay uppercase tracking-widest pl-1">OAuth Client ID</label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Enter Google Client ID..." 
+                                                    className="border-3 border-clay bg-paper p-3 rounded-xl font-bold outline-none text-charcoal placeholder-clay text-sm w-full"
+                                                    value={googleClientId} 
+                                                    onChange={e => handleSaveClientId(e.target.value)} 
+                                                />
+                                                <p className="text-[10px] font-bold text-clay mt-1 pl-1 leading-tight">
+                                                    OAuth Client ID (from Google Cloud). Leave blank to run offline in local-only testing mode.
+                                                </p>
+                                            </div>
+                                            <button 
+                                                onClick={handleConnectDrive} 
+                                                className="brutal-btn bg-blush border-3 border-clay rounded-xl font-black p-3 text-center text-charcoal shadow-brutal-sm text-sm flex items-center justify-center gap-2"
+                                            >
+                                                🔑 Connect Google Drive
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-4">
+                                            {googleUser && (
+                                                <div className="flex items-center gap-3 bg-beige border-3 border-clay p-3 rounded-2xl">
+                                                    {googleUser.picture ? (
+                                                        <img src={googleUser.picture} className="w-10 h-10 rounded-full border-2 border-clay shrink-0" alt="Profile" />
+                                                    ) : (
+                                                        <div className="w-10 h-10 rounded-full bg-blush border-2 border-clay flex items-center justify-center shrink-0 text-lg">👤</div>
+                                                    )}
+                                                    <div className="overflow-hidden">
+                                                        <h4 className="font-extrabold text-sm text-charcoal leading-tight truncate">{googleUser.name}</h4>
+                                                        <p className="text-xs font-bold text-clay truncate">{googleUser.email}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            <div className="text-[11px] font-bold text-clay leading-snug">
+                                                <p>🔄 Auto-syncing state.json in your Google Drive AppData Folder every 8 seconds.</p>
+                                                <p className="mt-1 font-mono text-[9px] truncate">File ID: {syncFileId}</p>
+                                            </div>
+                                            
+                                            <button 
+                                                onClick={handleDisconnectDrive} 
+                                                className="brutal-btn bg-paper border-3 border-clay rounded-xl font-bold p-2 text-center text-charcoal shadow-brutal-sm text-xs hover:bg-blush/20"
+                                            >
+                                                🔌 Disconnect Account
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 5. Quick Spaces */}
+                                <div className="md:col-span-2 lg:col-span-2 bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
                                     <h2 className="font-black text-2xl border-b-3 border-clay pb-4 text-charcoal">Quick Spaces</h2>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                         <button className="brutal-btn bg-blush border-3 border-clay rounded-xl font-bold flex flex-col items-center justify-center p-4 text-charcoal" onClick={() => setActivePage('mood')}><span className="text-3xl mb-2">😊</span> Log Mood</button>
