@@ -13,6 +13,9 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
+    <!-- Chart.js for premium circular charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <!-- Google Fonts: Nunito -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -129,7 +132,8 @@
         // Spotify URL extractor and embed formatter
         const parseSpotifyUrl = (url) => {
             if (!url) return '';
-            const regex = /https:\/\/open\.spotify\.com\/(playlist|track|album)\/([a-zA-Z0-9]{22})/;
+            // Robust regex to extract the 22-character alphanumeric ID and type from playlist or track URLs
+            const regex = /(?:https?:\/\/)?(?:open\.)?spotify\.com\/(playlist|track|album)\/([a-zA-Z0-9]{22})/;
             const match = url.match(regex);
             if (match) {
                 return `https://open.spotify.com/embed/${match[1]}/${match[2]}`;
@@ -137,54 +141,132 @@
             return '';
         };
 
-        // Google Photos image parser
+        // Google Photos image parser and direct file extractor
         const parseImageUrl = (url) => {
             if (!url) return '';
-            if (url.includes('googleusercontent.com')) {
-                // Strip sizing parameter and force w1000 high resolution
-                const cleanUrl = url.split('=')[0];
-                return `${cleanUrl}=w1000`;
+            // If the user pasted an HTML tag wrapper, extract the URL itself
+            const urlRegex = /(https?:\/\/[^\s"'>\(\)]+)/;
+            const match = url.match(urlRegex);
+            let extractedUrl = match ? match[1] : url;
+            extractedUrl = extractedUrl.replace(/["'>\)]+$/, '');
+
+            // Strip webpage wrappers or sizing parameters for Google Photos / googleusercontent URLs
+            if (extractedUrl.includes('googleusercontent.com') || extractedUrl.includes('lh3.google.com') || extractedUrl.includes('lh3.googleusercontent.com')) {
+                const cleanUrl = extractedUrl.split('=')[0];
+                return `${cleanUrl}=w1000-h1000`;
             }
-            return url;
+            return extractedUrl;
         };
 
         // --- COMPONENTS ---
         
-        // 6-Section Radar Chart with Dual Overlays (translucent Clay Taupe and Muted Blush)
-        const RadarChart = ({ userScores, partnerScores }) => {
-            const size = 300; const center = size / 2; const maxRadius = 100; const angleStep = 360 / 6;
-            
-            const getPoints = (scores) => scores.map((s, i) => {
-                const pt = polarToCartesian(center, center, (s / 10) * maxRadius, i * angleStep);
-                return `${pt.x},${pt.y}`;
-            }).join(' ');
-            
-            const gridRings = [0.2, 0.4, 0.6, 0.8, 1].map((scale, index) => (
-                <polygon key={index} points={Array.from({length: 6}).map((_, i) => {
-                    const pt = polarToCartesian(center, center, maxRadius * scale, i * angleStep);
-                    return `${pt.x},${pt.y}`;
-                }).join(' ')} fill="none" stroke="#A28C81" strokeWidth={scale === 1 ? "3" : "1"} strokeDasharray={scale === 1 ? "none" : "4 4"} className="opacity-40" />
-            ));
+        // 6-Section Radar Chart with Dual Overlays (translucent Clay Taupe and Muted Blush) using Chart.js
+        const RadarChart = ({ userScores, partnerScores, myName, partnerName }) => {
+            const canvasRef = React.useRef(null);
+            const chartRef = React.useRef(null);
+
+            React.useEffect(() => {
+                if (!canvasRef.current) return;
+                const ctx = canvasRef.current.getContext('2d');
+
+                // Destroy any existing chart instance to prevent memory leaks and glitching
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                // Create standard Chart.js Radar Chart
+                chartRef.current = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: CATEGORIES.map(c => c.split(',')[0]), // Shorten category labels
+                        datasets: [
+                            {
+                                label: myName || 'You',
+                                data: userScores,
+                                backgroundColor: 'rgba(162, 140, 129, 0.4)', // Clay Taupe translucent
+                                borderColor: '#A28C81',
+                                borderWidth: 3,
+                                pointBackgroundColor: '#A28C81',
+                                pointBorderColor: '#FAF8F5',
+                                pointHoverBackgroundColor: '#FAF8F5',
+                                pointHoverBorderColor: '#A28C81',
+                                fill: true,
+                            },
+                            {
+                                label: partnerName || 'Partner',
+                                data: partnerScores,
+                                backgroundColor: 'rgba(232, 197, 200, 0.5)', // Muted Blush translucent
+                                borderColor: '#E8C5C8',
+                                borderWidth: 3,
+                                pointBackgroundColor: '#E8C5C8',
+                                pointBorderColor: '#FAF8F5',
+                                pointHoverBackgroundColor: '#FAF8F5',
+                                pointHoverBorderColor: '#E8C5C8',
+                                fill: true,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    color: '#2F2E2C',
+                                    font: {
+                                        family: 'Nunito',
+                                        weight: 'bold',
+                                        size: 11
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#2F2E2C',
+                                titleFont: { family: 'Nunito', weight: 'bold' },
+                                bodyFont: { family: 'Nunito' }
+                            }
+                        },
+                        scales: {
+                            r: {
+                                circular: true, // Guarantees a perfect circle layout geometry
+                                suggestedMin: 0,
+                                suggestedMax: 10,
+                                ticks: {
+                                    display: false,
+                                    stepSize: 2
+                                },
+                                grid: {
+                                    color: 'rgba(162, 140, 129, 0.25)',
+                                    lineWidth: 1
+                                },
+                                angleLines: {
+                                    color: 'rgba(162, 140, 129, 0.25)'
+                                },
+                                pointLabels: {
+                                    color: '#2F2E2C',
+                                    font: {
+                                        family: 'Nunito',
+                                        weight: 'black',
+                                        size: 10
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [userScores, partnerScores, myName, partnerName]);
 
             return (
-                <div className="relative w-full max-w-sm mx-auto p-6 bg-paper border-3 border-clay rounded-3xl shadow-brutal">
-                    <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-auto overflow-visible">
-                        {gridRings}
-                        {CATEGORIES.map((cat, i) => {
-                            const outer = polarToCartesian(center, center, maxRadius, i * angleStep);
-                            const labelPos = polarToCartesian(center, center, maxRadius + 22, i * angleStep);
-                            return (
-                                <g key={i}>
-                                    <line x1={center} y1={center} x2={outer.x} y2={outer.y} stroke="#A28C81" strokeWidth="2" strokeDasharray="4 4" className="opacity-40" />
-                                    <text x={labelPos.x} y={labelPos.y} textAnchor="middle" alignmentBaseline="middle" className="text-[9px] font-black fill-charcoal" style={{fontFamily: 'Nunito'}}>{cat.split(',')[0]}</text>
-                                </g>
-                            );
-                        })}
-                        {/* Partner Scores Overlay - Blush fill */}
-                        <polygon points={getPoints(partnerScores)} fill="rgba(232, 197, 200, 0.5)" stroke="#E8C5C8" strokeWidth="3" strokeLinejoin="round" />
-                        {/* User Scores Overlay - Clay Taupe fill */}
-                        <polygon points={getPoints(userScores)} fill="rgba(162, 140, 129, 0.4)" stroke="#A28C81" strokeWidth="3" strokeLinejoin="round" />
-                    </svg>
+                <div className="relative w-full aspect-square max-w-[340px] mx-auto p-4 bg-paper border-3 border-clay rounded-3xl shadow-brutal flex items-center justify-center">
+                    <canvas ref={canvasRef} />
                 </div>
             );
         };
@@ -289,6 +371,23 @@
 
             // Local Toast Alert
             const [localAlert, setLocalAlert] = useState("");
+
+            // Testing Cycle tracker role and partner meal nudge states
+            const [cycleRole, setCycleRole] = useState('her');
+            const [nudgeState, setNudgeState] = useState({ A: false, B: false });
+
+            // Auto-sync cycle tracker interface role based on profile view changes
+            useEffect(() => {
+                setCycleRole(currentView === 'A' ? 'her' : 'him');
+            }, [currentView]);
+
+            // Notify user if partner sent a meal reminder nudge when they switch view
+            useEffect(() => {
+                if (nudgeState[currentView]) {
+                    setLocalAlert(`🔔 Hey ${currentView === 'A' ? 'Partner A' : 'Partner B'}, your partner is reminding you to eat! 🍳🥪🍛`);
+                    setNudgeState(prev => ({ ...prev, [currentView]: false }));
+                }
+            }, [currentView, nudgeState]);
 
             // Derived States based on Active View
             const userScores = currentView === 'A' ? relationship.scores_a : relationship.scores_b;
@@ -473,7 +572,7 @@
 
                         {/* PAGE: DASHBOARD */}
                         {activePage === 'dashboard' && (
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
                                 
                                 {/* 1. Today's Summary & Cycle Status */}
                                 <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
@@ -482,14 +581,14 @@
                                         <div className="w-16 h-16 rounded-full bg-blush border-3 border-clay flex items-center justify-center text-3xl text-charcoal">✨</div>
                                         <div>
                                             <h3 className="font-bold text-lg text-charcoal">Active Session: {myName}</h3>
-                                            <p className="opacity-70 font-bold text-clay">Testing dashboard state seamlessly offline.</p>
+                                            <p className="opacity-70 font-bold text-clay text-sm">Testing dashboard state seamlessly offline.</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-4 mt-4 border-t-2 border-clay/20 pt-4">
                                         <div className="w-16 h-16 rounded-full bg-blush border-3 border-clay flex items-center justify-center text-3xl text-charcoal">❤️</div>
                                         <div>
                                             <h3 className="font-bold text-lg text-charcoal">{partnerName}'s Cycle</h3>
-                                            <p className="opacity-70 font-bold text-clay">
+                                            <p className="opacity-70 font-bold text-clay text-sm">
                                                 Day {partnerCycle.day} ({partnerCycle.mood}) — {partnerCycle.status}
                                             </p>
                                         </div>
@@ -500,7 +599,7 @@
                                 <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
                                     <div className="border-b-3 border-clay pb-4 flex justify-between items-center">
                                         <h2 className="font-black text-2xl text-charcoal">Daily Wellness Check</h2>
-                                        <span className="text-xs uppercase font-extrabold bg-blush border-2 border-clay px-2 py-0.5 rounded-full">Meal Logger</span>
+                                        <span className="text-xs uppercase font-extrabold bg-blush border-2 border-clay px-2 py-0.5 rounded-full text-charcoal">Meal Logger</span>
                                     </div>
                                     
                                     <p className="text-sm font-bold text-clay">Did your partner eat today?</p>
@@ -538,8 +637,31 @@
                                     </button>
                                 </div>
 
-                                {/* 3. Quick Spaces */}
-                                <div className="lg:col-span-2 bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
+                                {/* 3. Memory Polaroid Widget */}
+                                <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col items-center gap-6">
+                                    <div className="border-b-3 border-clay pb-4 w-full flex justify-between items-center">
+                                        <h2 className="font-black text-2xl text-charcoal text-left">Memory Polaroid</h2>
+                                        <span className="text-xs uppercase font-extrabold bg-blush border-2 border-clay px-2 py-0.5 rounded-full text-charcoal">Synced Photo</span>
+                                    </div>
+                                    {memories.length > 0 ? (
+                                        <div className="polaroid w-full max-w-[240px] my-2" style={{ '--rand': 0.03 }} onClick={() => setSelectedMemory(memories[0])}>
+                                            <img src={memories[0].url} alt="Latest Memory" />
+                                            <p className="mt-4 font-black text-base text-center tracking-wide text-charcoal">{memories[0].caption}</p>
+                                            <p className="text-center text-xs font-bold opacity-50 mt-1 text-clay">Updated: {memories[0].date}</p>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center p-8 border-3 border-dashed border-clay rounded-2xl w-full text-center">
+                                            <span className="text-4xl mb-2">📸</span>
+                                            <p className="font-bold text-sm text-clay">No memories synced yet.</p>
+                                            <button onClick={() => setActivePage('journal')} className="brutal-btn bg-blush border-3 border-clay rounded-xl font-bold p-2 mt-4 text-xs text-charcoal">
+                                                Add First Photo
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 4. Quick Spaces */}
+                                <div className="md:col-span-2 lg:col-span-3 bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
                                     <h2 className="font-black text-2xl border-b-3 border-clay pb-4 text-charcoal">Quick Spaces</h2>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                         <button className="brutal-btn bg-blush border-3 border-clay rounded-xl font-bold flex flex-col items-center justify-center p-4 text-charcoal" onClick={() => setActivePage('mood')}><span className="text-3xl mb-2">😊</span> Log Mood</button>
@@ -570,7 +692,7 @@
                                 </div>
 
                                 <div className="lg:col-span-7 flex flex-col gap-8">
-                                    <RadarChart userScores={userScores} partnerScores={partnerScores} />
+                                    <RadarChart userScores={userScores} partnerScores={partnerScores} myName={myName} partnerName={partnerName} />
                                     <div className="relative">
                                         {isAnimating && <div className="absolute top-1/2 left-1/2 z-50 text-4xl fly-animation pointer-events-none">✈️</div>}
                                         <button onClick={() => { setIsAnimating(true); setTimeout(() => setIsAnimating(false), 1500); }} className="brutal-btn w-full bg-blush border-3 border-clay rounded-2xl shadow-brutal p-6 flex flex-col items-center justify-center text-center relative overflow-hidden text-paper">
@@ -668,7 +790,7 @@
                                         <div className="bg-card border-3 border-clay p-6 rounded-3xl shadow-brutal text-center flex flex-col items-center">
                                             <h3 className="font-extrabold text-2xl text-charcoal mb-4">Your Synced Playlist</h3>
                                             <div className="w-full max-w-2xl mx-auto rounded-2xl overflow-hidden border-3 border-clay">
-                                                <iframe src={parseSpotifyUrl(spotifyUrl)} width="100%" height="380" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" style={{borderRadius: '12px'}}></iframe>
+                                                <iframe src={parseSpotifyUrl(spotifyUrl)} width="100%" height="360" frameBorder="0" allowFullScreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" style={{ borderRadius: '12px' }}></iframe>
                                             </div>
                                         </div>
                                     ) : (
@@ -764,8 +886,7 @@
                                         </div>
 
                                         <div className="p-4 bg-blush/30 border-3 border-dashed border-clay rounded-xl text-sm font-black text-charcoal leading-relaxed">
-                                            📢 Partner Cycle Sync: Day {partnerCycle.day} (Energy: {partnerCycle.mood.includes('Tired') || partnerCycle.mood.includes('Cramps') ? 'Low' : 'High'}) 🤍. 
-                                            {partnerCycle.status.includes('snacks') ? " Chocolates and supportive snacks are highly recommended today!" : " Giving them space and sending light supportive messages might be nice today!"}
+                                            📢 Partner Cycle Sync: Day {partnerCycle.day} (Energy: {partnerCycle.mood.includes('Tired') || partnerCycle.mood.includes('Cramps') ? 'Low' : 'High'}) 🤍. Sending extra love today might be nice!
                                         </div>
                                     </div>
                                 )}
