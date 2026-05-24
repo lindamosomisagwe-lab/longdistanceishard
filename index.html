@@ -8,23 +8,7 @@
     <!-- React app bundling module script -->
     <script type="module" src="/src/main.jsx"></script>
     
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Chart.js for beautiful dark rethemed charts -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <!-- Google Identity Services for Sign-In with Google -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-
-    <!-- Google API Client for Google Drive access -->
-    <script src="https://apis.google.com/js/api.js"></script>
-
-    <!-- Google Fonts: Lora, DM Sans, DM Mono -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
-
+    <!-- 1. Tailwind Config FIRST -->
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -55,6 +39,23 @@
             }
         }
     </script>
+
+    <!-- 2. Then load Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Chart.js for beautiful dark rethemed charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Google Identity Services for Sign-In with Google -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <!-- Google API Client for Google Drive access -->
+    <script src="https://apis.google.com/js/api.js"></script>
+
+    <!-- Google Fonts: Lora, DM Sans, DM Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
 
     <style>
         :root {

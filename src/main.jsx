@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 
 // Exactly 6 Wellness Categories for the life balance tracker
 const CATEGORIES = [
@@ -470,12 +470,15 @@ const App = () => {
         };
         warmUpGapi();
     }, []);
-
     // Init Google Identity Services
     useEffect(() => {
-        if (gapiStatus !== 'ready' || !window.google) return;
+        if (gapiStatus !== 'ready') return;
 
-        const initGis = () => {
+        const tryInit = () => {
+            if (!window.google?.accounts) {
+                setTimeout(tryInit, 200); // retry until GIS is ready
+                return;
+            }
             google.accounts.id.initialize({
                 client_id: GOOGLE_CLIENT_ID,
                 callback: async (credentialResponse) => {
@@ -520,7 +523,7 @@ const App = () => {
             });
         };
 
-        initGis();
+        tryInit();
     }, [gapiStatus]);
 
     const handleConnectDrive = () => {
@@ -587,6 +590,11 @@ const App = () => {
         setupSync();
     }, [accessToken]);
 
+    const relationshipRef = useRef(relationship);
+    useEffect(() => {
+        relationshipRef.current = relationship;
+    }, [relationship]);
+
     // Pull from cloud every 8 seconds
     useEffect(() => {
         if (syncStatus !== 'synced' || !accessToken || !syncFileId) return;
@@ -595,7 +603,7 @@ const App = () => {
             try {
                 const driveState = await downloadSyncState(accessToken, syncFileId);
                 if (driveState && driveState.notes) {
-                    if (JSON.stringify(driveState) !== JSON.stringify(relationship)) {
+                    if (JSON.stringify(driveState) !== JSON.stringify(relationshipRef.current)) {
                         setRelationship(driveState);
                         triggerToast("Partner just left a small footprint in the room ✨");
                     }
@@ -606,7 +614,7 @@ const App = () => {
         }, 8000);
 
         return () => clearInterval(interval);
-    }, [syncStatus, accessToken, syncFileId, relationship]);
+    }, [syncStatus, accessToken, syncFileId]);
 
     const pushStateToDrive = async (updatedState) => {
         if (syncStatus !== 'synced' || !accessToken || !syncFileId) return;
