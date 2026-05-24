@@ -1,146 +1,212 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anti-Gravity — Your Shared Space</title>
-    
-    <!-- React app bundling module script -->
-    <script type="module" src="/src/main.jsx"></script>
-    
-    <!-- 1. Tailwind Config FIRST -->
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        bg: '#0A0912',
-                        surface: '#131220',
-                        'surface-2': '#1A1929',
-                        'accent-you': '#C4899A',
-                        'accent-them': '#8A9CC4',
-                        'text-primary': '#EDE8E0',
-                        'text-muted': '#7A7A96',
-                        ivory: '#F2E8D9',
-                        border: 'rgba(255,255,255,0.05)',
-                    },
-                    fontFamily: {
-                        serif: ['Lora', 'Georgia', 'serif'],
-                        sans: ['DM Sans', 'sans-serif'],
-                        mono: ['DM Mono', 'monospace'],
-                    },
-                    boxShadow: {
-                        'inner-glow': 'inset 0 1px 0 rgba(255,255,255,0.07)',
-                        'glow-you': '0 0 20px rgba(196,137,154,0.12)',
-                        'glow-them': '0 0 20px rgba(138,156,196,0.12)',
-                    }
-                }
-            }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anti-Gravity — A Private Sanctuary</title>
+  <meta name="description" content="Anti-Gravity — a warm, private space for long-distance couples to stay close across any distance." />
+
+  <!-- React app entry -->
+  <script type="module" src="/src/main.jsx"></script>
+
+  <!-- 1. Tailwind Config FIRST — must precede CDN -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg:           '#FDFAF4',
+            surface:      '#FAF6EC',
+            'surface-2':  '#F5EFD8',
+            sunflower:    '#E8B84B',
+            petal:        '#F0C97A',
+            stem:         '#4A7C59',
+            clay:         '#A07850',
+            blush:        '#E8C5C0',
+            charcoal:     '#2C2A26',
+            'text-muted': '#8A7F72',
+            ivory:        '#FFFEF9',
+          },
+          fontFamily: {
+            serif: ['Playfair Display', 'Georgia', 'serif'],
+            sans:  ['Nunito', 'sans-serif'],
+            mono:  ['DM Mono', 'monospace'],
+          },
+          boxShadow: {
+            brutal:       '4px 4px 0px 0px #A07850',
+            'brutal-sm':  '2px 2px 0px 0px #A07850',
+            'brutal-gold':'4px 4px 0px 0px #E8B84B',
+            soft:         '0 4px 24px rgba(160,120,80,0.10)',
+          }
         }
-    </script>
+      }
+    }
+  </script>
 
-    <!-- 2. Then load Tailwind CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 2. Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Chart.js for beautiful dark rethemed charts -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- Google Identity Services for Sign-In with Google -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-    <!-- Google API Client for Google Drive access -->
-    <script src="https://apis.google.com/js/api.js"></script>
+  <!-- Google API Client -->
+  <script src="https://apis.google.com/js/api.js"></script>
 
-    <!-- Google Fonts: Lora, DM Sans, DM Mono -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+  <!-- Google Fonts: Playfair Display, Nunito, DM Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400;1,600&family=Nunito:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
-    <style>
-        :root {
-            --color-bg:           #0A0912;
-            --color-surface:      #131220;
-            --color-surface-2:    #1A1929;
-            --color-accent-you:   #C4899A;
-            --color-accent-them:  #8A9CC4;
-            --color-text-primary: #EDE8E0;
-            --color-text-muted:   #7A7A96;
-            --color-ivory:        #F2E8D9;
-            --color-border:       rgba(255,255,255,0.05);
-            --color-glow-you:     rgba(196,137,154,0.12);
-            --color-glow-them:    rgba(138,156,196,0.12);
-            --font-serif:         'Lora', Georgia, serif;
-            --font-sans:          'DM Sans', sans-serif;
-            --font-mono:          'DM Mono', monospace;
-            --radius-card:        16px;
-            --radius-pill:        999px;
-        }
+  <style>
+    :root {
+      --color-bg:           #FDFAF4;
+      --color-surface:      #FAF6EC;
+      --color-surface-2:    #F5EFD8;
+      --color-sunflower:    #E8B84B;
+      --color-petal:        #F0C97A;
+      --color-stem:         #4A7C59;
+      --color-clay:         #A07850;
+      --color-blush:        #E8C5C0;
+      --color-charcoal:     #2C2A26;
+      --color-text-muted:   #8A7F72;
+      --color-border:       rgba(160,120,80,0.15);
+      --color-shadow:       rgba(160,120,80,0.18);
+      --font-serif:         'Playfair Display', Georgia, serif;
+      --font-sans:          'Nunito', sans-serif;
+      --font-mono:          'DM Mono', monospace;
+      --radius-card:        16px;
+      --radius-pill:        999px;
+      --shadow-brutal:      4px 4px 0px 0px var(--color-clay);
+      --shadow-brutal-sm:   2px 2px 0px 0px var(--color-clay);
+      --shadow-brutal-gold: 4px 4px 0px 0px var(--color-sunflower);
+      --shadow-soft:        0 4px 24px rgba(160,120,80,0.10);
+    }
 
-        body {
-            font-family: var(--font-sans);
-            background-color: var(--color-bg);
-            color: var(--color-text-primary);
-            margin: 0;
-            overflow-x: hidden;
-            background-attachment: fixed;
-        }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        /* 4% Noise Grain Overlay */
-        .noise-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-            opacity: 0.04;
-            mix-blend-mode: overlay;
-            pointer-events: none;
-            z-index: 9999;
-        }
+    html, body {
+      font-family: var(--font-sans);
+      background-color: var(--color-bg);
+      color: var(--color-charcoal);
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
 
-        /* Ruled notebook line styling for Journal & Check-In textareas */
-        .notebook-textarea {
-            background-color: transparent;
-            background-image: repeating-linear-gradient(transparent, transparent 31px, rgba(255,255,255,0.05) 32px);
-            line-height: 32px;
-            padding-top: 6px;
-            border: none;
-            resize: vertical;
-            outline: none;
-            font-family: var(--font-serif);
-            font-style: italic;
-            color: var(--color-text-primary);
-            width: 100%;
-        }
+    /* Warm paper noise grain overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: 0.03;
+      pointer-events: none;
+      z-index: 9998;
+      mix-blend-mode: multiply;
+    }
 
-        /* Ambient glows styling */
-        .glow-halo {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(100px);
-            pointer-events: none;
-            z-index: 0;
-            opacity: 0.7;
-        }
+    /* Dot grid background */
+    .dot-grid {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background-image: radial-gradient(rgba(160,120,80,0.12) 1.5px, transparent 1.5px);
+      background-size: 22px 22px;
+      pointer-events: none; z-index: 0;
+    }
 
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.08);
-            border-radius: 999px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-    </style>
+    /* Bloom halos */
+    .bloom-gold {
+      position: fixed; top: -20%; left: -10%;
+      width: 600px; height: 600px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(232,184,75,0.10) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+    }
+    .bloom-blush {
+      position: fixed; bottom: -20%; right: -10%;
+      width: 500px; height: 500px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(232,197,192,0.12) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* Notebook textarea */
+    .notebook-textarea {
+      background: transparent;
+      background-image: repeating-linear-gradient(transparent, transparent 31px, rgba(160,120,80,0.12) 32px);
+      line-height: 32px;
+      padding-top: 6px;
+      font-family: var(--font-serif);
+      font-style: italic;
+      color: var(--color-charcoal);
+      width: 100%;
+      border: none;
+      resize: vertical;
+      outline: none;
+      min-height: 128px;
+    }
+
+    /* Polaroid */
+    .polaroid {
+      background: #FFFEF9;
+      padding: 12px 12px 44px;
+      border: 1.5px solid var(--color-border);
+      box-shadow: var(--shadow-brutal);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .polaroid:hover {
+      box-shadow: var(--shadow-brutal-gold);
+    }
+
+    /* Card base */
+    .card {
+      background: var(--color-surface);
+      border: 1.5px solid var(--color-border);
+      box-shadow: var(--shadow-brutal);
+      border-radius: var(--radius-card);
+      transition: box-shadow 0.2s ease, transform 0.15s ease;
+    }
+    .card:hover {
+      box-shadow: var(--shadow-brutal-gold);
+      transform: translate(-1px, -1px);
+    }
+    .card:active {
+      box-shadow: var(--shadow-brutal-sm);
+      transform: translate(2px, 2px);
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(160,120,80,0.2); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(160,120,80,0.35); }
+
+    /* Range slider */
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--color-surface-2);
+      border: 1.5px solid var(--color-border);
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--color-sunflower);
+      border: 2px solid var(--color-clay);
+      box-shadow: var(--shadow-brutal-sm);
+      cursor: pointer;
+    }
+
+    ::selection { background: rgba(232,184,75,0.3); color: var(--color-charcoal); }
+  </style>
 </head>
-<body class="bg-bg text-text-primary antialiased min-h-screen relative overflow-x-hidden selection:bg-accent-you/30 selection:text-white">
-    <div class="noise-overlay"></div>
-    <div id="root"></div>
+<body class="bg-bg text-charcoal antialiased min-h-screen relative">
+  <div class="dot-grid"></div>
+  <div class="bloom-gold"></div>
+  <div class="bloom-blush"></div>
+  <div id="root"></div>
 </body>
 </html>

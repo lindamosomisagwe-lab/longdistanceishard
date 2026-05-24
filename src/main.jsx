@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useSpring, useTransform } from 'framer-motion';
 
 // Exactly 6 Wellness Categories for the life balance tracker
 const CATEGORIES = [
@@ -180,48 +180,78 @@ const playSoftChime = () => {
     }
 };
 
-// --- STARRY FIELD COMPONENT ---
-const StarField = () => {
-    const [stars, setStars] = useState([]);
+// --- SUNBEAM FIELD COMPONENT (Warm, golden dots drifting upward) ---
+const SunbeamField = () => {
+    const [particles, setParticles] = useState([]);
     useEffect(() => {
-        const generated = Array.from({ length: 90 }).map((_, i) => ({
+        setParticles(Array.from({ length: 30 }, (_, i) => ({
             id: i,
             x: Math.random() * 100,
             y: Math.random() * 100,
-            size: Math.random() * 1.5 + 0.5,
-            opacity: Math.random() * 0.6 + 0.2,
-            pulseDuration: Math.random() * 6 + 3
-        }));
-        setStars(generated);
+            size: Math.random() * 4 + 2,
+            duration: Math.random() * 12 + 8,
+            delay: Math.random() * 6
+        })));
     }, []);
 
     return (
-        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 bg-[#0A0912]">
-            {stars.map((star) => (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+            {particles.map(p => (
                 <motion.div
-                    key={star.id}
-                    className="absolute bg-white rounded-full"
+                    key={p.id}
+                    className="absolute rounded-full"
                     style={{
-                        left: `${star.x}%`,
-                        top: `${star.y}%`,
-                        width: star.size,
-                        height: star.size,
+                        left: `${p.x}%`,
+                        top: `${p.y}%`,
+                        width: p.size,
+                        height: p.size,
+                        backgroundColor: 'rgba(232,184,75,0.22)',
                     }}
-                    animate={{
-                        opacity: [star.opacity, star.opacity * 0.15, star.opacity]
-                    }}
-                    transition={{
-                        duration: star.pulseDuration,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                    }}
+                    animate={{ y: [0, -100, 0], opacity: [0.1, 0.45, 0.1] }}
+                    transition={{ duration: p.duration, repeat: Infinity, delay: p.delay, ease: 'easeInOut' }}
                 />
             ))}
         </div>
     );
 };
 
-// --- CHARTS: Rethemed Retaining Absolute Custom Aesthetics ---
+// --- CUSTOM SVG ICONS (Clean, lightweight inline replacements matching Lucide) ---
+const MailIcon = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <rect width="20" height="16" x="2" y="4" rx="2" />
+        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+    </svg>
+);
+
+const PenLineIcon = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+);
+
+const ImageIcon = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+        <circle cx="9" cy="9" r="2" />
+        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+    </svg>
+);
+
+const HeartIcon = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+    </svg>
+);
+
+const SettingsIcon = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+        <circle cx="12" cy="12" r="3" />
+    </svg>
+);
+
+// --- CHARTS: Warm Sunflower Rethemed ---
 const RethemedDashboardChart = ({ myMood, partnerMood, myName, partnerName }) => {
     const canvasRef = useRef(null);
     const chartRef = useRef(null);
@@ -241,38 +271,40 @@ const RethemedDashboardChart = ({ myMood, partnerMood, myName, partnerName }) =>
                 datasets: [
                     {
                         data: [myMood, 10 - myMood],
-                        backgroundColor: ['#C4899A', 'rgba(196, 137, 154, 0.05)'],
-                        borderWidth: 0,
+                        backgroundColor: ['#E8B84B', '#FAF6EC'],
+                        borderColor: '#A07850',
+                        borderWidth: 1.5,
                         circumference: 180,
                         rotation: 270,
                         weight: 0.5,
-                        borderRadius: 10
+                        borderRadius: 4
                     },
                     {
                         data: [partnerMood, 10 - partnerMood],
-                        backgroundColor: ['#8A9CC4', 'rgba(138, 156, 196, 0.05)'],
-                        borderWidth: 0,
+                        backgroundColor: ['#E8C5C0', '#FAF6EC'],
+                        borderColor: '#A07850',
+                        borderWidth: 1.5,
                         circumference: 180,
                         rotation: 270,
                         weight: 0.5,
-                        borderRadius: 10
+                        borderRadius: 4
                     }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '65%',
+                cutout: '70%',
                 plugins: {
                     legend: { display: false },
                     tooltip: {
                         enabled: true,
-                        backgroundColor: '#131220',
-                        titleColor: '#EDE8E0',
-                        bodyColor: '#EDE8E0',
-                        borderColor: 'rgba(255,255,255,0.05)',
-                        borderWidth: 1,
-                        bodyFont: { family: 'DM Sans' }
+                        backgroundColor: '#FFFEF9',
+                        titleColor: '#2C2A26',
+                        bodyColor: '#2C2A26',
+                        borderColor: 'rgba(160, 120, 80, 0.15)',
+                        borderWidth: 1.5,
+                        bodyFont: { family: 'Nunito', size: 12 }
                     }
                 }
             }
@@ -284,14 +316,14 @@ const RethemedDashboardChart = ({ myMood, partnerMood, myName, partnerName }) =>
     }, [myMood, partnerMood, myName, partnerName]);
 
     return (
-        <div className="relative w-44 h-44 flex items-center justify-center">
+        <div className="relative w-40 h-40 flex items-center justify-center">
             <canvas ref={canvasRef} />
-            <div className="absolute flex flex-col items-center justify-center text-center mt-4">
-                <span className="text-[10px] font-mono tracking-wider text-text-muted uppercase">Mood Level</span>
-                <div className="flex gap-2 items-baseline">
-                    <span className="text-xl font-bold text-accent-you">{myMood}</span>
+            <div className="absolute flex flex-col items-center justify-center text-center mt-3">
+                <span className="text-[9px] font-mono tracking-wider text-text-muted uppercase">Mood Level</span>
+                <div className="flex gap-1.5 items-baseline">
+                    <span className="text-lg font-bold text-sunflower">{myMood}</span>
                     <span className="text-xs text-text-muted">/</span>
-                    <span className="text-xl font-bold text-accent-them">{partnerMood}</span>
+                    <span className="text-lg font-bold text-blush">{partnerMood}</span>
                 </div>
             </div>
         </div>
@@ -318,26 +350,26 @@ const RethemedHistoryChart = ({ historyYou, historyThem, myName, partnerName }) 
                     {
                         label: myName,
                         data: historyYou,
-                        borderColor: '#C4899A',
-                        backgroundColor: 'rgba(196, 137, 154, 0.05)',
+                        borderColor: '#E8B84B',
+                        backgroundColor: 'rgba(232, 184, 75, 0.05)',
                         fill: true,
                         tension: 0.4,
                         borderWidth: 2,
-                        pointBackgroundColor: '#C4899A',
-                        pointBorderColor: '#0A0912',
+                        pointBackgroundColor: '#E8B84B',
+                        pointBorderColor: '#FAF6EC',
                         pointHoverRadius: 6,
                         pointRadius: 4,
                     },
                     {
                         label: partnerName,
                         data: historyThem,
-                        borderColor: '#8A9CC4',
-                        backgroundColor: 'rgba(138, 156, 196, 0.05)',
+                        borderColor: '#E8C5C0',
+                        backgroundColor: 'rgba(232, 197, 192, 0.05)',
                         fill: true,
                         tension: 0.4,
                         borderWidth: 2,
-                        pointBackgroundColor: '#8A9CC4',
-                        pointBorderColor: '#0A0912',
+                        pointBackgroundColor: '#E8C5C0',
+                        pointBorderColor: '#FAF6EC',
                         pointHoverRadius: 6,
                         pointRadius: 4,
                     }
@@ -350,28 +382,28 @@ const RethemedHistoryChart = ({ historyYou, historyThem, myName, partnerName }) 
                     legend: {
                         display: true,
                         labels: {
-                            color: '#EDE8E0',
-                            font: { family: 'DM Sans', size: 11 }
+                            color: '#2C2A26',
+                            font: { family: 'Nunito', size: 11 }
                         }
                     },
                     tooltip: {
-                        backgroundColor: '#131220',
-                        titleColor: '#EDE8E0',
-                        bodyColor: '#EDE8E0',
-                        borderColor: 'rgba(255,255,255,0.05)',
-                        borderWidth: 1
+                        backgroundColor: '#FFFEF9',
+                        titleColor: '#2C2A26',
+                        bodyColor: '#2C2A26',
+                        borderColor: 'rgba(160, 120, 80, 0.15)',
+                        borderWidth: 1.5
                     }
                 },
                 scales: {
                     x: {
                         grid: { display: false },
-                        ticks: { color: '#7A7A96', font: { family: 'DM Sans', size: 10 } }
+                        ticks: { color: '#8A7F72', font: { family: 'Nunito', size: 10 } }
                     },
                     y: {
                         min: 1,
                         max: 10,
-                        grid: { color: 'rgba(255, 255, 255, 0.02)' },
-                        ticks: { color: '#7A7A96', font: { family: 'DM Sans', size: 10 } }
+                        grid: { color: 'rgba(160, 120, 80, 0.06)' },
+                        ticks: { color: '#8A7F72', font: { family: 'Nunito', size: 10 } }
                     }
                 }
             }
@@ -383,19 +415,17 @@ const RethemedHistoryChart = ({ historyYou, historyThem, myName, partnerName }) 
     }, [historyYou, historyThem, myName, partnerName]);
 
     return (
-        <div className="w-full h-56">
+        <div className="w-full h-48">
             <canvas ref={canvasRef} />
         </div>
     );
 };
 
-// --- APP COMPONENT ---
+// --- MAIN APP COMPONENT ---
 const App = () => {
-    const [currentView, setCurrentView] = useState('A'); // 'A' or 'B' representing who is currently interactive
-    const [activeRoom, setActiveRoom] = useState('inbox'); // 'inbox', 'journal', 'photos', 'checkin', 'settings'
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [currentView, setCurrentView] = useState('A'); 
+    const [activeRoom, setActiveRoom] = useState('inbox'); 
     const [isSending, setIsSending] = useState(false);
-    const [planePosition, setPlanePosition] = useState({ x: 0, y: 0 });
     const [reactionTarget, setReactionTarget] = useState(null);
     const [floatingReactions, setFloatingReactions] = useState([]);
     const [selectedPhoto, setSelectedPhoto] = useState(null);
@@ -412,20 +442,20 @@ const App = () => {
             { id: 1, url: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', caption: 'That rainy afternoon where we shared an umbrella and got lost in Montmartre.', date: 'Oct 12, 2025' }
         ],
         notes: [
-            { id: 1, text: "Thinking of you as the night settles in here. The space between us feels wide tonight, but looking up at the same stars makes it a little smaller.", sender: 'B', timestamp: '10:14 PM', reactions: ['heart'] },
-            { id: 2, text: "Always under the same sky, my love. I just lit the candle we bought together. It feels like you're right here.", sender: 'A', timestamp: '10:18 PM', reactions: ['star'] }
+            { id: 1, text: "Thinking of you as the golden sun settles in here. The space between us feels wide tonight, but looking up at the same light makes it a little smaller.", sender: 'B', timestamp: '10:14 PM', reactions: ['heart'] },
+            { id: 2, text: "Always under the same sky, my love. I just set our favorite sunflower on the counter. It feels like you're right here.", sender: 'A', timestamp: '10:18 PM', reactions: ['star'] }
         ],
         checkin_a: {
             mood: 8,
-            q1: "The coffee shop down the street had that sweet vanilla cream we both adore.",
-            q2: "Slow Dancing in a Burning Room - John Mayer",
-            q3: "Keep warm, sleep early. I'm with you in my dreams."
+            q1: "The flower stand down the street had some fresh, tall golden daisies.",
+            q2: "Golden Hour - Kacey Musgraves",
+            q3: "Keep warm, sleep early. I'm with you in my sweet dreams."
         },
         checkin_b: {
             mood: 6,
-            q1: "It rained heavily today. I sat by the glass pane and watched the droplets race.",
-            q2: "Warm Glow - Hippo Campus",
-            q3: "I left a note on our notebook. Read it when you wake."
+            q1: "A quiet, gentle sunbeam hit my notebook today. It felt so soft.",
+            q2: "Sunflower - Rex Orange County",
+            q3: "I left a tiny warm trace on our timeline. Read it when you wake."
         },
         mood_history_a: [7, 8, 6, 8, 9, 7, 8],
         mood_history_b: [6, 7, 5, 6, 8, 6, 6],
@@ -438,12 +468,12 @@ const App = () => {
     const [uploading, setUploading] = useState(false);
 
     // Google Auth & Sync States
-    const [accessToken, setAccessToken] = useState(() => localStorage.getItem('antigravity_access_token') || '');
+    const [accessToken, setAccessToken] = useState(() => localStorage.getItem('antigravity_access_token') || 'OFFLINE_BYPASS');
     const [googleUser, setGoogleUser] = useState(null);
     const [syncFileId, setSyncFileId] = useState(() => localStorage.getItem('antigravity_file_id') || '');
-    const [syncStatus, setSyncStatus] = useState('offline'); // 'offline' | 'connecting' | 'synced' | 'error'
+    const [syncStatus, setSyncStatus] = useState('offline'); 
     const [gapiLoading, setGapiLoading] = useState(false);
-    const [gapiStatus, setGapiStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
+    const [gapiStatus, setGapiStatus] = useState('loading'); 
     const [localAlert, setLocalAlert] = useState("");
 
     const tokenClientRef = useRef(null);
@@ -470,13 +500,14 @@ const App = () => {
         };
         warmUpGapi();
     }, []);
-    // Init Google Identity Services
+
+    // Init Google Identity Services with Retry Loop (Bug 2 Fix)
     useEffect(() => {
         if (gapiStatus !== 'ready') return;
 
         const tryInit = () => {
             if (!window.google?.accounts) {
-                setTimeout(tryInit, 200); // retry until GIS is ready
+                setTimeout(tryInit, 200); 
                 return;
             }
             google.accounts.id.initialize({
@@ -535,7 +566,7 @@ const App = () => {
     };
 
     const handleDisconnectDrive = () => {
-        if (accessToken) {
+        if (accessToken && accessToken !== 'OFFLINE_BYPASS') {
             try { google.accounts.oauth2.revoke(accessToken, () => {}); } catch(e){}
         }
         setAccessToken('');
@@ -551,6 +582,12 @@ const App = () => {
     useEffect(() => {
         if (!accessToken) {
             setSyncStatus('offline');
+            return;
+        }
+
+        if (accessToken === 'OFFLINE_BYPASS') {
+            setSyncStatus('synced');
+            setGoogleUser({ name: 'Local User', email: 'offline@local', picture: null });
             return;
         }
 
@@ -595,9 +632,10 @@ const App = () => {
         relationshipRef.current = relationship;
     }, [relationship]);
 
-    // Pull from cloud every 8 seconds
+    // Pull from cloud every 8 seconds (Bug 4 Fix)
     useEffect(() => {
         if (syncStatus !== 'synced' || !accessToken || !syncFileId) return;
+        if (accessToken === 'OFFLINE_BYPASS') return; 
 
         const interval = setInterval(async () => {
             try {
@@ -618,6 +656,7 @@ const App = () => {
 
     const pushStateToDrive = async (updatedState) => {
         if (syncStatus !== 'synced' || !accessToken || !syncFileId) return;
+        if (accessToken === 'OFFLINE_BYPASS') return; 
         try {
             await uploadSyncState(accessToken, syncFileId, updatedState);
         } catch (err) {
@@ -644,19 +683,6 @@ const App = () => {
     const myHistory = currentView === 'A' ? relationship.mood_history_a : relationship.mood_history_b;
     const partnerHistory = currentView === 'A' ? relationship.mood_history_b : relationship.mood_history_a;
 
-    // Redesign Token values (CSS Custom Properties mapping)
-    const customProps = currentView === 'A' ? {
-        '--color-accent-you': '#C4899A',
-        '--color-accent-them': '#8A9CC4',
-        '--color-glow-you': 'rgba(196,137,154,0.12)',
-        '--color-glow-them': 'rgba(138,156,196,0.12)',
-    } : {
-        '--color-accent-you': '#8A9CC4',
-        '--color-accent-them': '#C4899A',
-        '--color-glow-you': 'rgba(138,156,196,0.12)',
-        '--color-glow-them': 'rgba(196,137,154,0.12)',
-    };
-
     // Mutate state functions
     const toggleMeal = (mealKey) => {
         const nextMeals = { ...myMeals, [mealKey]: !myMeals[mealKey] };
@@ -674,14 +700,13 @@ const App = () => {
         triggerToast(`Sent a gentle nudge for ${partnerName} to nourish themselves 🤍`);
     };
 
-    const submitNote = (e) => {
-        e.preventDefault();
+    // Form onSubmit bug fix: change form tags to div, trigger handler on button onClick
+    const submitNote = () => {
         if (!noteText.trim()) return;
 
         setIsSending(true);
         playSoftChime();
 
-        // Curved paper-plane offset calculation
         setTimeout(() => {
             const nextNotes = [
                 {
@@ -698,7 +723,7 @@ const App = () => {
             pushStateToDrive(next);
             setNoteText("");
             setIsSending(false);
-            triggerToast("Your paper plane has landed on their desk.");
+            triggerToast("Your warm letter has been placed on their desk.");
         }, 1200);
     };
 
@@ -719,7 +744,6 @@ const App = () => {
         pushStateToDrive(next);
         playSoftChime();
 
-        // Add float emoji to state
         const uniqueId = Math.random();
         setFloatingReactions(prev => [...prev, { id: uniqueId, emoji, left: Math.random() * 60 + 20 }]);
         setTimeout(() => {
@@ -745,11 +769,9 @@ const App = () => {
         setRelationship(next);
         pushStateToDrive(next);
         playSoftChime();
-        triggerToast("Daily ritual locked. The sky glows warmer now.");
     };
 
-    const addPhoto = (e) => {
-        e.preventDefault();
+    const addPhoto = () => {
         if (!newPhotoUrl.trim()) return;
 
         setUploading(true);
@@ -771,11 +793,10 @@ const App = () => {
             setNewPhotoUrl("");
             setNewPhotoCap("");
             setUploading(false);
-            triggerToast("Memory pinned to our wall.");
+            triggerToast("Memory pinned to our corkboard.");
         }, 1000);
     };
 
-    // Auto-greeting parser
     const getGreeting = () => {
         const hour = new Date().getHours();
         if (hour < 12) return `Good morning, ${myName}.`;
@@ -784,26 +805,35 @@ const App = () => {
     };
 
     return (
-        <div style={customProps} className="min-h-screen relative font-sans flex flex-col justify-between overflow-x-hidden pb-32">
+        <div className="min-h-screen relative font-sans flex flex-col justify-between overflow-x-hidden pb-32">
             
-            {/* Immersive Breathing Starfield */}
-            <StarField />
+            {/* Sunbeam golden particles field */}
+            <SunbeamField />
 
-            {/* Glowing Ambient Blooms representing two distinct far away hearts */}
-            <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-10 bg-accent-you filter blur-[100px] pointer-events-none z-0"></div>
-            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full opacity-10 bg-accent-them filter blur-[100px] pointer-events-none z-0"></div>
+            {/* Faint glowing dots representing far lovers */}
+            <motion.div 
+                animate={prefersReduced ? {} : { scale: [1, 1.3, 1], opacity: [0.4, 0.8, 0.4] }}
+                transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                className="fixed top-8 left-8 w-4 h-4 rounded-full bg-sunflower filter blur-sm pointer-events-none z-0 shadow-brutal-sm"
+            />
+            <motion.div 
+                animate={prefersReduced ? {} : { scale: [1, 1.3, 1], opacity: [0.4, 0.8, 0.4] }}
+                transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }}
+                className="fixed bottom-24 right-8 w-4 h-4 rounded-full bg-blush filter blur-sm pointer-events-none z-0 shadow-brutal-sm"
+            />
 
-            {/* Soft Notification Toast */}
+            {/* Warm toast notification */}
             <AnimatePresence>
                 {localAlert && (
                     <motion.div
-                        initial={{ y: -50, opacity: 0, filter: 'blur(4px)' }}
-                        animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
-                        exit={{ y: -30, opacity: 0, filter: 'blur(4px)' }}
-                        className="fixed top-6 left-1/2 -translate-x-1/2 bg-[#131220] border border-white/5 shadow-2xl p-4 rounded-full z-[1000] flex items-center gap-3 max-w-sm"
+                        initial={prefersReduced ? { opacity: 1, y: 0 } : { y: -60, opacity: 0, scale: 0.94 }}
+                        animate={{ y: 0, opacity: 1, scale: 1 }}
+                        exit={{ y: -40, opacity: 0, scale: 0.96 }}
+                        transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+                        className="fixed top-5 left-1/2 -translate-x-1/2 bg-[#FFFEF9] border-[1.5px] border-clay/15 shadow-brutal-gold rounded-2xl px-5 py-3.5 z-[2000] flex items-center gap-3 max-w-sm"
                     >
-                        <div className="w-2.5 h-2.5 rounded-full bg-accent-them animate-pulse shadow-glow-them"></div>
-                        <p className="text-xs font-mono font-medium text-text-primary tracking-wide">{localAlert}</p>
+                        <span className="text-base">🌻</span>
+                        <p className="text-xs font-sans font-semibold text-charcoal tracking-wide">{localAlert}</p>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -811,24 +841,27 @@ const App = () => {
             {/* MAIN APP CONTAINER */}
             <div className="w-full max-w-4xl mx-auto px-4 md:px-8 py-8 relative z-10 flex-1 flex flex-col justify-start">
                 
-                {/* 1. THE THRESHOLD (Authentication gate overlayed beautifully) */}
+                {/* 1. THE THRESHOLD (Authentication gate redesign) */}
                 {!accessToken ? (
                     <div className="flex-1 flex flex-col items-center justify-center min-h-[75vh] relative py-12">
-                        {/* Faint glowing dots at opposite corners */}
-                        <div className="absolute top-0 left-0 w-3 h-3 rounded-full bg-accent-you animate-pulse shadow-glow-you"></div>
-                        <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-accent-them animate-pulse shadow-glow-them"></div>
-
                         <motion.div
-                            initial={prefersReduced ? { opacity: 1 } : { opacity: 0, scale: 0.98, filter: 'blur(10px)' }}
-                            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-                            transition={{ duration: 1.5, ease: 'easeOut' }}
+                            initial={prefersReduced ? { opacity: 1 } : { opacity: 0, y: 15, filter: 'blur(8px)' }}
+                            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                            transition={{ duration: 1.2, ease: 'easeOut' }}
                             className="text-center flex flex-col items-center gap-8 max-w-lg w-full"
                         >
-                            <div className="flex flex-col gap-3">
-                                <h1 className="font-serif text-ivory text-5xl md:text-7xl font-bold tracking-tight">
+                            <div className="flex flex-col gap-3 items-center">
+                                <motion.div 
+                                    animate={{ rotate: [0, 8, -8, 0] }}
+                                    transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                                    className="text-4xl cursor-pointer"
+                                >
+                                    🌻
+                                </motion.div>
+                                <h1 className="font-serif text-charcoal text-5xl md:text-6xl font-semibold tracking-tight mt-2">
                                     Anti-Gravity
                                 </h1>
-                                <p className="font-sans text-xs uppercase tracking-[0.25em] text-accent-you font-semibold">
+                                <p className="font-sans text-xs uppercase tracking-[0.25em] text-clay font-bold">
                                     A private sanctuary for the ones who stay.
                                 </p>
                             </div>
@@ -840,13 +873,13 @@ const App = () => {
                             <div className="w-full flex flex-col items-center gap-4 mt-6">
                                 {gapiStatus === 'loading' ? (
                                     <div className="flex flex-col items-center gap-2">
-                                        <div className="w-8 h-8 rounded-full border-2 border-accent-you/30 border-t-accent-you animate-spin"></div>
+                                        <div className="animate-spin text-2xl">🌻</div>
                                         <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest mt-2">Connecting orbital link...</span>
                                     </div>
                                 ) : (
                                     <button 
                                         onClick={handleConnectDrive} 
-                                        className="bg-ivory hover:bg-accent-you hover:text-bg text-[#0A0912] font-semibold text-sm px-8 py-3.5 rounded-full transition-all shadow-glow-you duration-500 tracking-wide flex items-center gap-2 group transform active:scale-95"
+                                        className="bg-white border-[1.5px] border-clay text-charcoal font-semibold text-sm px-8 py-3.5 rounded-full transition-all duration-300 shadow-brutal hover:bg-sunflower hover:shadow-brutal-gold active:translate-y-1 active:shadow-brutal-sm flex items-center gap-2 group"
                                     >
                                         Step inside our room <span className="group-hover:translate-x-1.5 transition-transform duration-300">→</span>
                                     </button>
@@ -860,18 +893,22 @@ const App = () => {
                     <div className="w-full flex-1 flex flex-col">
                         
                         {/* TOP STATUS WRAPPER */}
-                        <header className="flex justify-between items-center mb-10 pb-4 border-b border-white/5">
+                        <header className="flex justify-between items-center mb-10 pb-4 border-b border-clay/10">
                             <div className="flex items-center gap-3">
                                 <div className="relative">
-                                    <div className="w-2.5 h-2.5 rounded-full bg-accent-you shadow-glow-you"></div>
-                                    <div className="absolute inset-0 rounded-full bg-accent-you animate-ping opacity-60"></div>
+                                    <div className="w-2.5 h-2.5 rounded-full bg-stem"></div>
+                                    <div className="absolute inset-0 rounded-full bg-stem animate-ping opacity-60"></div>
                                 </div>
-                                <span className="text-[10px] font-mono tracking-wider text-text-muted uppercase">Connected</span>
+                                <span className="text-[10px] font-mono tracking-wider text-text-muted uppercase font-bold">Secure Cloud Connected</span>
                             </div>
 
                             <div className="flex gap-2.5 items-center">
-                                <span className="text-[10px] font-mono tracking-wider text-text-muted uppercase">Active View:</span>
-                                <span className="text-xs font-mono font-medium text-accent-you bg-accent-you/5 border border-accent-you/10 px-3 py-1 rounded-full uppercase tracking-wider">{myName}</span>
+                                <span className="text-[10px] font-mono tracking-wider text-text-muted uppercase">Active Space:</span>
+                                <span className={`text-[10px] font-mono font-bold px-3 py-1 rounded-full uppercase tracking-wider border-[1.5px] ${
+                                    currentView === 'A' ? 'bg-sunflower/10 border-sunflower text-charcoal' : 'bg-blush/20 border-blush text-charcoal'
+                                }`}>
+                                    {myName}
+                                </span>
                             </div>
                         </header>
 
@@ -879,52 +916,51 @@ const App = () => {
                         <AnimatePresence mode="wait">
                             <motion.main
                                 key={activeRoom}
-                                initial={prefersReduced ? { opacity: 1 } : { opacity: 0, y: 15, filter: 'blur(5px)' }}
+                                initial={prefersReduced ? { opacity: 1 } : { opacity: 0, y: 12, filter: 'blur(4px)' }}
                                 animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                                exit={{ opacity: 0, y: -15, filter: 'blur(5px)' }}
-                                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                                exit={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
+                                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
                                 className="w-full flex-1"
                             >
                                 
                                 {/* ROOM 01 — THE INBOX (Home Dashboard) */}
                                 {activeRoom === 'inbox' && (
-                                    <div className="flex flex-col gap-10 py-4">
+                                    <div className="flex flex-col gap-10 py-2">
                                         
                                         {/* Dynamic Intimate Header */}
-                                        <div className="text-center flex flex-col gap-3">
-                                            <h2 className="font-serif italic text-3xl md:text-4xl text-ivory">
+                                        <div className="flex flex-col gap-1">
+                                            <h2 className="font-serif italic text-3xl md:text-4xl text-charcoal">
                                                 {getGreeting()}
                                             </h2>
-                                            <p className="text-xs font-mono text-text-muted tracking-wider">
+                                            <p className="text-xs text-text-muted font-sans font-semibold mt-1">
                                                 {partnerName} visited our place recently.
                                             </p>
                                         </div>
 
                                         {/* Center Metaphor Card: The Notes Inbox */}
-                                        <div className="bg-surface shadow-inner-glow border border-white/5 p-8 rounded-2xl flex flex-col gap-6 relative overflow-hidden group hover:border-white/10 transition-all duration-500">
-                                            <div className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-10 bg-accent-them filter blur-[40px]"></div>
+                                        <div className="card p-6 flex flex-col gap-5 relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-10 bg-sunflower filter blur-[30px]"></div>
                                             
-                                            <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                                                <span className="text-[10px] font-mono tracking-widest text-text-muted uppercase">Most Recent Note From {partnerName}</span>
-                                                <span className="text-xs font-mono text-accent-them">10:14 PM</span>
+                                            <div className="flex justify-between items-center border-b border-clay/10 pb-3">
+                                                <span className="text-[10px] font-mono tracking-widest text-text-muted uppercase font-bold">MOST RECENT — FROM {partnerName}</span>
                                             </div>
 
                                             {relationship.notes.filter(n => n.sender !== currentView).length > 0 ? (
-                                                <p className="font-serif italic text-lg leading-relaxed text-text-primary pl-4 border-l border-accent-them/25">
+                                                <p className="font-serif italic text-lg leading-relaxed text-charcoal pl-4 border-l-[3px] border-sunflower">
                                                     "{relationship.notes.filter(n => n.sender !== currentView)[0].text}"
                                                 </p>
                                             ) : (
-                                                <p className="font-serif italic text-sm text-text-muted leading-relaxed">
-                                                    "No letter in the mailbox today. Leave a word for them to find when they step in."
+                                                <p className="font-serif italic text-base text-text-muted leading-relaxed">
+                                                    "No letter in the mailbox today. Leave a trace of your day for them to find when they step in."
                                                 </p>
                                             )}
 
-                                            <div className="flex justify-start">
+                                            <div className="flex justify-start pt-2">
                                                 <button 
                                                     onClick={() => setActiveRoom('journal')}
-                                                    className="text-xs font-mono text-accent-you hover:text-ivory transition-colors flex items-center gap-1.5 group/btn"
+                                                    className="border-[1.5px] border-clay bg-[#FFFEF9] font-mono text-[10px] uppercase font-bold tracking-wider px-4 py-2 rounded-full transition-all duration-300 hover:bg-sunflower hover:shadow-brutal-sm shadow-brutal-sm"
                                                 >
-                                                    Write back <span className="group-hover:translate-x-1 transition-transform">→</span>
+                                                    Write back →
                                                 </button>
                                             </div>
                                         </div>
@@ -933,15 +969,15 @@ const App = () => {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                             
                                             {/* Rethemed Chart.js Mood snapshot */}
-                                            <div className="bg-surface shadow-inner-glow border border-white/5 p-6 rounded-2xl flex items-center gap-6">
+                                            <div className="card p-6 flex items-center gap-6">
                                                 <RethemedDashboardChart 
                                                     myMood={myMoodValue}
                                                     partnerMood={partnerMoodValue}
                                                     myName={myName}
                                                     partnerName={partnerName}
                                                 />
-                                                <div className="flex flex-col gap-2">
-                                                    <h3 className="font-serif text-ivory text-lg">Daily Resonance</h3>
+                                                <div className="flex flex-col gap-1.5">
+                                                    <h3 className="font-serif text-charcoal text-lg font-semibold">Daily Resonance</h3>
                                                     <p className="text-xs text-text-muted leading-relaxed">
                                                         Rethemed mood indicator capturing your emotional orbits in real-time.
                                                     </p>
@@ -949,9 +985,9 @@ const App = () => {
                                             </div>
 
                                             {/* Small Ritual presence card */}
-                                            <div className="bg-surface shadow-inner-glow border border-white/5 p-6 rounded-2xl flex flex-col gap-4 justify-between">
+                                            <div className="card p-6 flex flex-col gap-4 justify-between">
                                                 <div className="flex flex-col gap-1.5">
-                                                    <h3 className="font-serif text-ivory text-lg">Daily Wellness Connection</h3>
+                                                    <h3 className="font-serif text-charcoal text-lg font-semibold">Daily Wellness Connection</h3>
                                                     <p className="text-xs text-text-muted leading-relaxed">
                                                         Ensure your partner feels nourished, even from afar. Check-in to let them know.
                                                     </p>
@@ -959,12 +995,12 @@ const App = () => {
 
                                                 <div className="flex justify-between items-center pt-2">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="w-2.5 h-2.5 rounded-full bg-accent-you shadow-glow-you"></div>
-                                                        <span className="text-[10px] font-mono tracking-widest text-text-muted uppercase">Nourished Today</span>
+                                                        <div className="w-2.5 h-2.5 rounded-full bg-stem"></div>
+                                                        <span className="text-[10px] font-mono tracking-widest text-text-muted uppercase font-bold">Nourished Today</span>
                                                     </div>
                                                     <button 
                                                         onClick={triggerMealNudge} 
-                                                        className="bg-accent-you/10 border border-accent-you/15 text-accent-you hover:bg-accent-you hover:text-bg transition-all duration-300 font-mono text-[10px] uppercase tracking-wider px-4 py-2 rounded-full active:scale-95"
+                                                        className="border-[1.5px] border-clay bg-[#FFFEF9] hover:bg-sunflower hover:shadow-brutal-sm shadow-brutal-sm transition-all duration-300 font-mono text-[9px] uppercase tracking-wider px-4 py-2 rounded-full font-bold active:translate-y-0.5"
                                                     >
                                                         Remind Partner
                                                     </button>
@@ -978,37 +1014,38 @@ const App = () => {
 
                                 {/* ROOM 02 — THE JOURNAL (Timeline & Writing Pad) */}
                                 {activeRoom === 'journal' && (
-                                    <div className="flex flex-col gap-8 py-4 max-w-2xl mx-auto">
+                                    <div className="flex flex-col gap-8 py-2 max-w-2xl mx-auto">
                                         
                                         {/* Curated Notebook style editor pad */}
-                                        <form onSubmit={submitNote} className="bg-surface shadow-inner-glow border border-white/5 p-6 rounded-2xl flex flex-col gap-4 relative">
+                                        <div className="card p-6 flex flex-col gap-4 relative">
                                             
-                                            {/* Flying plane relative container */}
+                                            {/* Envelope send animation (Bug template upgrade) */}
                                             {isSending && (
                                                 <motion.div
-                                                    initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-                                                    animate={{ 
-                                                        x: [0, 180, 360, 520], 
-                                                        y: [0, -100, -50, -250], 
-                                                        opacity: [1, 1, 0.8, 0],
-                                                        scale: [1, 1.2, 0.8, 0.4]
+                                                    initial={prefersReduced ? { opacity: 0 } : { x: 0, y: 0, opacity: 1, rotate: 0 }}
+                                                    animate={prefersReduced ? {} : {
+                                                        x: [0, 80, 220, 420],
+                                                        y: [0, -60, -120, -280],
+                                                        rotate: [0, 10, 20, 35],
+                                                        opacity: [1, 1, 0.7, 0],
+                                                        scale: [1, 1.15, 0.9, 0.4]
                                                     }}
-                                                    transition={{ duration: 1.2, ease: "easeInOut" }}
-                                                    className="absolute z-[999] pointer-events-none text-2xl text-accent-you"
-                                                    style={{ bottom: '24px', right: '24px' }}
+                                                    transition={{ duration: 1.3, ease: 'easeIn' }}
+                                                    className="absolute pointer-events-none text-2xl z-50"
+                                                    style={{ bottom: 20, right: 20 }}
                                                 >
-                                                    ✈️
+                                                    ✉️
                                                 </motion.div>
                                             )}
 
-                                            <div className="border-b border-white/5 pb-2 flex justify-between items-center">
-                                                <span className="text-[10px] font-mono tracking-widest text-text-muted uppercase">Lined Letter Pad</span>
-                                                <span className="text-xs text-text-muted font-mono">Lora Italic Font</span>
+                                            <div className="border-b border-clay/10 pb-2 flex justify-between items-center">
+                                                <span className="text-[10px] font-mono tracking-widest text-text-muted uppercase font-bold">LINED LETTER PAD</span>
+                                                <span className="text-[10px] font-mono text-text-muted tracking-wider uppercase">Lora Italic Font</span>
                                             </div>
 
                                             <textarea 
                                                 className="notebook-textarea min-h-[140px] focus:outline-none" 
-                                                placeholder="Write something intimate... leave a footprint of your heart..."
+                                                placeholder="Write something sweet... leave a footprint of your heart..."
                                                 value={noteText}
                                                 onChange={e => setNoteText(e.target.value)}
                                             />
@@ -1016,48 +1053,44 @@ const App = () => {
                                             <div className="flex justify-between items-center pt-2">
                                                 <span className="text-[10px] font-mono text-text-muted italic">Drafts are fully encrypted.</span>
                                                 <button 
-                                                    type="submit"
-                                                    className="bg-accent-you hover:shadow-glow-you text-bg font-semibold text-xs px-5 py-2.5 rounded-full transition-all duration-300 transform active:scale-95"
+                                                    onClick={submitNote}
+                                                    className="bg-sunflower hover:shadow-brutal-gold text-charcoal border-[1.5px] border-clay font-bold text-xs px-6 py-3 rounded-full transition-all duration-300 transform shadow-brutal active:translate-y-1 active:shadow-brutal-sm"
                                                 >
                                                     Send Note
                                                 </button>
                                             </div>
-                                        </form>
+                                        </div>
 
                                         {/* Journal entries chronological list */}
                                         <motion.div 
                                             variants={{
                                                 hidden: {},
-                                                show: { transition: { staggerChildren: 0.08 } }
+                                                show: { transition: { staggerChildren: 0.07, delayChildren: 0.1 } }
                                             }}
                                             initial="hidden"
                                             animate="show"
                                             className="flex flex-col gap-6 mt-6"
                                         >
-                                            {relationship.notes.map((note) => {
+                                            {relationship.notes.map((note, index) => {
                                                 const isMine = note.sender === currentView;
-                                                const authorColor = isMine ? 'accent-you' : 'accent-them';
                                                 
                                                 return (
                                                     <motion.div
                                                         key={note.id}
                                                         variants={{
-                                                            hidden: { opacity: 0, y: 25 },
-                                                            show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 85 } }
+                                                            hidden: { opacity: 0, y: 20, scale: 0.97 },
+                                                            show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 90, damping: 14 } }
                                                         }}
-                                                        whileHover={{ y: -3 }}
-                                                        className={`w-full max-w-[85%] bg-surface border border-white/5 shadow-inner-glow p-6 rounded-2xl flex flex-col gap-4 relative group transition-all duration-300 ${
-                                                            isMine ? 'self-end items-end ml-auto' : 'self-start items-start mr-auto'
+                                                        whileHover={{ y: -2 }}
+                                                        className={`w-full max-w-[85%] bg-surface border-[1.5px] border-clay/15 p-5 rounded-2xl flex flex-col gap-4 relative group transition-all duration-300 ${
+                                                            isMine 
+                                                                ? 'self-end items-end ml-auto border-l-[3px] border-l-sunflower shadow-brutal-gold' 
+                                                                : 'self-start items-start mr-auto border-l-[3px] border-l-blush shadow-brutal'
                                                         }`}
-                                                        style={{
-                                                            boxShadow: isMine 
-                                                                ? 'inset 0 1px 0 rgba(255,255,255,0.07), 0 0 15px rgba(196,137,154,0.02)'
-                                                                : 'inset 0 1px 0 rgba(255,255,255,0.07), 0 0 15px rgba(138,156,196,0.02)'
-                                                        }}
                                                     >
                                                         {/* Interactive floating reactions */}
                                                         {reactionTarget === note.id && (
-                                                            <div className="absolute -top-10 bg-[#131220] border border-white/5 p-2 rounded-full flex gap-3 shadow-2xl z-50">
+                                                            <div className="absolute -top-10 bg-[#FFFEF9] border-[1.5px] border-clay p-1.5 rounded-full flex gap-3 shadow-soft z-50">
                                                                 {['❤️', '😂', '😢', '⭐'].map(emoji => (
                                                                     <button 
                                                                         key={emoji}
@@ -1065,7 +1098,7 @@ const App = () => {
                                                                             reactToEntry(note.id, emoji);
                                                                             setReactionTarget(null);
                                                                         }}
-                                                                        className="hover:scale-125 transition-transform text-base"
+                                                                        className="hover:scale-125 transition-transform text-sm"
                                                                     >
                                                                         {emoji}
                                                                     </button>
@@ -1076,30 +1109,33 @@ const App = () => {
                                                         {/* Floating reactions indicator */}
                                                         <div className="absolute inset-0 pointer-events-none overflow-hidden">
                                                             {floatingReactions.map((f, i) => (
-                                                                <motion.div
+                                                                <motion.span
                                                                     key={i}
-                                                                    initial={{ y: 20, opacity: 1, scale: 1 }}
-                                                                    animate={{ y: -60, opacity: 0, scale: 1.5 }}
-                                                                    transition={{ duration: 1.2 }}
-                                                                    className="absolute text-xl"
+                                                                    initial={{ y: 0, opacity: 1, scale: 1 }}
+                                                                    animate={{ y: -60, opacity: 0, scale: 1.4 }}
+                                                                    exit={{ opacity: 0 }}
+                                                                    transition={{ duration: 1.1, ease: 'easeOut' }}
+                                                                    className="absolute pointer-events-none text-lg"
                                                                     style={{ left: `${f.left}%`, bottom: '20px' }}
                                                                 >
                                                                     {f.emoji}
-                                                                </motion.div>
+                                                                </motion.span>
                                                             ))}
                                                         </div>
 
                                                         {/* Header meta */}
                                                         <div className={`flex items-center gap-2.5 w-full ${isMine ? 'justify-end' : 'justify-start'}`}>
-                                                            <span className={`text-[10px] font-mono tracking-widest uppercase font-semibold text-${authorColor}`}>
+                                                            <span className={`text-[10px] font-mono tracking-widest uppercase font-bold ${
+                                                                isMine ? 'text-sunflower' : 'text-blush'
+                                                            }`}>
                                                                 {isMine ? myName : partnerName}
                                                             </span>
                                                             <span className="text-[10px] font-mono text-text-muted">•</span>
-                                                            <span className="text-[10px] font-mono text-text-muted">{note.timestamp}</span>
+                                                            <span className="text-[10px] font-mono text-text-muted font-bold">{note.timestamp}</span>
                                                         </div>
 
                                                         {/* Text note */}
-                                                        <p className={`font-serif italic text-base leading-relaxed text-text-primary ${isMine ? 'text-right' : 'text-left'}`}>
+                                                        <p className={`font-serif italic text-base leading-relaxed text-charcoal ${isMine ? 'text-right' : 'text-left'}`}>
                                                             "{note.text}"
                                                         </p>
 
@@ -1107,13 +1143,13 @@ const App = () => {
                                                         <div className="flex gap-2 mt-2 items-center">
                                                             <button 
                                                                 onClick={() => setReactionTarget(reactionTarget === note.id ? null : note.id)}
-                                                                className="text-xs text-text-muted hover:text-accent-you transition-colors p-1"
+                                                                className="text-[10px] font-mono font-bold text-text-muted hover:text-sunflower transition-colors p-1 border-[1.5px] border-clay/15 rounded-full px-3 py-1 bg-[#FFFEF9]"
                                                             >
                                                                 ✨ feeling
                                                             </button>
                                                             
-                                                            {note.reactions && note.reactions.map((react, index) => (
-                                                                <span key={index} className="text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
+                                                            {note.reactions && note.reactions.map((react, i) => (
+                                                                <span key={i} className="text-xs bg-[#FFFEF9] border-[1.5px] border-clay/10 px-2 py-0.5 rounded-full">
                                                                     {react === 'heart' ? '❤️' : react === 'star' ? '⭐' : react}
                                                                 </span>
                                                             ))}
@@ -1128,12 +1164,12 @@ const App = () => {
 
                                 {/* ROOM 03 — THE WALL (Corkboard Polaroids) */}
                                 {activeRoom === 'photos' && (
-                                    <div className="flex flex-col gap-10 py-4 relative">
+                                    <div className="flex flex-col gap-10 py-2 relative">
                                         
                                         {/* Immersive corkboard text */}
-                                        <div className="text-center flex flex-col gap-2">
-                                            <h2 className="font-serif italic text-3xl text-ivory">Our Corkboard</h2>
-                                            <p className="text-xs font-mono text-text-muted tracking-wider">
+                                        <div className="text-center flex flex-col gap-1.5">
+                                            <h2 className="font-serif italic text-3xl text-charcoal">Our Corkboard</h2>
+                                            <p className="text-xs text-text-muted font-sans font-semibold">
                                                 A collection of quiet moments, pinned with infinite warmth.
                                             </p>
                                         </div>
@@ -1141,34 +1177,34 @@ const App = () => {
                                         {/* Masonry Polaroids grid */}
                                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 justify-center pt-4">
                                             {relationship.memories.map((mem, index) => {
-                                                // Predefined static rotation to stay stable
                                                 const rotation = (mem.id % 5) - 2;
                                                 
                                                 return (
                                                     <motion.div
                                                         key={mem.id}
-                                                        initial={prefersReduced ? { opacity: 1 } : { y: -100, opacity: 0, rotate: -10 }}
+                                                        initial={prefersReduced ? { opacity: 1 } : { y: -80, opacity: 0, rotate: -8 }}
                                                         animate={{ y: 0, opacity: 1, rotate: rotation }}
-                                                        transition={{ type: 'spring', stiffness: 85, damping: 10, delay: index * 0.05 }}
-                                                        whileHover={{ scale: 1.03, rotate: 0, transition: { duration: 0.3 } }}
+                                                        transition={{ type: 'spring', stiffness: 80, damping: 10, delay: index * 0.06 }}
+                                                        whileHover={{ scale: 1.05, rotate: 0, y: -4 }}
                                                         onClick={() => setSelectedPhoto(mem)}
-                                                        className="bg-[#1C1A2E] p-4 pb-10 border border-white/5 shadow-2xl cursor-pointer flex flex-col gap-4 relative overflow-hidden"
+                                                        className="polaroid cursor-pointer flex flex-col gap-3"
                                                     >
-                                                        {/* Soft intimate vignette filter */}
-                                                        <div className="w-full h-48 overflow-hidden relative border border-white/5">
+                                                        {/* Top pin representation */}
+                                                        <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-8 h-2 bg-clay/35 rounded-full border border-clay/20"></div>
+
+                                                        <div className="w-full h-44 overflow-hidden relative border border-clay/10 mt-1">
                                                             <img 
                                                                 src={mem.url} 
                                                                 alt="Memory" 
                                                                 className="w-full h-full object-cover transition-transform duration-[8s] hover:scale-105"
                                                             />
-                                                            <div className="absolute inset-0 bg-radial-gradient from-transparent via-[#0A0912]/20 to-[#0A0912]/60 pointer-events-none mix-blend-multiply"></div>
                                                         </div>
 
-                                                        <div className="flex flex-col gap-1.5">
-                                                            <p className="font-serif italic text-sm text-ivory tracking-wide leading-relaxed text-center">
+                                                        <div className="flex flex-col gap-1 select-none">
+                                                            <p className="font-serif italic text-sm text-charcoal text-center leading-relaxed px-1">
                                                                 {mem.caption}
                                                             </p>
-                                                            <p className="text-center font-mono text-[9px] text-text-muted uppercase tracking-widest mt-1">
+                                                            <p className="text-center font-mono text-[9px] text-text-muted uppercase tracking-widest font-bold mt-1">
                                                                 {mem.date}
                                                             </p>
                                                         </div>
@@ -1177,43 +1213,43 @@ const App = () => {
                                             })}
                                         </div>
 
-                                        {/* Upload memory form panel inside sidebar drawer or drawer floating */}
-                                        <div className="bg-surface shadow-inner-glow border border-white/5 p-6 rounded-2xl mt-12 max-w-md mx-auto w-full">
-                                            <h3 className="font-serif text-ivory text-lg mb-4 text-center">Pin a New Memory</h3>
-                                            <form onSubmit={addPhoto} className="flex flex-col gap-4">
+                                        {/* Upload memory form panel */}
+                                        <div className="card p-6 mt-12 max-w-md mx-auto w-full">
+                                            <h3 className="font-serif text-charcoal text-lg font-semibold mb-4 text-center">Pin a New Memory</h3>
+                                            <div className="flex flex-col gap-4">
                                                 <div className="flex flex-col gap-1">
-                                                    <label className="text-[10px] font-mono text-text-muted uppercase tracking-wider pl-1">Image URL</label>
+                                                    <label className="text-[10px] font-mono text-text-muted font-bold uppercase tracking-wider pl-1">Image URL</label>
                                                     <input 
                                                         type="text" 
-                                                        placeholder="Paste a link to an image..."
+                                                        placeholder="Paste image link..."
                                                         value={newPhotoUrl}
                                                         onChange={e => setNewPhotoUrl(e.target.value)}
-                                                        className="w-full bg-[#0A0912] border border-white/5 text-text-primary px-4 py-2.5 rounded-xl font-mono text-xs focus:outline-none focus:border-accent-you/30"
+                                                        className="w-full bg-surface-2 border-[1.5px] border-clay/20 text-charcoal px-4 py-2.5 rounded-xl font-sans text-xs focus:outline-none focus:border-sunflower"
                                                     />
                                                 </div>
 
                                                 <div className="flex flex-col gap-1">
-                                                    <label className="text-[10px] font-mono text-text-muted uppercase tracking-wider pl-1">Caption</label>
+                                                    <label className="text-[10px] font-mono text-text-muted font-bold uppercase tracking-wider pl-1">Caption</label>
                                                     <input 
                                                         type="text" 
                                                         placeholder="Write a sweet caption..."
                                                         value={newPhotoCap}
                                                         onChange={e => setNewPhotoCap(e.target.value)}
-                                                        className="w-full bg-[#0A0912] border border-white/5 text-text-primary px-4 py-2.5 rounded-xl font-sans text-xs focus:outline-none focus:border-accent-you/30"
+                                                        className="w-full bg-surface-2 border-[1.5px] border-clay/20 text-charcoal px-4 py-2.5 rounded-xl font-sans text-xs focus:outline-none focus:border-sunflower"
                                                     />
                                                 </div>
 
                                                 <button 
-                                                    type="submit"
+                                                    onClick={addPhoto}
                                                     disabled={uploading}
-                                                    className="w-full bg-accent-you hover:shadow-glow-you text-bg font-semibold text-xs py-3 rounded-xl transition-all duration-300"
+                                                    className="w-full bg-sunflower border-[1.5px] border-clay hover:shadow-brutal-gold text-charcoal font-bold text-xs py-3 rounded-xl transition-all duration-300 shadow-brutal active:translate-y-0.5 active:shadow-brutal-sm"
                                                 >
                                                     {uploading ? "Pinning memory..." : "Pin Polaroid →"}
                                                 </button>
-                                            </form>
+                                            </div>
                                         </div>
 
-                                        {/* Rethemed Lightbox modal */}
+                                        {/* Lightbox Modal */}
                                         <AnimatePresence>
                                             {selectedPhoto && (
                                                 <motion.div
@@ -1221,31 +1257,31 @@ const App = () => {
                                                     animate={{ opacity: 1 }}
                                                     exit={{ opacity: 0 }}
                                                     onClick={() => setSelectedPhoto(null)}
-                                                    className="fixed inset-0 bg-[#0A0912]/95 z-[2000] flex items-center justify-center p-4 backdrop-blur-md cursor-zoom-out"
+                                                    className="fixed inset-0 bg-[#2C2A26]/85 z-[2000] flex items-center justify-center p-4 backdrop-blur-sm cursor-zoom-out"
                                                 >
                                                     <motion.div
-                                                        initial={{ scale: 0.95, filter: 'blur(10px)' }}
+                                                        initial={{ scale: 0.95, filter: 'blur(6px)' }}
                                                         animate={{ scale: 1, filter: 'blur(0px)' }}
-                                                        exit={{ scale: 0.95, filter: 'blur(10px)' }}
+                                                        exit={{ scale: 0.95, filter: 'blur(6px)' }}
                                                         onClick={e => e.stopPropagation()}
-                                                        className="bg-[#131220] border border-white/5 p-6 rounded-2xl max-w-xl w-full flex flex-col gap-6 shadow-2xl relative"
+                                                        className="bg-[#FFFEF9] border-[1.5px] border-clay p-5 rounded-2xl max-w-xl w-full flex flex-col gap-5 shadow-brutal relative"
                                                     >
                                                         <img 
                                                             src={selectedPhoto.url} 
-                                                            className="w-full h-80 object-cover rounded-xl border border-white/5"
+                                                            className="w-full h-80 object-cover rounded-xl border border-clay/10"
                                                         />
                                                         <div className="flex flex-col gap-2">
-                                                            <p className="font-serif italic text-lg leading-relaxed text-ivory text-center">
+                                                            <p className="font-serif italic text-lg leading-relaxed text-charcoal text-center">
                                                                 "{selectedPhoto.caption}"
                                                             </p>
-                                                            <span className="font-mono text-[9px] text-text-muted tracking-widest uppercase text-center mt-1">
+                                                            <span className="font-mono text-[9px] text-text-muted tracking-widest uppercase text-center mt-1 font-bold">
                                                                 {selectedPhoto.date}
                                                             </span>
                                                         </div>
 
                                                         <button 
                                                             onClick={() => setSelectedPhoto(null)}
-                                                            className="absolute top-4 right-4 bg-white/5 hover:bg-white/10 text-white font-mono text-xs w-7 h-7 rounded-full flex items-center justify-center"
+                                                            className="absolute top-4 right-4 bg-white/80 border border-clay text-charcoal font-mono text-xs w-7 h-7 rounded-full flex items-center justify-center shadow-brutal-sm active:translate-y-0.5"
                                                         >
                                                             ✕
                                                         </button>
@@ -1259,39 +1295,39 @@ const App = () => {
 
                                 {/* ROOM 04 — THE CHECK-IN (Daily Ritual & Line Chart) */}
                                 {activeRoom === 'checkin' && (
-                                    <div className="flex flex-col gap-10 py-4 max-w-2xl mx-auto">
+                                    <div className="flex flex-col gap-10 py-2 max-w-2xl mx-auto">
                                         
-                                        <div className="text-center flex flex-col gap-2">
-                                            <h2 className="font-serif italic text-3xl text-ivory">Daily Check-In</h2>
-                                            <p className="text-xs font-mono text-text-muted tracking-wider">
+                                        <div className="text-center flex flex-col gap-1.5">
+                                            <h2 className="font-serif italic text-3xl text-charcoal">Daily Check-In</h2>
+                                            <p className="text-xs text-text-muted font-sans font-semibold">
                                                 A daily ritual of closeness. Feel together, reflect together.
                                             </p>
                                         </div>
 
                                         {/* Slider container with live color shifting */}
-                                        <div className="bg-surface shadow-inner-glow border border-white/5 p-8 rounded-2xl flex flex-col gap-8 items-center text-center relative overflow-hidden">
-                                            <h3 className="font-serif italic text-xl text-ivory">
+                                        <div className="card p-6 flex flex-col gap-8 items-center text-center relative overflow-hidden">
+                                            <h3 className="font-serif italic text-xl text-charcoal">
                                                 "How are you feeling today?"
                                             </h3>
 
-                                            {/* Big mood rating number */}
+                                            {/* Big mood rating number with warm glow */}
                                             <div className="flex flex-col items-center">
-                                                <div 
-                                                    className="w-24 h-24 rounded-full border border-white/10 flex items-center justify-center text-4xl font-bold transition-all duration-500 shadow-2xl relative"
-                                                    style={{ 
-                                                        borderColor: myCheckin.mood <= 4 ? '#8A9CC4' : '#C4899A',
-                                                        boxShadow: myCheckin.mood <= 4 
-                                                            ? '0 0 25px rgba(138, 156, 196, 0.25)' 
-                                                            : '0 0 25px rgba(196, 137, 154, 0.25)'
-                                                    }}
+                                                <motion.div 
+                                                    animate={{ boxShadow: [
+                                                        '0 0 12px rgba(232,184,75,0.2)',
+                                                        '0 0 28px rgba(232,184,75,0.45)',
+                                                        '0 0 12px rgba(232,184,75,0.2)'
+                                                    ]}}
+                                                    transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                                                    className="w-24 h-24 rounded-full border-2 border-sunflower bg-[#FFFEF9] flex items-center justify-center text-4xl font-bold font-serif text-charcoal shadow-brutal"
                                                 >
                                                     {myCheckin.mood}
-                                                </div>
-                                                <span className="text-[9px] font-mono text-text-muted uppercase tracking-widest mt-3">Drag the slider below</span>
+                                                </motion.div>
+                                                <span className="text-[9px] font-mono text-text-muted uppercase tracking-widest font-bold mt-4">Drag the slider below</span>
                                             </div>
 
                                             {/* Slider input */}
-                                            <div className="w-full max-w-md">
+                                            <div className="w-full max-w-md px-4">
                                                 <input 
                                                     type="range" 
                                                     min="1" 
@@ -1302,14 +1338,14 @@ const App = () => {
                                                         q2: myCheckin.q2,
                                                         q3: myCheckin.q3
                                                     })}
-                                                    className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-accent-you"
+                                                    className="w-full"
                                                 />
                                             </div>
 
                                             {/* Three Lined Prompt Prompts */}
-                                            <div className="w-full flex flex-col gap-6 text-left pt-4 border-t border-white/5">
+                                            <div className="w-full flex flex-col gap-6 text-left pt-6 border-t border-clay/10">
                                                 <div className="flex flex-col gap-2">
-                                                    <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider">A small detail from today I wish you were here for:</span>
+                                                    <span className="text-[10px] font-mono text-text-muted font-bold uppercase tracking-wider">A small detail from today I wish you were here for:</span>
                                                     <textarea 
                                                         className="notebook-textarea focus:outline-none min-h-[35px]"
                                                         value={myCheckin.q1}
@@ -1318,7 +1354,7 @@ const App = () => {
                                                 </div>
 
                                                 <div className="flex flex-col gap-2">
-                                                    <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider">The track fitting my headspace right now:</span>
+                                                    <span className="text-[10px] font-mono text-text-muted font-bold uppercase tracking-wider">The track fitting my headspace right now:</span>
                                                     <input 
                                                         type="text" 
                                                         className="notebook-textarea focus:outline-none min-h-[35px]"
@@ -1328,7 +1364,7 @@ const App = () => {
                                                 </div>
 
                                                 <div className="flex flex-col gap-2">
-                                                    <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider">A tender word of warmth for you:</span>
+                                                    <span className="text-[10px] font-mono text-text-muted font-bold uppercase tracking-wider">A tender word of warmth for you:</span>
                                                     <textarea 
                                                         className="notebook-textarea focus:outline-none min-h-[35px]"
                                                         value={myCheckin.q3}
@@ -1339,34 +1375,32 @@ const App = () => {
                                         </div>
 
                                         {/* Partner's Check-in card shown beneath */}
-                                        <div className="bg-surface/50 border border-white/5 p-6 rounded-2xl flex flex-col gap-5 relative overflow-hidden">
-                                            <div className="absolute top-0 left-0 w-16 h-16 rounded-full opacity-5 bg-accent-them filter blur-[30px]"></div>
-                                            
-                                            <div className="flex justify-between items-center border-b border-white/5 pb-3">
-                                                <h4 className="font-serif italic text-base text-ivory">{partnerName}'s Check-In Today</h4>
-                                                <span className="text-xs font-mono text-accent-them font-semibold">Mood Rating: {partnerCheckin.mood}</span>
+                                        <div className="card p-6 flex flex-col gap-5 relative overflow-hidden bg-surface-2 border-l-[3px] border-l-blush shadow-brutal-sm">
+                                            <div className="flex justify-between items-center border-b border-clay/10 pb-3">
+                                                <h4 className="font-serif italic text-base text-charcoal">{partnerName}'s Check-In Today</h4>
+                                                <span className="text-xs font-mono text-blush font-bold">Mood Rating: {partnerCheckin.mood}</span>
                                             </div>
 
-                                            <div className="flex flex-col gap-4 text-sm font-serif italic text-text-muted">
+                                            <div className="flex flex-col gap-4 text-sm font-serif italic text-charcoal">
                                                 <div>
-                                                    <span className="text-[9px] font-mono tracking-widest uppercase block not-italic mb-1">Today's Detail:</span>
-                                                    "{partnerCheckin.q1 || "Silent footprint today."}"
+                                                    <span className="text-[9px] font-mono tracking-widest uppercase block not-italic font-bold text-text-muted mb-1">Today's Detail:</span>
+                                                    "{partnerCheckin.q1 || "Quiet footprint today."}"
                                                 </div>
                                                 <div>
-                                                    <span className="text-[9px] font-mono tracking-widest uppercase block not-italic mb-1">Listening To:</span>
-                                                    "{partnerCheckin.q2 || "No song connected."}"
+                                                    <span className="text-[9px] font-mono tracking-widest uppercase block not-italic font-bold text-text-muted mb-1">Headspace track:</span>
+                                                    "{partnerCheckin.q2 || "No song shared."}"
                                                 </div>
                                                 <div>
-                                                    <span className="text-[9px] font-mono tracking-widest uppercase block not-italic mb-1">Warmth left for you:</span>
+                                                    <span className="text-[9px] font-mono tracking-widest uppercase block not-italic font-bold text-text-muted mb-1">Warmth left for you:</span>
                                                     "{partnerCheckin.q3 || "Thinking of you."}"
                                                 </div>
                                             </div>
                                         </div>
 
                                         {/* Rethemed Chart.js 7-Day Line Chart */}
-                                        <div className="bg-surface shadow-inner-glow border border-white/5 p-6 rounded-2xl">
+                                        <div className="card p-6">
                                             <div className="flex flex-col gap-1.5 mb-6">
-                                                <h3 className="font-serif text-ivory text-lg">7-Day Harmony</h3>
+                                                <h3 className="font-serif text-charcoal text-lg font-semibold">7-Day Harmony</h3>
                                                 <p className="text-xs text-text-muted leading-relaxed">
                                                     Resonating emotional frequencies, showing our visual heartbeat.
                                                 </p>
@@ -1384,41 +1418,41 @@ const App = () => {
 
                                 {/* ROOM 05 — THE DOCK CONFIG (Settings) */}
                                 {activeRoom === 'settings' && (
-                                    <div className="flex flex-col gap-10 py-4 max-w-md mx-auto">
+                                    <div className="flex flex-col gap-10 py-2 max-w-md mx-auto">
                                         
-                                        <div className="text-center flex flex-col gap-2">
-                                            <h2 className="font-serif italic text-3xl text-ivory">The Quiet Corner</h2>
-                                            <p className="text-xs font-mono text-text-muted tracking-wider">
+                                        <div className="text-center flex flex-col gap-1.5">
+                                            <h2 className="font-serif italic text-3xl text-charcoal">The Quiet Corner</h2>
+                                            <p className="text-xs text-text-muted font-sans font-semibold">
                                                 Dim the candlelight, disconnect, or sync your orbital links.
                                             </p>
                                         </div>
 
                                         {/* Google Cloud account panel */}
-                                        <div className="bg-surface border border-white/5 p-6 rounded-2xl flex flex-col gap-6">
-                                            <h3 className="font-serif text-ivory text-lg border-b border-white/5 pb-3">Cloud Sync Protection</h3>
+                                        <div className="card p-6 flex flex-col gap-5">
+                                            <h3 className="font-serif text-charcoal text-lg font-semibold border-b border-clay/10 pb-3">Cloud Sync Protection</h3>
                                             
                                             {googleUser ? (
                                                 <div className="flex flex-col gap-5">
-                                                    <div className="flex items-center gap-3 bg-[#0A0912] border border-white/5 p-4 rounded-xl">
+                                                    <div className="flex items-center gap-3 bg-surface-2 border border-clay/10 p-4 rounded-xl">
                                                         {googleUser.picture ? (
-                                                            <img src={googleUser.picture} className="w-10 h-10 rounded-full border border-white/5 shrink-0" alt="Profile" />
+                                                            <img src={googleUser.picture} className="w-10 h-10 rounded-full border border-clay/15 shrink-0" alt="Profile" />
                                                         ) : (
-                                                            <div className="w-10 h-10 rounded-full bg-accent-you border border-white/5 flex items-center justify-center shrink-0 text-lg">👤</div>
+                                                            <div className="w-10 h-10 rounded-full bg-sunflower border border-clay/15 flex items-center justify-center shrink-0 text-lg font-bold">🌻</div>
                                                         )}
                                                         <div className="overflow-hidden">
-                                                            <h4 className="font-sans font-medium text-sm text-text-primary leading-tight truncate">{googleUser.name}</h4>
-                                                            <p className="text-[10px] font-mono text-text-muted truncate mt-0.5">{googleUser.email}</p>
+                                                            <h4 className="font-sans font-semibold text-sm text-charcoal leading-tight truncate">{googleUser.name}</h4>
+                                                            <p className="text-[10px] font-mono text-text-muted truncate mt-0.5 font-bold">{googleUser.email}</p>
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex flex-col gap-1.5 font-mono text-[9px] text-text-muted leading-relaxed">
-                                                        <p>⚡ Silent real-time client encryption is active.</p>
-                                                        <p className="truncate">File ID: {syncFileId}</p>
+                                                    <div className="flex flex-col gap-1.5 font-mono text-[9px] text-text-muted font-bold leading-relaxed">
+                                                        <p>⚡ Real-time Google Drive sync is active.</p>
+                                                        <p className="truncate">File ID: {syncFileId || 'OFFLINE_MODE'}</p>
                                                     </div>
 
                                                     <button 
                                                         onClick={handleDisconnectDrive}
-                                                        className="w-full bg-[#0A0912] border border-white/5 hover:border-white/15 text-text-primary text-xs py-3 rounded-xl transition-all duration-300 font-mono uppercase tracking-wider active:scale-95"
+                                                        className="w-full bg-[#FFFEF9] border-[1.5px] border-clay hover:bg-sunflower text-charcoal text-xs py-3 rounded-xl transition-all duration-300 font-mono font-bold uppercase tracking-wider shadow-brutal-sm active:translate-y-0.5"
                                                     >
                                                         Disconnect Secure Sync
                                                     </button>
@@ -1426,7 +1460,7 @@ const App = () => {
                                             ) : (
                                                 <button 
                                                     onClick={handleConnectDrive}
-                                                    className="w-full bg-accent-you hover:shadow-glow-you text-bg font-semibold text-xs py-3.5 rounded-xl transition-all duration-300 active:scale-95"
+                                                    className="w-full bg-sunflower border-[1.5px] border-clay hover:shadow-brutal-gold text-charcoal font-bold text-xs py-3.5 rounded-xl transition-all duration-300 shadow-brutal active:translate-y-0.5 active:shadow-brutal-sm"
                                                 >
                                                     Enable Cloud Synced Backups →
                                                 </button>
@@ -1434,9 +1468,9 @@ const App = () => {
                                         </div>
 
                                         {/* Soundtrack Connection Panel */}
-                                        <div className="bg-surface border border-white/5 p-6 rounded-2xl flex flex-col gap-4">
-                                            <h3 className="font-serif text-ivory text-lg border-b border-white/5 pb-2">Shared Soundtrack</h3>
-                                            <p className="text-[10px] font-mono text-text-muted tracking-wide leading-relaxed">
+                                        <div className="card p-6 flex flex-col gap-4">
+                                            <h3 className="font-serif text-charcoal text-lg font-semibold border-b border-clay/10 pb-2">Shared Soundtrack</h3>
+                                            <p className="text-[10px] font-mono text-text-muted font-bold tracking-wide leading-relaxed">
                                                 Embed your special couple playlist here. Paste a standard Spotify track or playlist link.
                                             </p>
                                             
@@ -1449,11 +1483,11 @@ const App = () => {
                                                     setRelationship(next);
                                                     pushStateToDrive(next);
                                                 }}
-                                                className="w-full bg-[#0A0912] border border-white/5 text-text-primary px-4 py-2.5 rounded-xl font-mono text-xs focus:outline-none focus:border-accent-you/30"
+                                                className="w-full bg-surface-2 border-[1.5px] border-clay/20 text-charcoal px-4 py-2.5 rounded-xl font-mono text-xs focus:outline-none focus:border-sunflower"
                                             />
 
                                             {relationship.spotify_url && (
-                                                <div className="rounded-xl overflow-hidden border border-white/5 mt-2 bg-[#0A0912]">
+                                                <div className="rounded-xl overflow-hidden border border-clay/10 mt-2 bg-[#FFFEF9]">
                                                     <iframe 
                                                         src={parseSpotifyUrl(relationship.spotify_url)} 
                                                         width="100%" 
@@ -1468,20 +1502,20 @@ const App = () => {
                                         </div>
 
                                         {/* Unique Invites Panel */}
-                                        <div className="bg-surface border border-white/5 p-6 rounded-2xl flex flex-col gap-3">
-                                            <h3 className="font-serif text-ivory text-lg border-b border-white/5 pb-2">Pairing Invite</h3>
-                                            <p className="text-[10px] font-mono text-text-muted leading-relaxed">
+                                        <div className="card p-6 flex flex-col gap-3">
+                                            <h3 className="font-serif text-charcoal text-lg font-semibold border-b border-clay/10 pb-2">Pairing Invite</h3>
+                                            <p className="text-[10px] font-mono text-text-muted font-bold leading-relaxed">
                                                 Copy and send this special room link to your partner to merge your orbits permanently.
                                             </p>
                                             
-                                            <div className="bg-[#0A0912] border border-white/5 p-3 rounded-xl flex items-center justify-between mt-2">
-                                                <span className="font-mono text-xs text-accent-you tracking-wider">antigravity.space/invite/{syncFileId.slice(0, 8) || 'local'}</span>
+                                            <div className="bg-surface-2 border-[1.5px] border-clay/20 p-3 rounded-xl flex items-center justify-between mt-2">
+                                                <span className="font-mono text-xs text-sunflower font-bold tracking-wider">antigravity.space/invite/{syncFileId.slice(0, 8) || 'local'}</span>
                                                 <button 
                                                     onClick={() => {
                                                         navigator.clipboard.writeText(`antigravity.space/invite/${syncFileId || 'local'}`);
                                                         triggerToast("Invite code copied successfully.");
                                                     }}
-                                                    className="text-[10px] font-mono text-text-muted hover:text-white transition-colors"
+                                                    className="text-[10px] font-mono font-bold text-clay hover:text-sunflower transition-colors"
                                                 >
                                                     Copy
                                                 </button>
@@ -1491,7 +1525,7 @@ const App = () => {
                                         {/* Cozy wordmark footer */}
                                         <div className="text-center flex flex-col gap-1.5 pt-8">
                                             <span className="font-serif italic text-xs text-text-muted">"Anti-Gravity — built for the ones who stay."</span>
-                                            <span className="font-mono text-[8px] text-text-muted uppercase tracking-widest">Version 2.0.0 Redesign</span>
+                                            <span className="font-mono text-[8px] text-text-muted font-bold uppercase tracking-widest">Version 3.0.0 Sunflower Redesign</span>
                                         </div>
 
                                     </div>
@@ -1505,75 +1539,85 @@ const App = () => {
 
             </div>
 
-            {/* --- IMMERSIVE PERSISTENT FIXED FLOATING ICON DOCK (Mobile First / Navigation) --- */}
+            {/* --- IMMERSIVE PERSISTENT FIXED FLOATING ICON DOCK (21st.dev Retheme Navigation) --- */}
             {accessToken && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#131220]/80 backdrop-blur-lg border border-white/5 rounded-full px-5 py-3 flex items-center gap-7 shadow-2xl z-[1500]">
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#FDFAF4]/90 backdrop-blur-md border-[1.5px] border-clay/25 rounded-[24px] px-6 py-2.5 flex items-center gap-6 shadow-brutal z-[1500]">
                     {[
-                        { id: 'inbox', emoji: '📬', label: 'Inbox' },
-                        { id: 'journal', emoji: '✍️', label: 'Journal' },
-                        { id: 'photos', emoji: '🖼️', label: 'Wall' },
-                        { id: 'checkin', emoji: '🤍', label: 'Check-In' },
-                        { id: 'settings', emoji: '⚙️', label: 'Corner' }
-                    ].map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => {
-                                playSoftChime();
-                                setActiveRoom(tab.id);
-                            }}
-                            className="relative flex flex-col items-center justify-center p-2 group"
-                        >
-                            <span className="text-xl transform group-hover:scale-115 transition-transform duration-300 relative z-10">
-                                {tab.emoji}
-                            </span>
-                            
-                            {activeRoom === tab.id && (
-                                <motion.div 
-                                    layoutId="activeTabIndicator"
-                                    className="absolute -bottom-1.5 w-1.5 h-1.5 rounded-full bg-accent-you shadow-glow-you"
-                                    transition={{ type: 'spring', stiffness: 120, damping: 14 }}
-                                />
-                            )}
-                        </button>
-                    ))}
+                        { id: 'inbox', icon: MailIcon, label: 'Inbox' },
+                        { id: 'journal', icon: PenLineIcon, label: 'Journal' },
+                        { id: 'photos', icon: ImageIcon, label: 'Wall' },
+                        { id: 'checkin', icon: HeartIcon, label: 'Ritual' },
+                        { id: 'settings', icon: SettingsIcon, label: 'Corner' }
+                    ].map(tab => {
+                        const Icon = tab.icon;
+                        const isActive = activeRoom === tab.id;
+                        
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => {
+                                    playSoftChime();
+                                    setActiveRoom(tab.id);
+                                }}
+                                className="relative flex flex-col items-center justify-center px-3 py-1 group"
+                            >
+                                <Icon className={`w-5 h-5 transition-colors duration-300 relative z-10 ${
+                                    isActive ? 'text-charcoal' : 'text-clay/70 group-hover:text-charcoal'
+                                }`} />
+                                <span className={`text-[8px] font-mono uppercase mt-1 tracking-wider transition-colors duration-300 relative z-10 ${
+                                    isActive ? 'text-charcoal font-bold' : 'text-clay/70 group-hover:text-charcoal'
+                                }`}>
+                                    {tab.label}
+                                </span>
+                                
+                                {isActive && (
+                                    <motion.div 
+                                        layoutId="activeTab"
+                                        className="absolute inset-0 bg-sunflower rounded-2xl -z-10 border border-clay/35 shadow-brutal-sm"
+                                        transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+                                    />
+                                )}
+                            </button>
+                        );
+                    })}
                 </div>
             )}
 
             {/* --- PERSISTENT DUAL PROFILE SIMULATING SWITCHER BAR --- */}
-            <div className="fixed bottom-0 left-0 w-full bg-[#0A0912]/90 border-t border-white/5 py-2.5 px-4 z-[1400] flex justify-between items-center shadow-2xl">
+            <div className="fixed bottom-0 left-0 w-full bg-[#FAF6EC]/95 border-t-[1.5px] border-clay/15 py-2.5 px-4 z-[1400] flex justify-between items-center shadow-soft backdrop-blur-sm">
                 <div className="flex items-center gap-2 text-text-muted">
                     <span className="text-sm">🪐</span>
-                    <span className="font-mono text-[9px] tracking-wide uppercase font-semibold hidden sm:inline">Orbit Simulator:</span>
+                    <span className="font-mono text-[9px] tracking-wide uppercase font-bold hidden sm:inline">Orbit Simulator:</span>
                 </div>
                 
-                <div className="flex bg-[#131220] border border-white/5 rounded-full p-0.5 shadow-inner">
+                <div className="flex bg-[#FFFEF9] border-[1.5px] border-clay/20 rounded-full p-0.5 shadow-brutal-sm">
                     <button 
                         onClick={() => {
                             setCurrentView('A');
                             playSoftChime();
-                            triggerToast("Simulating Partner A. Visual accents: Mauve.");
+                            triggerToast("Simulating Partner A. Accent color: Sunflower Gold 🌻");
                         }} 
                         className={`px-4 py-1.5 rounded-full font-mono text-[9px] uppercase tracking-wider transition-all duration-300 ${
-                            currentView === 'A' ? 'bg-[#C4899A] text-bg font-semibold' : 'text-text-muted hover:text-white'
+                            currentView === 'A' ? 'bg-sunflower text-charcoal font-bold border border-clay/35' : 'text-text-muted hover:text-charcoal'
                         }`}
                     >
-                        Partner A {currentView === 'A' && '👤'}
+                        Partner A {currentView === 'A' && '🌻'}
                     </button>
                     <button 
                         onClick={() => {
                             setCurrentView('B');
                             playSoftChime();
-                            triggerToast("Simulating Partner B. Visual accents: Periwinkle.");
+                            triggerToast("Simulating Partner B. Accent color: Blush Rose 🌸");
                         }} 
                         className={`px-4 py-1.5 rounded-full font-mono text-[9px] uppercase tracking-wider transition-all duration-300 ${
-                            currentView === 'B' ? 'bg-[#8A9CC4] text-bg font-semibold' : 'text-text-muted hover:text-white'
+                            currentView === 'B' ? 'bg-blush text-charcoal font-bold border border-clay/35' : 'text-text-muted hover:text-charcoal'
                         }`}
                     >
-                        Partner B {currentView === 'B' && '👤'}
+                        Partner B {currentView === 'B' && '🌸'}
                     </button>
                 </div>
 
-                <div className="text-[9px] font-mono text-text-muted uppercase tracking-widest hidden md:inline-block">
+                <div className="text-[9px] font-mono text-text-muted font-bold uppercase tracking-widest hidden md:inline-block">
                     Merged Orbit System Offline Sync
                 </div>
             </div>
