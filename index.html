@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anti-Gravity — Your Shared Space</title>
+    
+    <!-- React app bundling module script -->
+    <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Chart.js for beautiful dark rethemed charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Google Identity Services for Sign-In with Google -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <!-- Google API Client for Google Drive access -->
+    <script src="https://apis.google.com/js/api.js"></script>
+
+    <!-- Google Fonts: Lora, DM Sans, DM Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#0A0912',
+                        surface: '#131220',
+                        'surface-2': '#1A1929',
+                        'accent-you': '#C4899A',
+                        'accent-them': '#8A9CC4',
+                        'text-primary': '#EDE8E0',
+                        'text-muted': '#7A7A96',
+                        ivory: '#F2E8D9',
+                        border: 'rgba(255,255,255,0.05)',
+                    },
+                    fontFamily: {
+                        serif: ['Lora', 'Georgia', 'serif'],
+                        sans: ['DM Sans', 'sans-serif'],
+                        mono: ['DM Mono', 'monospace'],
+                    },
+                    boxShadow: {
+                        'inner-glow': 'inset 0 1px 0 rgba(255,255,255,0.07)',
+                        'glow-you': '0 0 20px rgba(196,137,154,0.12)',
+                        'glow-them': '0 0 20px rgba(138,156,196,0.12)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --color-bg:           #0A0912;
+            --color-surface:      #131220;
+            --color-surface-2:    #1A1929;
+            --color-accent-you:   #C4899A;
+            --color-accent-them:  #8A9CC4;
+            --color-text-primary: #EDE8E0;
+            --color-text-muted:   #7A7A96;
+            --color-ivory:        #F2E8D9;
+            --color-border:       rgba(255,255,255,0.05);
+            --color-glow-you:     rgba(196,137,154,0.12);
+            --color-glow-them:    rgba(138,156,196,0.12);
+            --font-serif:         'Lora', Georgia, serif;
+            --font-sans:          'DM Sans', sans-serif;
+            --font-mono:          'DM Mono', monospace;
+            --radius-card:        16px;
+            --radius-pill:        999px;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--color-bg);
+            color: var(--color-text-primary);
+            margin: 0;
+            overflow-x: hidden;
+            background-attachment: fixed;
+        }
+
+        /* 4% Noise Grain Overlay */
+        .noise-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.04;
+            mix-blend-mode: overlay;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* Ruled notebook line styling for Journal & Check-In textareas */
+        .notebook-textarea {
+            background-color: transparent;
+            background-image: repeating-linear-gradient(transparent, transparent 31px, rgba(255,255,255,0.05) 32px);
+            line-height: 32px;
+            padding-top: 6px;
+            border: none;
+            resize: vertical;
+            outline: none;
+            font-family: var(--font-serif);
+            font-style: italic;
+            color: var(--color-text-primary);
+            width: 100%;
+        }
+
+        /* Ambient glows styling */
+        .glow-halo {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.7;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-bg text-text-primary antialiased min-h-screen relative overflow-x-hidden selection:bg-accent-you/30 selection:text-white">
+    <div class="noise-overlay"></div>
+    <div id="root"></div>
+</body>
+</html>
