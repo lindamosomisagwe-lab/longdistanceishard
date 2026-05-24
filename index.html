@@ -163,9 +163,11 @@
 
         // --- GOOGLE DRIVE APP DATA SYNCING HELPERS ---
         
-        // Searches for state.json inside appDataFolder or creates it if missing. Returns file ID.
+        const GOOGLE_CLIENT_ID = "887230704768-mh4ea4sl361fjhq20k03056bjmc49mkv.apps.googleusercontent.com";
+        
+        // Searches for anti_gravity_sync.json inside appDataFolder or creates it if missing. Returns file ID.
         const checkOrCreateSyncFile = async (accessToken, initialContent) => {
-            const listUrl = "https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='state.json' and 'appDataFolder' in parents&fields=files(id, name)";
+            const listUrl = "https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='anti_gravity_sync.json' and 'appDataFolder' in parents&fields=files(id, name)";
             const listRes = await fetch(listUrl, {
                 headers: { "Authorization": `Bearer ${accessToken}` }
             });
@@ -177,7 +179,7 @@
             } else {
                 // File does not exist, let's create it in appDataFolder
                 const metadata = {
-                    name: "state.json",
+                    name: "anti_gravity_sync.json",
                     parents: ["appDataFolder"]
                 };
                 const boundary = "314159265358979323846";
@@ -466,7 +468,6 @@
             }, [currentView, nudgeState]);
 
             // --- GOOGLE DRIVE SYNC STATES ---
-            const [googleClientId, setGoogleClientId] = useState(() => localStorage.getItem('antigravity_client_id') || '');
             const [accessToken, setAccessToken] = useState(() => localStorage.getItem('antigravity_access_token') || '');
             const [googleUser, setGoogleUser] = useState(null);
             const [syncFileId, setSyncFileId] = useState(() => localStorage.getItem('antigravity_file_id') || '');
@@ -474,43 +475,46 @@
 
             const tokenClientRef = React.useRef(null);
 
-            // Save Client ID when modified
-            const handleSaveClientId = (id) => {
-                setGoogleClientId(id);
-                localStorage.setItem('antigravity_client_id', id);
-                setLocalAlert("🔑 Client ID saved locally!");
-                setTimeout(() => setLocalAlert(""), 3000);
-            };
-
-            // Initialize Token Client when Google library is ready and Client ID exists
+            // Initialize Token Client when Google library is ready with the production Client ID
             useEffect(() => {
-                if (window.google && googleClientId) {
-                    tokenClientRef.current = google.accounts.oauth2.initTokenClient({
-                        client_id: googleClientId,
-                        scope: 'https://www.googleapis.com/auth/drive.appdata',
-                        callback: async (tokenResponse) => {
-                            if (tokenResponse.error) {
-                                setSyncStatus('error');
-                                setLocalAlert(`❌ Google Sign-In failed: ${tokenResponse.error}`);
-                                return;
-                            }
-                            if (tokenResponse.access_token) {
-                                setAccessToken(tokenResponse.access_token);
-                                localStorage.setItem('antigravity_access_token', tokenResponse.access_token);
-                                setSyncStatus('connecting');
-                                setLocalAlert("🔌 Connecting to Google Drive...");
-                            }
-                        },
-                    });
+                const initGsi = () => {
+                    if (window.google) {
+                        tokenClientRef.current = google.accounts.oauth2.initTokenClient({
+                            client_id: GOOGLE_CLIENT_ID,
+                            scope: 'https://www.googleapis.com/auth/drive.appdata',
+                            callback: async (tokenResponse) => {
+                                if (tokenResponse.error) {
+                                    setSyncStatus('error');
+                                    setLocalAlert(`❌ Google Sign-In failed: ${tokenResponse.error}`);
+                                    return;
+                                }
+                                if (tokenResponse.access_token) {
+                                    setAccessToken(tokenResponse.access_token);
+                                    localStorage.setItem('antigravity_access_token', tokenResponse.access_token);
+                                    setSyncStatus('connecting');
+                                    setLocalAlert("🔌 Connecting to Google Drive...");
+                                }
+                            },
+                        });
+                    }
+                };
+
+                // Retry if window.google is not loaded yet
+                if (window.google) {
+                    initGsi();
+                } else {
+                    const timer = setInterval(() => {
+                        if (window.google) {
+                            initGsi();
+                            clearInterval(timer);
+                        }
+                    }, 500);
+                    return () => clearInterval(timer);
                 }
-            }, [googleClientId]);
+            }, []);
 
             // Request active authorization token
             const handleConnectDrive = () => {
-                if (!googleClientId) {
-                    setLocalAlert("⚠️ Please enter your Google Cloud OAuth Client ID first!");
-                    return;
-                }
                 if (tokenClientRef.current) {
                     tokenClientRef.current.requestAccessToken({ prompt: 'consent' });
                 } else {
@@ -742,6 +746,50 @@
             const combinedScores = userScores.map((s, i) => s + partnerScores[i]);
             const focusCategory = CATEGORIES[combinedScores.indexOf(Math.min(...combinedScores))];
 
+            if (!accessToken) {
+                return (
+                    <div className="min-h-screen bg-beige flex items-center justify-center p-4 relative overflow-hidden">
+                        {/* Dot Grid Background */}
+                        <div className="dot-grid"></div>
+                        
+                        {/* Cozy Notification Toast */}
+                        {localAlert && (
+                            <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-blush border-3 border-clay p-4 rounded-2xl shadow-brutal z-[200] flex items-center gap-3 max-w-sm animate-bounce">
+                                <span className="text-2xl">⚡</span>
+                                <p className="text-xs font-black text-charcoal">{localAlert}</p>
+                                <button onClick={() => setLocalAlert("")} className="text-charcoal font-black text-sm ml-2">✕</button>
+                            </div>
+                        )}
+
+                        {/* Sign-In Cozy Card */}
+                        <div className="bg-paper border-3 border-clay p-8 md:p-12 rounded-3xl shadow-brutal max-w-md w-full text-center flex flex-col items-center gap-6 relative overflow-hidden animate-fade-in">
+                            {/* Logo */}
+                            <div className="w-16 h-16 bg-blush border-3 border-clay rounded-2xl shadow-brutal-sm flex items-center justify-center text-charcoal text-3xl">🪐</div>
+                            
+                            <div>
+                                <h1 className="font-black text-3xl tracking-widest text-charcoal mb-2">ANTI-GRAVITY</h1>
+                                <p className="text-xs font-black text-clay uppercase tracking-widest">Orbital Sync Portal</p>
+                            </div>
+                            
+                            <p className="text-sm font-bold text-charcoal/80 leading-relaxed bg-beige/50 p-4 border-3 border-clay border-dashed rounded-2xl">
+                                Welcome to your private, cozy space. Please sign in with Google to align your orbits and synchronize your wellness data, memories, and soundtrack in real-time with your partner.
+                            </p>
+                            
+                            <button 
+                                onClick={handleConnectDrive} 
+                                className="brutal-btn w-full bg-blush border-3 border-clay rounded-2xl font-black p-4 text-center text-charcoal shadow-brutal text-base flex items-center justify-center gap-3 hover:translate-y-[-2px] transition-all"
+                            >
+                                🔑 Sign In with Google
+                            </button>
+                            
+                            <div className="text-[10px] font-black text-clay uppercase tracking-widest mt-2">
+                                Protected Client-Side Encryption
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
             return (
                 <div className="min-h-screen md:pl-64 relative pb-24 pt-20 md:pt-0">
                     
@@ -905,57 +953,33 @@
                                         </span>
                                     </div>
                                     
-                                    {syncStatus === 'offline' || syncStatus === 'error' ? (
-                                        <div className="flex flex-col gap-4">
-                                            <div className="flex flex-col gap-1">
-                                                <label className="text-xs font-black text-clay uppercase tracking-widest pl-1">OAuth Client ID</label>
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="Enter Google Client ID..." 
-                                                    className="border-3 border-clay bg-paper p-3 rounded-xl font-bold outline-none text-charcoal placeholder-clay text-sm w-full"
-                                                    value={googleClientId} 
-                                                    onChange={e => handleSaveClientId(e.target.value)} 
-                                                />
-                                                <p className="text-[10px] font-bold text-clay mt-1 pl-1 leading-tight">
-                                                    OAuth Client ID (from Google Cloud). Leave blank to run offline in local-only testing mode.
-                                                </p>
-                                            </div>
-                                            <button 
-                                                onClick={handleConnectDrive} 
-                                                className="brutal-btn bg-blush border-3 border-clay rounded-xl font-black p-3 text-center text-charcoal shadow-brutal-sm text-sm flex items-center justify-center gap-2"
-                                            >
-                                                🔑 Connect Google Drive
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col gap-4">
-                                            {googleUser && (
-                                                <div className="flex items-center gap-3 bg-beige border-3 border-clay p-3 rounded-2xl">
-                                                    {googleUser.picture ? (
-                                                        <img src={googleUser.picture} className="w-10 h-10 rounded-full border-2 border-clay shrink-0" alt="Profile" />
-                                                    ) : (
-                                                        <div className="w-10 h-10 rounded-full bg-blush border-2 border-clay flex items-center justify-center shrink-0 text-lg">👤</div>
-                                                    )}
-                                                    <div className="overflow-hidden">
-                                                        <h4 className="font-extrabold text-sm text-charcoal leading-tight truncate">{googleUser.name}</h4>
-                                                        <p className="text-xs font-bold text-clay truncate">{googleUser.email}</p>
-                                                    </div>
+                                    <div className="flex flex-col gap-4">
+                                        {googleUser && (
+                                            <div className="flex items-center gap-3 bg-beige border-3 border-clay p-3 rounded-2xl">
+                                                {googleUser.picture ? (
+                                                    <img src={googleUser.picture} className="w-10 h-10 rounded-full border-2 border-clay shrink-0" alt="Profile" />
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-full bg-blush border-2 border-clay flex items-center justify-center shrink-0 text-lg">👤</div>
+                                                )}
+                                                <div className="overflow-hidden">
+                                                    <h4 className="font-extrabold text-sm text-charcoal leading-tight truncate">{googleUser.name}</h4>
+                                                    <p className="text-xs font-bold text-clay truncate">{googleUser.email}</p>
                                                 </div>
-                                            )}
-                                            
-                                            <div className="text-[11px] font-bold text-clay leading-snug">
-                                                <p>🔄 Auto-syncing state.json in your Google Drive AppData Folder every 8 seconds.</p>
-                                                <p className="mt-1 font-mono text-[9px] truncate">File ID: {syncFileId}</p>
                                             </div>
-                                            
-                                            <button 
-                                                onClick={handleDisconnectDrive} 
-                                                className="brutal-btn bg-paper border-3 border-clay rounded-xl font-bold p-2 text-center text-charcoal shadow-brutal-sm text-xs hover:bg-blush/20"
-                                            >
-                                                🔌 Disconnect Account
-                                            </button>
+                                        )}
+                                        
+                                        <div className="text-[11px] font-bold text-clay leading-snug">
+                                            <p>🔄 Auto-syncing anti_gravity_sync.json in your Google Drive AppData Folder every 8 seconds.</p>
+                                            <p className="mt-1 font-mono text-[9px] truncate">File ID: {syncFileId}</p>
                                         </div>
-                                    )}
+                                        
+                                        <button 
+                                            onClick={handleDisconnectDrive} 
+                                            className="brutal-btn bg-paper border-3 border-clay rounded-xl font-bold p-2 text-center text-charcoal shadow-brutal-sm text-xs hover:bg-blush/20"
+                                        >
+                                            🔌 Disconnect Account
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* 5. Quick Spaces */}
