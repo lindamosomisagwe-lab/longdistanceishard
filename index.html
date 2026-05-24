@@ -3,13 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stationery Hollistic Platform</title>
+    <title>Anti-Gravity — Shared Spaces for Long Distance</title>
     
+    <!-- React & Babel CDNs -->
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts -->
+    
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <!-- Google Fonts: Nunito -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 
@@ -18,17 +28,22 @@
             theme: {
                 extend: {
                     colors: {
-                        'paper': '#050811',         // Sleek deep black background
-                        'card': '#0E1726',          // Dark cards
-                        'sunflower': '#FACC15',     // Neon yellow accent
-                        'tech-blue': '#3B82F6',     // Vibrant tech blue
-                        'partner-blue': '#60A5FA'   // Lighter blue for partner
+                        'paper': '#FAF8F5',         // Cozy card paper background
+                        'beige': '#F4F1EA',         // Layout background
+                        'blush': '#E8C5C8',         // Muted Blush toggles and buttons
+                        'clay': '#A28C81',          // Clay Taupe accents, borders and charts
+                        'charcoal': '#2F2E2C',      // Typography and high-contrast structural text
+                        
+                        // Legacy utility aliases for zero-break compatibility
+                        'sunflower': '#E8C5C8',     // Sunflower mapped to Blush
+                        'tech-blue': '#A28C81',     // Tech-Blue mapped to Clay Taupe
+                        'partner-blue': '#2F2E2C'   // Partner-Blue mapped to Warm Charcoal
                     },
                     fontFamily: { 'nunito': ['Nunito', 'sans-serif'] },
                     boxShadow: {
-                        'brutal': '6px 6px 0px 0px #3B82F6',
-                        'brutal-sm': '3px 3px 0px 0px #3B82F6',
-                        'brutal-active': '1px 1px 0px 0px #3B82F6',
+                        'brutal': '6px 6px 0px 0px #A28C81',
+                        'brutal-sm': '3px 3px 0px 0px #A28C81',
+                        'brutal-active': '1px 1px 0px 0px #A28C81',
                     },
                     borderWidth: { '3': '3px' }
                 }
@@ -39,46 +54,49 @@
     <style>
         body {
             font-family: 'Nunito', sans-serif;
-            background-color: #050811;
-            color: #3B82F6;
+            background-color: #F4F1EA;
+            color: #2F2E2C;
             margin: 0;
             overflow-x: hidden;
         }
         .dot-grid {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background-image: radial-gradient(rgba(59, 130, 246, 0.15) 1.5px, transparent 1.5px);
+            background-image: radial-gradient(rgba(162, 140, 129, 0.15) 1.5px, transparent 1.5px);
             background-size: 24px 24px; z-index: -1; pointer-events: none;
         }
         .brutal-btn { transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; }
-        .brutal-btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0px 0px #3B82F6; }
+        .brutal-btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0px 0px #A28C81; }
+        
         .notebook-textarea {
             background-color: transparent;
-            background-image: repeating-linear-gradient(transparent, transparent 31px, rgba(59, 130, 246, 0.2) 32px);
+            background-image: repeating-linear-gradient(transparent, transparent 31px, rgba(162, 140, 129, 0.2) 32px);
             line-height: 32px; padding-top: 6px; border: none; resize: vertical; outline: none;
-            font-family: 'Nunito', sans-serif; font-weight: 600; color: #3B82F6; width: 100%;
+            font-family: 'Nunito', sans-serif; font-weight: 600; color: #2F2E2C; width: 100%;
         }
         textarea.notebook-textarea { min-height: 150px; }
+        
         input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%;
-            background: #FACC15; cursor: pointer; border: 3px solid #3B82F6; margin-top: -8px; box-shadow: 2px 2px 0px 0px #3B82F6;
+            background: #E8C5C8; cursor: pointer; border: 3px solid #A28C81; margin-top: -8px; box-shadow: 2px 2px 0px 0px #A28C81;
         }
-        input[type=range].partner-slider::-webkit-slider-thumb { background: #60A5FA; }
-        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: rgba(59, 130, 246, 0.1); border-radius: 3px; border: 1px solid #3B82F6; }
+        input[type=range].partner-slider::-webkit-slider-thumb { background: #FAF8F5; border-color: #2F2E2C; box-shadow: 2px 2px 0px 0px #2F2E2C; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: rgba(162, 140, 129, 0.1); border-radius: 3px; border: 1px solid #A28C81; }
+        
         .monoline-checkbox {
-            width: 24px; height: 24px; border: 3px solid #3B82F6; border-radius: 6px; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; background: #0E1726; transition: all 0.1s ease-in-out; box-shadow: 2px 2px 0px 0px #3B82F6;
+            width: 24px; height: 24px; border: 3px solid #A28C81; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; background: #FAF8F5; transition: all 0.1s ease-in-out; box-shadow: 2px 2px 0px 0px #A28C81;
         }
-        .monoline-checkbox.checked { background: #FACC15; box-shadow: 1px 1px 0px 0px #3B82F6; transform: translate(1px, 1px); }
-        .monoline-checkbox.checked::after { content: "X"; color: #050811; font-weight: 900; font-size: 16px; line-height: 1; }
+        .monoline-checkbox.checked { background: #E8C5C8; box-shadow: 1px 1px 0px 0px #A28C81; transform: translate(1px, 1px); }
+        .monoline-checkbox.checked::after { content: "X"; color: #2F2E2C; font-weight: 900; font-size: 16px; line-height: 1; }
         
         .polaroid {
-            background: #0E1726; padding: 12px 12px 40px 12px; border: 3px solid #3B82F6;
-            box-shadow: 6px 6px 0px 0px #3B82F6; transform: rotate(calc(-3deg + 6deg * var(--rand)));
+            background: #FAF8F5; padding: 12px 12px 40px 12px; border: 3px solid #A28C81;
+            box-shadow: 6px 6px 0px 0px #A28C81; transform: rotate(calc(-3deg + 6deg * var(--rand)));
             transition: transform 0.2s; cursor: pointer;
         }
         .polaroid:hover { transform: scale(1.05) rotate(0deg); z-index: 10; }
-        .polaroid img { width: 100%; height: 200px; object-fit: cover; border: 3px solid #3B82F6; }
+        .polaroid img { width: 100%; height: 200px; object-fit: cover; border: 3px solid #A28C81; }
 
         @keyframes flyAirplane { 0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; } 50% { transform: translate(150px, -100px) rotate(15deg) scale(1.2); opacity: 1; } 100% { transform: translate(300px, -200px) rotate(30deg) scale(0.5); opacity: 0; } }
         .fly-animation { animation: flyAirplane 1.5s ease-out forwards; }
@@ -97,7 +115,215 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        const CATEGORIES = ['Finances', 'Career & Projects', 'Health & Wellness', 'Spirituality', 'Personal Growth', 'Romance'];
+        // Exactly 6 Wellness Categories
+        const CATEGORIES = [
+            'Romance, Intimacy & Relationships',
+            'Physical & Mental Health',
+            'Personal Growth & Spirituality',
+            'Career & Business',
+            'Finances',
+            'Fun & Leisure'
+        ];
+
+        // --- DATABASE SERVICE LAYER (FIREBASE WITH COMFORTABLE LOCAL STORAGE SIMULATOR FALLBACK) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAs-placeholder-key",
+            authDomain: "antigravity-app-placeholder.firebaseapp.com",
+            projectId: "antigravity-app-placeholder",
+            storageBucket: "antigravity-app-placeholder.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:1234567890"
+        };
+
+        let useFirebase = false;
+        let auth, db;
+        try {
+            if (typeof firebase !== 'undefined') {
+                firebase.initializeApp(firebaseConfig);
+                auth = firebase.auth();
+                db = firebase.firestore();
+                useFirebase = true;
+                console.log("Firebase/Firestore setup completed.");
+            }
+        } catch (e) {
+            console.warn("Firebase not loaded, falling back to real-time local storage simulator:", e);
+        }
+
+        // Helper: Random string generators
+        const makePairCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
+        const makeId = () => Math.random().toString(36).substring(2, 15);
+
+        // Simulated Storage Init
+        if (!localStorage.getItem('anti_gravity_users')) localStorage.setItem('anti_gravity_users', JSON.stringify([]));
+        if (!localStorage.getItem('anti_gravity_relationships')) localStorage.setItem('anti_gravity_relationships', JSON.stringify([]));
+
+        // Core Database API
+        const dbAPI = {
+            signup: (email, password, callback) => {
+                if (useFirebase) {
+                    auth.createUserWithEmailAndPassword(email, password)
+                        .then(({ user }) => {
+                            const userDoc = { uid: user.uid, email, relationship_id: null, pairing_code: makePairCode() };
+                            db.collection("users").doc(user.uid).set(userDoc).then(() => callback(userDoc, null));
+                        })
+                        .catch(err => callback(null, err.message));
+                } else {
+                    const users = JSON.parse(localStorage.getItem('anti_gravity_users'));
+                    if (users.find(u => u.email === email)) {
+                        callback(null, "User already exists.");
+                        return;
+                    }
+                    const newUser = { uid: makeId(), email, relationship_id: null, pairing_code: makePairCode() };
+                    users.push(newUser);
+                    localStorage.setItem('anti_gravity_users', JSON.stringify(users));
+                    callback(newUser, null);
+                }
+            },
+            login: (email, password, callback) => {
+                if (useFirebase) {
+                    auth.signInWithEmailAndPassword(email, password)
+                        .then(({ user }) => {
+                            db.collection("users").doc(user.uid).get().then(doc => callback(doc.data(), null));
+                        })
+                        .catch(err => callback(null, err.message));
+                } else {
+                    const users = JSON.parse(localStorage.getItem('anti_gravity_users'));
+                    const user = users.find(u => u.email === email);
+                    if (user) {
+                        callback(user, null);
+                    } else {
+                        callback(null, "User not found.");
+                    }
+                }
+            },
+            generateCode: (uid, callback) => {
+                const code = makePairCode();
+                if (useFirebase) {
+                    db.collection("users").doc(uid).update({ pairing_code: code }).then(() => callback(code));
+                } else {
+                    const users = JSON.parse(localStorage.getItem('anti_gravity_users'));
+                    const user = users.find(u => u.uid === uid);
+                    if (user) {
+                        user.pairing_code = code;
+                        localStorage.setItem('anti_gravity_users', JSON.stringify(users));
+                        callback(code);
+                    }
+                }
+            },
+            enterCode: (uid, code, callback) => {
+                const cleanCode = code.trim().toUpperCase();
+                if (useFirebase) {
+                    db.collection("users").where("pairing_code", "==", cleanCode).get().then(snap => {
+                        if (snap.empty) {
+                            callback(null, "Invalid pairing code.");
+                            return;
+                        }
+                        const partnerDoc = snap.docs[0].data();
+                        if (partnerDoc.uid === uid) {
+                            callback(null, "You cannot pair with yourself.");
+                            return;
+                        }
+                        const relationshipId = makeId();
+                        const relDoc = {
+                            id: relationshipId,
+                            user_a: partnerDoc.uid,
+                            user_b: uid,
+                            scores_a: [5, 5, 5, 5, 5, 5],
+                            scores_b: [5, 5, 5, 5, 5, 5],
+                            meals_a: { breakfast: false, lunch: false, dinner: false },
+                            meals_b: { breakfast: false, lunch: false, dinner: false },
+                            cycle_a: { day: 14, mood: 'Happy ✨', status: 'Send snacks' },
+                            cycle_b: { day: 14, mood: 'Happy ✨', status: 'Send snacks' },
+                            memories: [{ id: 1, url: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', caption: 'Coffee in Montmartre.', date: 'Oct 12' }],
+                            goals: [
+                                { id: 1, title: "Plan Anniversary Trip", category: "Romance, Intimacy & Relationships", miniGoals: [ {id: 101, text: "Book flights to Kyoto", completed: false}, {id: 102, text: "Reserve ryokan", completed: true} ] }
+                            ],
+                            spotify_url: "https://open.spotify.com/playlist/37i9dQZF1EJH75B3mnDgmp?si=31caa83610fa42a2",
+                            nudge_a: false,
+                            nudge_b: false
+                        };
+                        db.collection("relationships").doc(relationshipId).set(relDoc).then(() => {
+                            db.collection("users").doc(uid).update({ relationship_id: relationshipId }).then(() => {
+                                db.collection("users").doc(partnerDoc.uid).update({ relationship_id: relationshipId }).then(() => {
+                                    callback(relationshipId, null);
+                                });
+                            });
+                        });
+                    });
+                } else {
+                    const users = JSON.parse(localStorage.getItem('anti_gravity_users'));
+                    const partner = users.find(u => u.pairing_code === cleanCode);
+                    if (!partner) {
+                        callback(null, "Invalid pairing code.");
+                        return;
+                    }
+                    if (partner.uid === uid) {
+                        callback(null, "You cannot pair with yourself.");
+                        return;
+                    }
+                    const relationshipId = makeId();
+                    const relationships = JSON.parse(localStorage.getItem('anti_gravity_relationships'));
+                    const newRel = {
+                        id: relationshipId,
+                        user_a: partner.uid,
+                        user_b: uid,
+                        scores_a: [5, 5, 5, 5, 5, 5],
+                        scores_b: [5, 5, 5, 5, 5, 5],
+                        meals_a: { breakfast: false, lunch: false, dinner: false },
+                        meals_b: { breakfast: false, lunch: false, dinner: false },
+                        cycle_a: { day: 14, mood: 'Happy ✨', status: 'Send snacks' },
+                        cycle_b: { day: 14, mood: 'Happy ✨', status: 'Send snacks' },
+                        memories: [{ id: 1, url: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', caption: 'Coffee in Montmartre.', date: 'Oct 12' }],
+                        goals: [
+                            { id: 1, title: "Plan Anniversary Trip", category: "Romance, Intimacy & Relationships", miniGoals: [ {id: 101, text: "Book flights to Kyoto", completed: false}, {id: 102, text: "Reserve ryokan", completed: true} ] }
+                        ],
+                        spotify_url: "https://open.spotify.com/playlist/37i9dQZF1EJH75B3mnDgmp?si=31caa83610fa42a2",
+                        nudge_a: false,
+                        nudge_b: false
+                    };
+                    relationships.push(newRel);
+                    localStorage.setItem('anti_gravity_relationships', JSON.stringify(relationships));
+                    
+                    const me = users.find(u => u.uid === uid);
+                    me.relationship_id = relationshipId;
+                    partner.relationship_id = relationshipId;
+                    localStorage.setItem('anti_gravity_users', JSON.stringify(users));
+                    
+                    // Dispatch storage event to trigger immediate UI refresh on open side-by-side tabs
+                    window.dispatchEvent(new Event('storage'));
+                    callback(relationshipId, null);
+                }
+            },
+            syncRelationship: (relationshipId, callback) => {
+                if (useFirebase) {
+                    return db.collection("relationships").doc(relationshipId).onSnapshot(doc => {
+                        if (doc.exists) callback(doc.data());
+                    });
+                } else {
+                    const triggerUpdate = () => {
+                        const rels = JSON.parse(localStorage.getItem('anti_gravity_relationships'));
+                        const rel = rels.find(r => r.id === relationshipId);
+                        if (rel) callback(rel);
+                    };
+                    window.addEventListener('storage', triggerUpdate);
+                    triggerUpdate();
+                    return () => window.removeEventListener('storage', triggerUpdate);
+                }
+            },
+            updateRelationship: (relationshipId, updatedFields) => {
+                if (useFirebase) {
+                    db.collection("relationships").doc(relationshipId).update(updatedFields);
+                } else {
+                    const rels = JSON.parse(localStorage.getItem('anti_gravity_relationships'));
+                    const index = rels.findIndex(r => r.id === relationshipId);
+                    if (index !== -1) {
+                        rels[index] = { ...rels[index], ...updatedFields };
+                        localStorage.setItem('anti_gravity_relationships', JSON.stringify(rels));
+                        window.dispatchEvent(new Event('storage'));
+                    }
+                }
+            }
+        };
 
         // --- UTILS ---
         const polarToCartesian = (centerX, centerY, radius, angleInDegrees) => {
@@ -105,31 +331,64 @@
             return { x: centerX + (radius * Math.cos(angleInRadians)), y: centerY + (radius * Math.sin(angleInRadians)) };
         };
 
+        // Spotify URL extractor and re-engineer
+        const parseSpotifyUrl = (url) => {
+            if (!url) return '';
+            const regex = /https:\/\/open\.spotify\.com\/(playlist|track|album)\/([a-zA-Z0-9]{22})/;
+            const match = url.match(regex);
+            if (match) {
+                return `https://open.spotify.com/embed/${match[1]}/${match[2]}`;
+            }
+            return '';
+        };
+
+        // Google Photos image parser
+        const parseImageUrl = (url) => {
+            if (!url) return '';
+            if (url.includes('googleusercontent.com')) {
+                // Strip sizing parameter and force w1000 high resolution
+                const cleanUrl = url.split('=')[0];
+                return `${cleanUrl}=w1000`;
+            }
+            return url;
+        };
+
         // --- COMPONENTS ---
+        
+        // 6-Section Radar Chart with Dual Overlays
         const RadarChart = ({ userScores, partnerScores }) => {
-            const size = 300; const center = size / 2; const maxRadius = 100; const angleStep = 360 / CATEGORIES.length;
-            const getPoints = (scores) => scores.map((s, i) => `${polarToCartesian(center, center, (s/10)*maxRadius, i*angleStep).x},${polarToCartesian(center, center, (s/10)*maxRadius, i*angleStep).y}`).join(' ');
+            const size = 300; const center = size / 2; const maxRadius = 100; const angleStep = 360 / 6;
+            
+            const getPoints = (scores) => scores.map((s, i) => {
+                const pt = polarToCartesian(center, center, (s / 10) * maxRadius, i * angleStep);
+                return `${pt.x},${pt.y}`;
+            }).join(' ');
             
             const gridRings = [0.2, 0.4, 0.6, 0.8, 1].map((scale, index) => (
-                <polygon key={index} points={Array.from({length: CATEGORIES.length}).map((_, i) => `${polarToCartesian(center, center, maxRadius*scale, i*angleStep).x},${polarToCartesian(center, center, maxRadius*scale, i*angleStep).y}`).join(' ')} fill="none" stroke="#3B82F6" strokeWidth={scale===1?"3":"1"} strokeDasharray={scale===1?"none":"4 4"} className="opacity-50" />
+                <polygon key={index} points={Array.from({length: 6}).map((_, i) => {
+                    const pt = polarToCartesian(center, center, maxRadius * scale, i * angleStep);
+                    return `${pt.x},${pt.y}`;
+                }).join(' ')} fill="none" stroke="#A28C81" strokeWidth={scale === 1 ? "3" : "1"} strokeDasharray={scale === 1 ? "none" : "4 4"} className="opacity-40" />
             ));
 
             return (
-                <div className="relative w-full max-w-sm mx-auto p-4 bg-card border-3 border-tech-blue rounded-3xl shadow-brutal">
+                <div className="relative w-full max-w-sm mx-auto p-6 bg-paper border-3 border-clay rounded-3xl shadow-brutal">
                     <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-auto overflow-visible">
                         {gridRings}
                         {CATEGORIES.map((cat, i) => {
                             const outer = polarToCartesian(center, center, maxRadius, i * angleStep);
-                            const labelPos = polarToCartesian(center, center, maxRadius + 25, i * angleStep);
+                            const labelPos = polarToCartesian(center, center, maxRadius + 22, i * angleStep);
                             return (
                                 <g key={i}>
-                                    <line x1={center} y1={center} x2={outer.x} y2={outer.y} stroke="#3B82F6" strokeWidth="2" strokeDasharray="4 4" className="opacity-40" />
-                                    <text x={labelPos.x} y={labelPos.y} textAnchor="middle" alignmentBaseline="middle" className="text-xs font-bold" fill="#3B82F6">{cat}</text>
+                                    <line x1={center} y1={center} x2={outer.x} y2={outer.y} stroke="#A28C81" strokeWidth="2" strokeDasharray="4 4" className="opacity-40" />
+                                    <text x={labelPos.x} y={labelPos.y} textAnchor="middle" alignmentBaseline="middle" className="text-[9px] font-black fill-charcoal" style={{fontFamily: 'Nunito'}}>{cat.split(' & ')[0]}</text>
                                 </g>
                             );
                         })}
-                        <polygon points={getPoints(partnerScores)} fill="rgba(96, 165, 250, 0.4)" stroke="#3B82F6" strokeWidth="3" strokeLinejoin="round" />
-                        <polygon points={getPoints(userScores)} fill="rgba(250, 204, 21, 0.5)" stroke="#3B82F6" strokeWidth="3" strokeLinejoin="round" />
+                        {/* Partner Scores Overlay - Blush fill */}
+                        <polygon points={getPoints(partnerScores)} fill="rgba(232, 197, 200, 0.5)" stroke="#E8C5C8" strokeWidth="3" strokeLinejoin="round" />
+                        {/* User Scores Overlay - Clay Taupe fill */}
+                        <polygon points={getPoints(userScores)} fill="rgba(162, 140, 129, 0.4)" stroke="#A28C81" strokeWidth="3" strokeLinejoin="round" />
                     </svg>
                 </div>
             );
@@ -138,7 +397,7 @@
         const ConfettiOverlay = () => (
             <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none z-50 flex items-end justify-center pb-10">
                 {Array.from({length: 15}).map((_, i) => (
-                    <div key={i} className="absolute w-4 h-4 confetti-particle border-2 border-tech-blue" style={{ backgroundColor: i%2===0?'#FACC15':'#60A5FA', left: '50%', bottom: '20px', animationDelay: `${Math.random()*0.1}s`, '--tx': `${-100+Math.random()*200}px`, '--ty': `${-150-Math.random()*150}px`, borderRadius: Math.random()>0.5?'50%':'0' }}></div>
+                    <div key={i} className="absolute w-4 h-4 confetti-particle border-2 border-clay" style={{ backgroundColor: i % 2 === 0 ? '#E8C5C8' : '#FAF8F5', left: '50%', bottom: '20px', animationDelay: `${Math.random() * 0.1}s`, '--tx': `${-100 + Math.random() * 200}px`, '--ty': `${-150 - Math.random() * 150}px`, borderRadius: Math.random() > 0.5 ? '50%' : '0' }}></div>
                 ))}
             </div>
         );
@@ -160,138 +419,405 @@
                 }
             };
             return (
-                <div className="bg-card border-3 border-tech-blue p-5 rounded-3xl shadow-brutal relative flex flex-col gap-4">
+                <div className="bg-paper border-3 border-clay p-5 rounded-3xl shadow-brutal relative flex flex-col gap-4">
                     {showConfetti && <ConfettiOverlay />}
-                    <div className="flex justify-between items-start"><span className="text-xs font-black uppercase tracking-widest bg-sunflower border-2 border-tech-blue px-3 py-1 rounded-full shadow-brutal-active text-paper">{goal.category}</span></div>
-                    <h3 className="text-xl font-extrabold text-white">{goal.title}</h3>
-                    <div className="w-full h-4 rounded-full border-3 border-tech-blue overflow-hidden bg-paper"><div className="h-full bg-tech-blue transition-all duration-500 ease-out" style={{width: `${progress}%`}}></div></div>
+                    <div className="flex justify-between items-start"><span className="text-xs font-black uppercase tracking-widest bg-blush border-2 border-clay px-3 py-1 rounded-full shadow-brutal-active text-charcoal">{goal.category.split(',')[0]}</span></div>
+                    <h3 className="text-xl font-extrabold text-charcoal">{goal.title}</h3>
+                    <div className="w-full h-4 rounded-full border-3 border-clay overflow-hidden bg-beige"><div className="h-full bg-clay transition-all duration-500 ease-out" style={{width: `${progress}%`}}></div></div>
                     <div className="flex flex-col gap-3 mt-2">
                         {goal.miniGoals.map(mini => (
                             <div key={mini.id} className="flex items-center gap-3 relative">
                                 {animatingMiniId === mini.id && <div className="absolute -left-3 text-2xl burst-animation pointer-events-none z-10">✨</div>}
                                 <button className={`monoline-checkbox shrink-0 ${mini.completed ? 'checked' : ''}`} onClick={() => handleToggle(mini.id, mini.completed)}></button>
-                                <span className={`font-bold leading-tight ${mini.completed ? 'line-through opacity-50 text-blue-300' : 'text-white'}`}>{mini.text}</span>
+                                <span className={`font-bold leading-tight ${mini.completed ? 'line-through opacity-50 text-clay' : 'text-charcoal'}`}>{mini.text}</span>
                             </div>
                         ))}
                     </div>
-                    <input type="text" placeholder="+ Add mini-goal (Press Enter)..." className="notebook-textarea min-h-0 h-10 mt-2 px-1 text-sm bg-transparent placeholder-blue-400" value={newMiniText} onChange={e => setNewMiniText(e.target.value)} onKeyDown={e => { if(e.key==='Enter' && newMiniText.trim()){ onAddMini(goal.id, newMiniText); setNewMiniText(""); } }} />
+                    <input type="text" placeholder="+ Add mini-goal (Press Enter)..." className="notebook-textarea min-h-0 h-10 mt-2 px-1 text-sm bg-transparent placeholder-clay" value={newMiniText} onChange={e => setNewMiniText(e.target.value)} onKeyDown={e => { if(e.key === 'Enter' && newMiniText.trim()){ onAddMini(goal.id, newMiniText); setNewMiniText(""); } }} />
                 </div>
             );
         };
 
-        const Sidebar = ({ activePage, setActivePage, isMobileMenuOpen, setIsMobileMenuOpen }) => {
+        const Sidebar = ({ activePage, setActivePage, isMobileMenuOpen, setIsMobileMenuOpen, onSignOut }) => {
             const navItems = [
                 { id: 'dashboard', icon: '📊', label: 'Dashboard' },
-                { id: 'wheel', icon: '🎡', label: 'Holistic Wheel' },
+                { id: 'wheel', icon: '🎡', label: 'Life Balance' },
                 { id: 'mood', icon: '😊', label: 'Mood Space' },
                 { id: 'journal', icon: '📸', label: 'Memory Journal' },
                 { id: 'goals', icon: '✅', label: 'Goal Tracker' },
                 { id: 'soundtrack', icon: '🎵', label: 'Soundtrack' },
-                { id: 'wellness', icon: '💖', label: 'Wellness & Focus' },
+                { id: 'wellness', icon: '💖', label: 'Cycle Tracker' },
                 { id: 'growth', icon: '📈', label: 'Growth Arc' }
             ];
             return (
-                <aside className={`w-64 fixed top-0 left-0 h-screen bg-card border-r-3 border-tech-blue p-6 flex flex-col gap-4 z-50 overflow-y-auto transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-                    <div className="flex items-center gap-3 border-b-3 border-tech-blue pb-6 mt-4 mb-4">
-                        <div className="w-10 h-10 bg-sunflower border-3 border-tech-blue rounded-lg shadow-brutal-active flex items-center justify-center shrink-0 text-xl text-paper">☀️</div>
-                        <h1 className="font-black text-2xl tracking-widest text-white">LUMINA</h1>
+                <aside className={`w-64 fixed top-0 left-0 h-screen bg-paper border-r-3 border-clay p-6 flex flex-col gap-4 z-50 overflow-y-auto transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+                    <div className="flex items-center gap-3 border-b-3 border-clay pb-6 mt-4 mb-4">
+                        <div className="w-10 h-10 bg-blush border-3 border-clay rounded-lg shadow-brutal-active flex items-center justify-center shrink-0 text-xl text-charcoal">☀️</div>
+                        <h1 className="font-black text-2xl tracking-widest text-charcoal">LUMINA</h1>
                     </div>
-                    <nav className="flex flex-col gap-3">
+                    <nav className="flex flex-col gap-3 flex-1">
                         {navItems.map(item => (
-                            <button key={item.id} onClick={() => { setActivePage(item.id); setIsMobileMenuOpen(false); }} className={`brutal-btn flex items-center gap-3 p-3 rounded-xl border-3 border-tech-blue font-bold transition-all text-left ${activePage === item.id ? 'bg-sunflower shadow-brutal-sm translate-x-1 text-paper' : 'bg-paper text-white hover:bg-blue-900/30'}`}>
+                            <button key={item.id} onClick={() => { setActivePage(item.id); setIsMobileMenuOpen(false); }} className={`brutal-btn flex items-center gap-3 p-3 rounded-xl border-3 border-clay font-bold transition-all text-left ${activePage === item.id ? 'bg-blush shadow-brutal-sm translate-x-1 text-charcoal' : 'bg-paper text-charcoal hover:bg-blush/20'}`}>
                                 <span className="w-5 h-5 flex items-center justify-center shrink-0 text-lg">{item.icon}</span>{item.label}
                             </button>
                         ))}
                     </nav>
+                    <button onClick={onSignOut} className="brutal-btn w-full bg-[#E8C5C8] border-3 border-clay p-3 rounded-xl font-black text-charcoal text-center mt-auto">
+                        🚪 Sign Out
+                    </button>
                 </aside>
             );
         };
 
+        // --- PAIRING SCREEN ---
+        const PairingScreen = ({ currentUser, onPair, onSignOut }) => {
+            const [code, setCode] = useState("");
+            const [myCode, setMyCode] = useState(currentUser.pairing_code || "");
+            const [error, setError] = useState("");
+
+            const handlePair = () => {
+                if (!code) return;
+                dbAPI.enterCode(currentUser.uid, code, (relId, err) => {
+                    if (err) {
+                        setError(err);
+                    } else {
+                        onPair(relId);
+                    }
+                });
+            };
+
+            const regenerateCode = () => {
+                dbAPI.generateCode(currentUser.uid, (newCode) => {
+                    setMyCode(newCode);
+                });
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center p-4">
+                    <div className="bg-paper border-3 border-clay rounded-3xl p-8 max-w-md w-full shadow-brutal flex flex-col gap-6 text-center">
+                        <div className="w-16 h-16 bg-blush border-3 border-clay rounded-full flex items-center justify-center text-3xl mx-auto shadow-brutal-sm">💫</div>
+                        <h2 className="text-3xl font-black text-charcoal">Pairing Request</h2>
+                        <p className="text-sm font-bold opacity-80 text-charcoal">Welcome to Anti-Gravity. To unlock your real-time private sync, link your relationship.</p>
+                        
+                        <div className="bg-beige border-3 border-clay p-5 rounded-2xl">
+                            <span className="text-xs uppercase font-extrabold opacity-70 tracking-wider">Your Pairing Code</span>
+                            <div className="text-3xl font-black tracking-widest text-charcoal mt-1 select-all">{myCode}</div>
+                            <button onClick={regenerateCode} className="text-xs font-bold text-clay underline mt-2 block mx-auto">Regenerate Code</button>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                            <label className="text-left font-black text-xs uppercase tracking-wider text-clay">Partner's Code</label>
+                            <input type="text" placeholder="Enter partner code..." className="border-3 border-clay p-3 rounded-xl font-bold bg-beige outline-none text-charcoal uppercase tracking-widest text-center" value={code} onChange={e => setCode(e.target.value)} />
+                        </div>
+
+                        {error && <p className="text-red-500 font-extrabold text-xs">{error}</p>}
+
+                        <button onClick={handlePair} className="brutal-btn bg-blush border-3 border-clay p-4 rounded-2xl font-black text-charcoal shadow-brutal-sm w-full">Connect to Partner</button>
+                        
+                        <button onClick={onSignOut} className="text-xs font-bold text-clay underline mt-2">Sign out of account</button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- AUTH SCREEN ---
+        const AuthScreen = ({ onAuth }) => {
+            const [isSignup, setIsSignup] = useState(false);
+            const [email, setEmail] = useState("");
+            const [password, setPassword] = useState("");
+            const [error, setError] = useState("");
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                setError("");
+                if (!email || !password) return;
+
+                if (isSignup) {
+                    dbAPI.signup(email, password, (user, err) => {
+                        if (err) setError(err);
+                        else onAuth(user);
+                    });
+                } else {
+                    dbAPI.login(email, password, (user, err) => {
+                        if (err) setError(err);
+                        else onAuth(user);
+                    });
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center p-4">
+                    <div className="bg-paper border-3 border-clay rounded-3xl p-8 max-w-md w-full shadow-brutal flex flex-col gap-6 text-center">
+                        <div className="w-16 h-16 bg-blush border-3 border-clay rounded-full flex items-center justify-center text-3xl mx-auto shadow-brutal-sm">🪐</div>
+                        <div>
+                            <h2 className="text-3xl font-black text-charcoal">Anti-Gravity</h2>
+                            <p className="text-xs font-extrabold tracking-widest text-clay uppercase mt-1">Shared spaces for couples</p>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-left">
+                            <div className="flex flex-col gap-2">
+                                <label className="font-black text-xs uppercase tracking-wider text-clay">Email Address</label>
+                                <input type="email" placeholder="you@example.com" className="border-3 border-clay p-3 rounded-xl font-bold bg-beige outline-none text-charcoal" value={email} onChange={e => setEmail(e.target.value)} />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="font-black text-xs uppercase tracking-wider text-clay">Password</label>
+                                <input type="password" placeholder="••••••••" className="border-3 border-clay p-3 rounded-xl font-bold bg-beige outline-none text-charcoal" value={password} onChange={e => setPassword(e.target.value)} />
+                            </div>
+
+                            {error && <p className="text-red-500 font-extrabold text-xs">{error}</p>}
+
+                            <button type="submit" className="brutal-btn bg-blush border-3 border-clay p-4 rounded-2xl font-black text-charcoal shadow-brutal-sm text-center w-full mt-2">
+                                {isSignup ? "Create Account" : "Sign In"}
+                            </button>
+                        </form>
+
+                        <button onClick={() => { setIsSignup(!isSignup); setError(""); }} className="text-xs font-bold text-clay underline">
+                            {isSignup ? "Already have an account? Sign In" : "Need an account? Sign Up"}
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- MAIN APP ---
         const App = () => {
+            const [currentUser, setCurrentUser] = useState(null);
+            const [relationshipId, setRelationshipId] = useState(null);
+            
             const [activePage, setActivePage] = useState('dashboard');
             const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
             const [isAnimating, setIsAnimating] = useState(false);
-            
-            // App Data State
-            const [userScores, setUserScores] = useState([7, 6, 8, 5, 7, 9]);
-            const [partnerScores, setPartnerScores] = useState([6, 8, 7, 4, 8, 9]);
-            
-            const [moods, setMoods] = useState([{ mood: 'Happy', emoji: '😊', note: 'Feeling great about our progress!', date: 'Today, 9:00 AM' }]);
+
+            // Real-time synced relationship document state
+            const [relData, setRelData] = useState(null);
+            const [nudgeAlert, setNudgeAlert] = useState(false);
+
+            // Wellness cycle role
+            const [cycleRole, setCycleRole] = useState('her');
+
+            // Quick State variables derived from DB sync
+            const userScores = relData ? (currentUser.uid === relData.user_a ? relData.scores_a : relData.scores_b) : [5, 5, 5, 5, 5, 5];
+            const partnerScores = relData ? (currentUser.uid === relData.user_a ? relData.scores_b : relData.scores_a) : [5, 5, 5, 5, 5, 5];
+            const myMeals = relData ? (currentUser.uid === relData.user_a ? relData.meals_a : relData.meals_b) : { breakfast: false, lunch: false, dinner: false };
+            const partnerMeals = relData ? (currentUser.uid === relData.user_a ? relData.meals_b : relData.meals_a) : { breakfast: false, lunch: false, dinner: false };
+            const myCycle = relData ? (currentUser.uid === relData.user_a ? relData.cycle_a : relData.cycle_b) : { day: 14, mood: 'Happy ✨', status: 'Send snacks' };
+            const partnerCycle = relData ? (currentUser.uid === relData.user_a ? relData.cycle_b : relData.cycle_a) : { day: 14, mood: 'Happy ✨', status: 'Send snacks' };
+
+            const moods = [{ mood: 'Connected 🤍', emoji: '✨', note: 'Real-time sync enabled!', date: 'Just now' }];
+            const memories = relData ? relData.memories : [];
+            const macroGoals = relData ? relData.goals : [];
+            const spotifyUrl = relData ? relData.spotify_url : "";
+
             const [newMoodNote, setNewMoodNote] = useState('');
-            
-            const [memories, setMemories] = useState([{ id: 1, url: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', caption: 'Coffee in Montmartre.', date: 'Oct 12' }]);
             const [newMemoryUrl, setNewMemoryUrl] = useState('');
             const [newMemoryCap, setNewMemoryCap] = useState('');
             const [selectedMemory, setSelectedMemory] = useState(null);
 
-            const [macroGoals, setMacroGoals] = useState([
-                { id: 1, title: "Plan Anniversary Trip", category: "Romance", miniGoals: [ {id: 101, text: "Book flights to Kyoto", completed: false}, {id: 102, text: "Reserve ryokan", completed: true} ] },
-                { id: 2, title: "Build Emergency Fund", category: "Finances", miniGoals: [ {id: 201, text: "Save first $1000", completed: true}, {id: 202, text: "Automate transfers", completed: false} ] }
-            ]);
+            // Sync connection
+            useEffect(() => {
+                if (currentUser && currentUser.relationship_id) {
+                    setRelationshipId(currentUser.relationship_id);
+                }
+            }, [currentUser]);
 
-            const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
+            useEffect(() => {
+                if (relationshipId) {
+                    const unsub = dbAPI.syncRelationship(relationshipId, (data) => {
+                        setRelData(data);
+                        // Trigger in-app nudge alerts in real-time
+                        const isUserA = currentUser.uid === data.user_a;
+                        if (isUserA && data.nudge_a) {
+                            setNudgeAlert(true);
+                            // Auto turn off nudge flag
+                            dbAPI.updateRelationship(relationshipId, { nudge_a: false });
+                        } else if (!isUserA && data.nudge_b) {
+                            setNudgeAlert(true);
+                            dbAPI.updateRelationship(relationshipId, { nudge_b: false });
+                        }
+                    });
+                    return unsub;
+                }
+            }, [relationshipId]);
 
-            // Removed lucide init to prevent React crashes
-
-            // Handlers
-            const addMood = (mood, emoji) => {
-                setMoods([{ mood, emoji, note: newMoodNote, date: 'Just now' }, ...moods]);
-                setNewMoodNote('');
-            };
-
-            const addMemory = () => {
-                if(newMemoryUrl) {
-                    setMemories([{ id: Date.now(), url: newMemoryUrl, caption: newMemoryCap || 'A new memory', date: 'Just now' }, ...memories]);
-                    setNewMemoryUrl(''); setNewMemoryCap('');
+            const handleLogout = () => {
+                if (useFirebase) {
+                    auth.signOut().then(() => {
+                        setCurrentUser(null);
+                        setRelationshipId(null);
+                        setRelData(null);
+                    });
+                } else {
+                    setCurrentUser(null);
+                    setRelationshipId(null);
+                    setRelData(null);
                 }
             };
 
+            // Database state mutation wrappers
+            const updateMyScores = (index, value) => {
+                if (!relData) return;
+                const isUserA = currentUser.uid === relData.user_a;
+                const newScores = isUserA ? [...relData.scores_a] : [...relData.scores_b];
+                newScores[index] = value;
+                dbAPI.updateRelationship(relationshipId, isUserA ? { scores_a: newScores } : { scores_b: newScores });
+            };
+
+            const toggleMeal = (mealKey) => {
+                if (!relData) return;
+                const isUserA = currentUser.uid === relData.user_a;
+                const currentMeals = isUserA ? { ...relData.meals_a } : { ...relData.meals_b };
+                currentMeals[mealKey] = !currentMeals[mealKey];
+                dbAPI.updateRelationship(relationshipId, isUserA ? { meals_a: currentMeals } : { meals_b: currentMeals });
+            };
+
+            const sendNudge = () => {
+                if (!relData) return;
+                const isUserA = currentUser.uid === relData.user_a;
+                // If I am User A, nudge goes to User B (nudge_b), else nudge_a
+                dbAPI.updateRelationship(relationshipId, isUserA ? { nudge_b: true } : { nudge_a: true });
+                alert("Nudge sent to partner's device!");
+            };
+
+            const updateCycle = (updates) => {
+                if (!relData) return;
+                const isUserA = currentUser.uid === relData.user_a;
+                const currentCycle = isUserA ? { ...relData.cycle_a } : { ...relData.cycle_b };
+                const newCycle = { ...currentCycle, ...updates };
+                dbAPI.updateRelationship(relationshipId, isUserA ? { cycle_a: newCycle } : { cycle_b: newCycle });
+            };
+
+            const addMemory = () => {
+                if (!relData || !newMemoryUrl) return;
+                const parsed = parseImageUrl(newMemoryUrl);
+                const newMem = {
+                    id: Date.now(),
+                    url: parsed,
+                    caption: newMemoryCap || 'A sweet memory',
+                    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                };
+                dbAPI.updateRelationship(relationshipId, { memories: [newMem, ...relData.memories] });
+                setNewMemoryUrl(''); setNewMemoryCap('');
+            };
+
+            const toggleMiniGoal = (mId, miId) => {
+                if (!relData) return;
+                const updatedGoals = relData.goals.map(g => {
+                    if (g.id === mId) {
+                        return {
+                            ...g,
+                            miniGoals: g.miniGoals.map(m => m.id === miId ? { ...m, completed: !m.completed } : m)
+                        };
+                    }
+                    return g;
+                });
+                dbAPI.updateRelationship(relationshipId, { goals: updatedGoals });
+            };
+
+            const addMiniGoal = (mId, text) => {
+                if (!relData) return;
+                const updatedGoals = relData.goals.map(g => {
+                    if (g.id === mId) {
+                        return {
+                            ...g,
+                            miniGoals: [...g.miniGoals, { id: Date.now(), text, completed: false }]
+                        };
+                    }
+                    return g;
+                });
+                dbAPI.updateRelationship(relationshipId, { goals: updatedGoals });
+            };
+
+            const addMacroGoal = () => {
+                if (!relData) return;
+                const title = prompt("Enter Macro Goal Title:");
+                if (!title) return;
+                const newGoal = {
+                    id: Date.now(),
+                    title,
+                    category: "Romance, Intimacy & Relationships",
+                    miniGoals: []
+                };
+                dbAPI.updateRelationship(relationshipId, { goals: [...relData.goals, newGoal] });
+            };
+
+            const saveSpotifyPlaylist = (url) => {
+                if (!relData) return;
+                dbAPI.updateRelationship(relationshipId, { spotify_url: url });
+            };
+
+            // Layout computations
             const combinedScores = userScores.map((s, i) => s + partnerScores[i]);
             const focusCategory = CATEGORIES[combinedScores.indexOf(Math.min(...combinedScores))];
 
+            // Render authentication layer
+            if (!currentUser) {
+                return <AuthScreen onAuth={setCurrentUser} />;
+            }
+
+            // Render partner connection layer
+            if (!relationshipId) {
+                return <PairingScreen currentUser={currentUser} onPair={setRelationshipId} onSignOut={handleLogout} />;
+            }
+
             return (
                 <div className="min-h-screen md:pl-64 relative pb-20 pt-20 md:pt-0">
-                    {/* Mobile Header */}
-                    <div className="md:hidden fixed top-0 left-0 w-full bg-card border-b-3 border-tech-blue p-4 z-40 flex justify-between items-center shadow-brutal-sm">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-sunflower border-2 border-tech-blue rounded flex items-center justify-center shrink-0 text-lg text-paper">☀️</div>
-                            <h1 className="font-black text-xl tracking-widest text-white">LUMINA</h1>
+                    
+                    {/* In-app Nudge Warning Toast */}
+                    {nudgeAlert && (
+                        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-[#E8C5C8] border-3 border-clay p-4 rounded-2xl shadow-brutal z-[200] flex items-center gap-3 max-w-sm animate-bounce">
+                            <span className="text-2xl">🍳</span>
+                            <div>
+                                <h4 className="font-black text-charcoal">Meal Reminder!</h4>
+                                <p className="text-xs font-bold text-charcoal/80">Your partner sent you a nudge! Make sure to grab some food! 🤍</p>
+                            </div>
+                            <button onClick={() => setNudgeAlert(false)} className="text-charcoal font-black text-sm ml-4">✕</button>
                         </div>
-                        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="brutal-btn p-2 border-2 border-tech-blue bg-paper rounded-lg w-10 h-10 flex items-center justify-center text-xl text-white">
+                    )}
+
+                    {/* Mobile Header */}
+                    <div className="md:hidden fixed top-0 left-0 w-full bg-paper border-b-3 border-clay p-4 z-40 flex justify-between items-center shadow-brutal-sm">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-blush border-2 border-clay rounded flex items-center justify-center shrink-0 text-lg text-charcoal">☀️</div>
+                            <h1 className="font-black text-xl tracking-widest text-charcoal">LUMINA</h1>
+                        </div>
+                        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="brutal-btn p-2 border-2 border-clay bg-paper rounded-lg w-10 h-10 flex items-center justify-center text-xl text-charcoal">
                             {isMobileMenuOpen ? "❌" : "☰"}
                         </button>
                     </div>
 
                     {/* Mobile Menu Overlay */}
-                    {isMobileMenuOpen && <div className="fixed inset-0 bg-tech-blue/50 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>}
+                    {isMobileMenuOpen && <div className="fixed inset-0 bg-[#A28C81]/30 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>}
 
-                    <Sidebar activePage={activePage} setActivePage={setActivePage} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
+                    <Sidebar activePage={activePage} setActivePage={setActivePage} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} onSignOut={handleLogout} />
                     
                     {/* Memory Detail Modal Overlay */}
                     {selectedMemory && (
-                        <div className="fixed inset-0 bg-tech-blue/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setSelectedMemory(null)}>
-                            <div className="bg-card border-3 border-tech-blue p-6 rounded-3xl shadow-brutal max-w-2xl w-full" onClick={e => e.stopPropagation()}>
-                                <img src={selectedMemory.url} className="w-full h-[400px] object-cover border-3 border-tech-blue rounded-xl mb-6"/>
-                                <h3 className="font-black text-3xl mb-2 text-white">{selectedMemory.caption}</h3>
-                                <p className="font-bold opacity-50 uppercase tracking-widest text-blue-400">{selectedMemory.date}</p>
-                                <button className="brutal-btn bg-sunflower border-3 border-tech-blue p-4 mt-8 rounded-xl w-full font-black text-lg text-paper" onClick={() => setSelectedMemory(null)}>Close Memory</button>
+                        <div className="fixed inset-0 bg-[#2F2E2C]/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setSelectedMemory(null)}>
+                            <div className="bg-paper border-3 border-clay p-6 rounded-3xl shadow-brutal max-w-2xl w-full" onClick={e => e.stopPropagation()}>
+                                <img src={selectedMemory.url} className="w-full h-[400px] object-cover border-3 border-clay rounded-xl mb-6"/>
+                                <h3 className="font-black text-3xl mb-2 text-charcoal">{selectedMemory.caption}</h3>
+                                <p className="font-bold opacity-50 uppercase tracking-widest text-clay">{selectedMemory.date}</p>
+                                <button className="brutal-btn bg-blush border-3 border-clay p-4 mt-8 rounded-xl w-full font-black text-lg text-charcoal" onClick={() => setSelectedMemory(null)}>Close Memory</button>
                             </div>
                         </div>
                     )}
 
                     <div className="max-w-6xl mx-auto p-4 md:p-8">
-                        {/* Header */}
-                        <header className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8 bg-card border-3 border-tech-blue p-4 rounded-2xl shadow-brutal">
+                        {/* Sync Status Header */}
+                        <header className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8 bg-paper border-3 border-clay p-4 rounded-2xl shadow-brutal">
                             <div className="flex items-center gap-3 w-full md:w-auto">
-                                <div className="w-12 h-12 rounded-full bg-sunflower border-3 border-tech-blue flex items-center justify-center shadow-brutal-sm text-2xl text-paper">🌻</div>
-                                <div><h2 className="font-extrabold text-xl leading-tight text-white">Your Journey</h2><p className="text-xs font-bold opacity-70 text-blue-400">Chapter 4</p></div>
+                                <div className="w-12 h-12 rounded-full bg-blush border-3 border-clay flex items-center justify-center shadow-brutal-sm text-2xl text-charcoal">🌻</div>
+                                <div><h2 className="font-extrabold text-xl leading-tight text-charcoal">Your Space</h2><p className="text-xs font-bold opacity-70 text-clay">Relationship Connected 🤍</p></div>
                             </div>
-                            <h1 className="font-black text-2xl tracking-widest uppercase hidden md:block text-white">
-                                {activePage === 'wheel' ? 'HOLISTIC WHEEL' : activePage.replace('-', ' ')}
+                            <h1 className="font-black text-2xl tracking-widest uppercase hidden md:block text-charcoal">
+                                {activePage === 'wheel' ? 'Life Balance' : activePage.replace('-', ' ')}
                             </h1>
                             <div className="flex items-center gap-3 text-right w-full md:w-auto justify-end">
-                                <div><h2 className="font-extrabold text-xl leading-tight text-white">Partner</h2><p className="text-xs font-bold opacity-70 text-blue-400">Sync: 85%</p></div>
-                                <div className="w-12 h-12 rounded-full bg-partner-blue border-3 border-tech-blue flex items-center justify-center shadow-brutal-sm text-2xl relative text-paper">
+                                <div>
+                                    <h2 className="font-extrabold text-xl leading-tight text-charcoal">Partner Sync</h2>
+                                    <p className="text-xs font-bold opacity-70 text-clay">Secure Sync Active</p>
+                                </div>
+                                <div className="w-12 h-12 rounded-full bg-blush border-3 border-clay flex items-center justify-center shadow-brutal-sm text-2xl relative text-charcoal">
                                     🎧{isAnimating && <div className="absolute -top-4 -right-2 text-xl sweat-animation">💦</div>}
                                 </div>
                             </div>
@@ -300,72 +826,104 @@
                         {/* PAGE: DASHBOARD */}
                         {activePage === 'dashboard' && (
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
-                                <div className="bg-card border-3 border-tech-blue p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
-                                    <h2 className="font-black text-2xl border-b-3 border-tech-blue pb-4 text-white">Today's Summary</h2>
+                                
+                                {/* 1. Today's Summary & Dynamic Mood */}
+                                <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
+                                    <h2 className="font-black text-2xl border-b-3 border-clay pb-4 text-charcoal">Today's Summary</h2>
                                     <div className="flex items-center gap-4">
-                                        <div className="w-16 h-16 rounded-full bg-sunflower border-3 border-tech-blue flex items-center justify-center text-3xl text-paper">{moods[0]?.emoji || '✨'}</div>
-                                        <div><h3 className="font-bold text-lg text-white">Your Mood: {moods[0]?.mood || 'Not logged'}</h3><p className="opacity-70 font-bold text-blue-300">"{moods[0]?.note || 'No notes yet'}"</p></div>
+                                        <div className="w-16 h-16 rounded-full bg-blush border-3 border-clay flex items-center justify-center text-3xl text-charcoal">{moods[0]?.emoji || '✨'}</div>
+                                        <div><h3 className="font-bold text-lg text-charcoal">Your Mood Status: Connected</h3><p className="opacity-70 font-bold text-clay">"{moods[0]?.note}"</p></div>
                                     </div>
-                                    <div className="flex items-center gap-4 mt-4">
-                                        <div className="w-16 h-16 rounded-full bg-partner-blue border-3 border-tech-blue flex items-center justify-center text-3xl text-paper">🎧</div>
-                                        <div><h3 className="font-bold text-lg text-white">Partner Status</h3><p className="opacity-70 font-bold text-blue-300">Listening to Coldplay, 300 miles away.</p></div>
+                                    <div className="flex items-center gap-4 mt-4 border-t-2 border-clay/20 pt-4">
+                                        <div className="w-16 h-16 rounded-full bg-blush border-3 border-clay flex items-center justify-center text-3xl text-charcoal">❤️</div>
+                                        <div>
+                                            <h3 className="font-bold text-lg text-charcoal">Wellness Sync</h3>
+                                            <p className="opacity-70 font-bold text-clay">
+                                                Cycle: Day {partnerCycle.day || 14} ({partnerCycle.mood})
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="bg-card border-3 border-tech-blue p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
-                                    <h2 className="font-black text-2xl border-b-3 border-tech-blue pb-4 text-white">Quick Actions</h2>
-                                    <div className="grid grid-cols-2 gap-4 h-full">
-                                        <button className="brutal-btn bg-sunflower border-3 border-tech-blue rounded-xl font-bold flex flex-col items-center justify-center p-4 text-paper" onClick={() => setActivePage('mood')}><span className="text-3xl mb-2">😊</span> Log Mood</button>
-                                        <button className="brutal-btn bg-partner-blue border-3 border-tech-blue rounded-xl font-bold flex flex-col items-center justify-center p-4 text-paper" onClick={() => setActivePage('journal')}><span className="text-3xl mb-2">📸</span> Add Memory</button>
-                                        <button className="brutal-btn bg-card border-3 border-tech-blue rounded-xl font-bold flex flex-col items-center justify-center p-4 text-white hover:bg-blue-900/20" onClick={() => setActivePage('goals')}><span className="text-3xl mb-2">✅</span> View Goals</button>
-                                        <button className="brutal-btn bg-card border-3 border-tech-blue rounded-xl font-bold flex flex-col items-center justify-center p-4 text-white hover:bg-blue-900/20" onClick={() => { setIsAnimating(true); setTimeout(() => setIsAnimating(false), 1500); }}><span className="text-3xl mb-2">⚡</span> Send Ping</button>
+
+                                {/* 2. Daily Food Tracker widget */}
+                                <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
+                                    <div className="border-b-3 border-clay pb-4 flex justify-between items-center">
+                                        <h2 className="font-black text-2xl text-charcoal">Daily Wellness Check</h2>
+                                        <span className="text-xs uppercase font-extrabold bg-blush border-2 border-clay px-2 py-0.5 rounded-full">Meal Sync</span>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 gap-6">
+                                        {/* My meal trackers */}
+                                        <div className="flex flex-col gap-3">
+                                            <h3 className="font-black text-sm text-clay uppercase tracking-wider">Did you eat today?</h3>
+                                            {['breakfast', 'lunch', 'dinner'].map((mealKey) => (
+                                                <div key={mealKey} className="flex items-center gap-3">
+                                                    <button className={`monoline-checkbox shrink-0 ${myMeals[mealKey] ? 'checked' : ''}`} onClick={() => toggleMeal(mealKey)}></button>
+                                                    <span className="font-bold capitalize text-charcoal text-sm">
+                                                        {mealKey === 'breakfast' ? 'Breakfast 🍳' : mealKey === 'lunch' ? 'Lunch 🥪' : 'Dinner 🍛'}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Partner meal trackers */}
+                                        <div className="flex flex-col gap-3 border-l-2 border-clay/20 pl-6">
+                                            <h3 className="font-black text-sm text-clay uppercase tracking-wider">Did partner eat?</h3>
+                                            {['breakfast', 'lunch', 'dinner'].map((mealKey) => (
+                                                <div key={mealKey} className="flex items-center gap-3">
+                                                    <div className={`monoline-checkbox shrink-0 pointer-events-none ${partnerMeals[mealKey] ? 'checked' : 'opacity-40'}`}></div>
+                                                    <span className="font-bold capitalize text-charcoal text-sm">
+                                                        {mealKey === 'breakfast' ? 'Breakfast 🍳' : mealKey === 'lunch' ? 'Lunch 🥪' : 'Dinner 🍛'}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <button onClick={sendNudge} className="brutal-btn bg-blush border-3 border-clay rounded-xl font-bold p-3 mt-4 text-center text-charcoal shadow-brutal-sm text-sm">
+                                        🔔 Remind Partner to Eat
+                                    </button>
+                                </div>
+
+                                {/* 3. Quick Actions */}
+                                <div className="lg:col-span-2 bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
+                                    <h2 className="font-black text-2xl border-b-3 border-clay pb-4 text-charcoal">Quick Spaces</h2>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <button className="brutal-btn bg-blush border-3 border-clay rounded-xl font-bold flex flex-col items-center justify-center p-4 text-charcoal" onClick={() => setActivePage('mood')}><span className="text-3xl mb-2">😊</span> Log Mood</button>
+                                        <button className="brutal-btn bg-blush border-3 border-clay rounded-xl font-bold flex flex-col items-center justify-center p-4 text-charcoal" onClick={() => setActivePage('journal')}><span className="text-3xl mb-2">📸</span> Add Memory</button>
+                                        <button className="brutal-btn bg-paper border-3 border-clay rounded-xl font-bold flex flex-col items-center justify-center p-4 text-charcoal hover:bg-blush/20" onClick={() => setActivePage('goals')}><span className="text-3xl mb-2">✅</span> View Goals</button>
+                                        <button className="brutal-btn bg-paper border-3 border-clay rounded-xl font-bold flex flex-col items-center justify-center p-4 text-charcoal hover:bg-blush/20" onClick={() => { setIsAnimating(true); setTimeout(() => setIsAnimating(false), 1500); }}><span className="text-3xl mb-2">⚡</span> Send Ping</button>
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {/* PAGE: WHEEL */}
+                        {/* PAGE: LIFE BALANCE WHEEL */}
                         {activePage === 'wheel' && (
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-16">
-                                <div className="lg:col-span-4 bg-card border-3 border-tech-blue p-6 rounded-3xl shadow-brutal flex flex-col gap-6">
-                                    <div className="flex items-center gap-2 mb-2 text-white"><span className="text-xl">🎚️</span><h2 className="font-extrabold text-xl">Adjust Balance</h2></div>
-                                    <div className="overflow-y-auto pr-2" style={{maxHeight: '500px'}}>
+                                <div className="lg:col-span-5 bg-card border-3 border-clay p-6 rounded-3xl shadow-brutal flex flex-col gap-6">
+                                    <div className="flex items-center gap-2 mb-2 text-charcoal"><span className="text-xl">🎚️</span><h2 className="font-extrabold text-xl">Adjust Balance</h2></div>
+                                    <div className="overflow-y-auto pr-2" style={{maxHeight: '520px'}}>
                                         {CATEGORIES.map((cat, i) => (
-                                            <div key={i} className="mb-6 pb-6 border-b-2 border-tech-blue border-dashed last:border-0 last:pb-0">
-                                                <h3 className="font-bold text-sm mb-3 text-white">{cat}</h3>
+                                            <div key={i} className="mb-6 pb-6 border-b-2 border-clay border-dashed last:border-0 last:pb-0">
+                                                <h3 className="font-bold text-sm mb-3 text-charcoal">{cat}</h3>
                                                 <div className="flex items-center gap-4 mb-3">
-                                                    <div className="w-8 h-8 rounded-full bg-sunflower border-2 border-tech-blue flex items-center justify-center font-bold text-xs shadow-brutal-active shrink-0 text-paper">{userScores[i]}</div>
-                                                    <input type="range" min="1" max="10" value={userScores[i]} onChange={e => { const newScores = [...userScores]; newScores[i] = parseInt(e.target.value); setUserScores(newScores); }} />
-                                                </div>
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-8 h-8 rounded-full bg-partner-blue border-2 border-tech-blue flex items-center justify-center font-bold text-xs shadow-brutal-active shrink-0 text-paper">{partnerScores[i]}</div>
-                                                    <input type="range" min="1" max="10" className="partner-slider" value={partnerScores[i]} onChange={e => { const newScores = [...partnerScores]; newScores[i] = parseInt(e.target.value); setPartnerScores(newScores); }} />
+                                                    <div className="w-8 h-8 rounded-full bg-blush border-2 border-clay flex items-center justify-center font-bold text-xs shadow-brutal-active shrink-0 text-charcoal">{userScores[i]}</div>
+                                                    <input type="range" min="1" max="10" value={userScores[i]} onChange={e => updateMyScores(i, parseInt(e.target.value))} />
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
 
-                                <div className="lg:col-span-8 flex flex-col gap-8">
+                                <div className="lg:col-span-7 flex flex-col gap-8">
                                     <RadarChart userScores={userScores} partnerScores={partnerScores} />
                                     <div className="relative">
                                         {isAnimating && <div className="absolute top-1/2 left-1/2 z-50 text-4xl fly-animation pointer-events-none">✈️</div>}
-                                        <button onClick={() => { setIsAnimating(true); setTimeout(() => setIsAnimating(false), 1500); }} className="brutal-btn w-full bg-sunflower border-3 border-tech-blue rounded-2xl shadow-brutal p-6 flex flex-col items-center justify-center text-center relative overflow-hidden text-paper">
+                                        <button onClick={() => { setIsAnimating(true); setTimeout(() => setIsAnimating(false), 1500); }} className="brutal-btn w-full bg-blush border-3 border-clay rounded-2xl shadow-brutal p-6 flex flex-col items-center justify-center text-center relative overflow-hidden text-charcoal">
                                             <span className="text-sm font-extrabold uppercase tracking-widest opacity-80 mb-1">Recommended Action</span>
-                                            <h3 className="text-2xl font-black">Plan a {focusCategory} Activity</h3>
+                                            <h3 className="text-2xl font-black">Plan a {focusCategory.split(',')[0]} Activity</h3>
                                         </button>
-                                    </div>
-                                    <div className="bg-card border-3 border-tech-blue rounded-3xl shadow-brutal overflow-hidden">
-                                        <div className="border-b-3 border-tech-blue p-4 bg-paper flex items-center gap-2 text-white"><span className="text-xl">📖</span><h2 className="font-extrabold text-lg">The Crucible (Reflections)</h2></div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 divide-y-3 md:divide-y-0 md:divide-x-3 divide-tech-blue">
-                                            <div className="p-6 bg-yellow-50/10">
-                                                <div className="flex items-center gap-2 mb-4"><div className="w-6 h-6 rounded-full bg-sunflower border-2 border-tech-blue"></div><span className="font-bold text-white">Your Notes</span></div>
-                                                <textarea className="notebook-textarea text-white" placeholder="Write your reflections here..." defaultValue="I think we should focus more on saving for our next trip to Tokyo."></textarea>
-                                            </div>
-                                            <div className="p-6 bg-blue-50/10">
-                                                <div className="flex items-center gap-2 mb-4"><div className="w-6 h-6 rounded-full bg-partner-blue border-2 border-tech-blue"></div><span className="font-bold text-white">Partner's Notes</span></div>
-                                                <textarea className="notebook-textarea text-white" placeholder="Partner's reflections..." defaultValue="Agreed! Though I'm feeling a bit burnt out with work."></textarea>
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -376,13 +934,13 @@
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                 {macroGoals.map(goal => (
                                     <GoalCard key={goal.id} goal={goal} 
-                                        onToggleMini={(mId, miId) => { setMacroGoals(prev => prev.map(g => g.id === mId ? {...g, miniGoals: g.miniGoals.map(m => m.id === miId ? {...m, completed: !m.completed} : m)} : g)); }} 
-                                        onAddMini={(mId, text) => { setMacroGoals(prev => prev.map(g => g.id === mId ? {...g, miniGoals: [...g.miniGoals, {id: Date.now(), text, completed: false}]} : g)); }} 
+                                        onToggleMini={toggleMiniGoal} 
+                                        onAddMini={addMiniGoal} 
                                     />
                                 ))}
-                                <button className="brutal-btn bg-paper border-3 border-tech-blue border-dashed p-5 rounded-3xl shadow-brutal flex flex-col items-center justify-center min-h-[200px]" onClick={() => { const title = prompt("New Macro Goal:"); if(title) setMacroGoals([...macroGoals, { id: Date.now(), title, category: "Personal Growth", miniGoals: [] }]); }}>
-                                    <div className="w-12 h-12 rounded-full border-3 border-tech-blue flex items-center justify-center text-2xl font-black bg-card mb-3 text-white">+</div>
-                                    <h3 className="font-extrabold text-lg text-white">New Macro Goal</h3>
+                                <button className="brutal-btn bg-paper border-3 border-clay border-dashed p-5 rounded-3xl shadow-brutal flex flex-col items-center justify-center min-h-[200px]" onClick={addMacroGoal}>
+                                    <div className="w-12 h-12 rounded-full border-3 border-clay flex items-center justify-center text-2xl font-black bg-card mb-3 text-charcoal">+</div>
+                                    <h3 className="font-extrabold text-lg text-charcoal">New Macro Goal</h3>
                                 </button>
                             </div>
                         )}
@@ -390,26 +948,26 @@
                         {/* PAGE: MOOD SPACE */}
                         {activePage === 'mood' && (
                             <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-                                <div className="md:col-span-5 bg-card border-3 border-tech-blue p-6 rounded-3xl shadow-brutal">
-                                    <h2 className="font-black text-2xl mb-6 text-white">Log Your Mood</h2>
+                                <div className="md:col-span-5 bg-card border-3 border-clay p-6 rounded-3xl shadow-brutal">
+                                    <h2 className="font-black text-2xl mb-6 text-charcoal">Log Your Mood</h2>
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                                         {[['Happy','😊'],['Calm','😌'],['Stressed','😫'],['Sad','🥺'],['Excited','🤩'],['Tired','😴']].map(([m, e]) => (
-                                            <button key={m} onClick={() => addMood(m, e)} className="brutal-btn bg-paper border-3 border-tech-blue rounded-xl p-4 flex flex-col items-center hover:bg-blue-900/30 text-white">
+                                            <button key={m} onClick={() => alert("Logged Mood: " + m)} className="brutal-btn bg-paper border-3 border-clay rounded-xl p-4 flex flex-col items-center hover:bg-blush/30 text-charcoal">
                                                 <span className="text-3xl mb-2">{e}</span><span className="font-bold text-xs">{m}</span>
                                             </button>
                                         ))}
                                     </div>
-                                    <textarea className="notebook-textarea border-3 border-tech-blue bg-paper rounded-xl p-4 w-full text-white" placeholder="Add a note to your mood..." value={newMoodNote} onChange={e => setNewMoodNote(e.target.value)}></textarea>
+                                    <textarea className="notebook-textarea border-3 border-clay bg-paper rounded-xl p-4 w-full text-charcoal" placeholder="Add a note to your mood..." value={newMoodNote} onChange={e => setNewMoodNote(e.target.value)}></textarea>
                                 </div>
                                 <div className="md:col-span-7 flex flex-col gap-4">
-                                    <h2 className="font-black text-2xl mb-2 text-white">Mood History</h2>
+                                    <h2 className="font-black text-2xl mb-2 text-charcoal">Mood History</h2>
                                     {moods.map((m, i) => (
-                                        <div key={i} className="bg-card border-3 border-tech-blue p-4 rounded-2xl shadow-brutal-sm flex gap-4 items-center">
-                                            <div className="w-16 h-16 shrink-0 bg-sunflower border-3 border-tech-blue rounded-full flex items-center justify-center text-3xl text-paper">{m.emoji}</div>
+                                        <div key={i} className="bg-card border-3 border-clay p-4 rounded-2xl shadow-brutal-sm flex gap-4 items-center">
+                                            <div className="w-16 h-16 shrink-0 bg-blush border-3 border-clay rounded-full flex items-center justify-center text-3xl text-charcoal">{m.emoji}</div>
                                             <div>
-                                                <h3 className="font-extrabold text-lg text-white">{m.mood}</h3>
-                                                {m.note && <p className="font-bold opacity-80 text-sm mt-1 text-blue-300">"{m.note}"</p>}
-                                                <p className="text-xs font-black opacity-50 mt-2 text-blue-400">{m.date}</p>
+                                                <h3 className="font-extrabold text-lg text-charcoal">{m.mood}</h3>
+                                                {m.note && <p className="font-bold opacity-80 text-sm mt-1 text-clay">"{m.note}"</p>}
+                                                <p className="text-xs font-black opacity-50 mt-2 text-clay">{m.date}</p>
                                             </div>
                                         </div>
                                     ))}
@@ -420,17 +978,23 @@
                         {/* PAGE: MEMORY JOURNAL */}
                         {activePage === 'journal' && (
                             <div>
-                                <div className="bg-card border-3 border-tech-blue p-6 rounded-3xl shadow-brutal mb-8 flex flex-col md:flex-row gap-4 md:items-center">
-                                    <input type="text" placeholder="Image URL..." className="border-3 border-tech-blue bg-paper p-3 rounded-xl flex-1 font-bold outline-none text-white placeholder-blue-400" value={newMemoryUrl} onChange={e => setNewMemoryUrl(e.target.value)} />
-                                    <input type="text" placeholder="Caption..." className="border-3 border-tech-blue bg-paper p-3 rounded-xl flex-1 font-bold outline-none text-white placeholder-blue-400" value={newMemoryCap} onChange={e => setNewMemoryCap(e.target.value)} />
-                                    <button onClick={addMemory} className="brutal-btn bg-sunflower border-3 border-tech-blue p-3 px-6 rounded-xl font-black text-paper">Add Memory</button>
+                                <div className="bg-card border-3 border-clay p-6 rounded-3xl shadow-brutal mb-8 flex flex-col md:flex-row gap-4 md:items-center">
+                                    <div className="flex-1 flex flex-col gap-1">
+                                        <label className="text-xs font-black text-clay uppercase tracking-widest pl-1">Input Link (Direct / Google usercontent / Standard URL)</label>
+                                        <input type="text" placeholder="Image URL..." className="border-3 border-clay bg-paper p-3 rounded-xl font-bold outline-none text-charcoal placeholder-clay text-sm" value={newMemoryUrl} onChange={e => setNewMemoryUrl(e.target.value)} />
+                                    </div>
+                                    <div className="flex-1 flex flex-col gap-1">
+                                        <label className="text-xs font-black text-clay uppercase tracking-widest pl-1">Caption</label>
+                                        <input type="text" placeholder="Caption..." className="border-3 border-clay bg-paper p-3 rounded-xl font-bold outline-none text-charcoal placeholder-clay text-sm" value={newMemoryCap} onChange={e => setNewMemoryCap(e.target.value)} />
+                                    </div>
+                                    <button onClick={addMemory} className="brutal-btn bg-blush border-3 border-clay p-3 px-6 rounded-xl font-black text-charcoal self-end mb-1">Add Memory</button>
                                 </div>
                                 <div className="flex flex-wrap gap-6 md:gap-12 justify-center pt-8">
                                     {memories.map((mem, i) => (
-                                        <div key={mem.id} className="polaroid w-full max-w-[250px]" style={{'--rand': Math.random()}} onClick={() => setSelectedMemory(mem)}>
+                                        <div key={mem.id} className="polaroid w-full max-w-[250px]" style={{'--rand': 0.1}} onClick={() => setSelectedMemory(mem)}>
                                             <img src={mem.url} alt="Memory" />
-                                            <p className="mt-4 font-black text-lg text-center tracking-wide text-white">{mem.caption}</p>
-                                            <p className="text-center text-xs font-bold opacity-50 mt-1 text-blue-300">{mem.date}</p>
+                                            <p className="mt-4 font-black text-lg text-center tracking-wide text-charcoal">{mem.caption}</p>
+                                            <p className="text-center text-xs font-bold opacity-50 mt-1 text-clay">{mem.date || 'Just now'}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -440,78 +1004,139 @@
                         {/* PAGE: SOUNDTRACK */}
                         {activePage === 'soundtrack' && (
                             <div>
-                                {!isSpotifyConnected ? (
-                                    <div className="bg-card border-3 border-tech-blue p-12 rounded-3xl shadow-brutal text-center flex flex-col items-center max-w-xl mx-auto">
-                                        <span className="text-6xl mb-4">🎵</span>
-                                        <h2 className="font-black text-2xl mb-4 text-white">Connect Soundtrack</h2>
-                                        <p className="font-bold opacity-70 mb-8 text-blue-300">Link your Spotify account to share playlists and sync live listening.</p>
-                                        <button className="brutal-btn bg-sunflower border-3 border-tech-blue p-4 rounded-xl font-bold px-8 w-full text-paper" onClick={() => setIsSpotifyConnected(true)}>Connect Spotify</button>
+                                <div className="bg-card border-3 border-clay p-6 rounded-3xl shadow-brutal mb-8 flex flex-col gap-4">
+                                    <h2 className="font-black text-2xl text-charcoal">Update Playlist Link</h2>
+                                    <p className="text-xs font-bold text-clay">Paste your standard Spotify playlist link or track URL to parse and embed it dynamically!</p>
+                                    <div className="flex flex-col md:flex-row gap-4 items-center">
+                                        <input type="text" placeholder="https://open.spotify.com/playlist/..." className="border-3 border-clay bg-paper p-3 rounded-xl flex-1 font-bold outline-none text-charcoal placeholder-clay text-sm w-full" value={spotifyUrl} onChange={e => saveSpotifyPlaylist(e.target.value)} />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-8">
+                                    {spotifyUrl ? (
+                                        <div className="bg-card border-3 border-clay p-6 rounded-3xl shadow-brutal text-center flex flex-col items-center">
+                                            <h3 className="font-extrabold text-2xl text-charcoal mb-4">Your Dynamic Soundtrack</h3>
+                                            <div className="w-full max-w-2xl mx-auto rounded-2xl overflow-hidden border-3 border-clay">
+                                                <iframe src={parseSpotifyUrl(spotifyUrl)} width="100%" height="380" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" style={{borderRadius: '12px'}}></iframe>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-card border-3 border-clay p-12 rounded-3xl shadow-brutal text-center flex flex-col items-center max-w-xl mx-auto">
+                                            <span className="text-6xl mb-4">🎵</span>
+                                            <h2 className="font-black text-2xl mb-4 text-charcoal">No Soundtrack Connected</h2>
+                                            <p className="font-bold opacity-70 mb-8 text-clay">Paste a Spotify URL in the input container above to parse and activate your synchronized playlist!</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PAGE: CYCLE TRACKER (FLO ALTERNATIVE WIDGET) */}
+                        {activePage === 'wellness' && (
+                            <div className="flex flex-col gap-6 max-w-2xl mx-auto">
+                                
+                                {/* 1. Role Toggle selector */}
+                                <div className="bg-card border-3 border-clay p-4 rounded-2xl shadow-brutal flex justify-between items-center">
+                                    <h3 className="font-black text-charcoal">Toggle Dashboard Interface View</h3>
+                                    <div className="flex bg-beige border-2 border-clay rounded-xl overflow-hidden">
+                                        <button onClick={() => setCycleRole('her')} className={`p-2 px-4 font-black text-sm transition-all ${cycleRole === 'her' ? 'bg-blush text-charcoal' : 'text-clay'}`}>Her Interface</button>
+                                        <button onClick={() => setCycleRole('him')} className={`p-2 px-4 font-black text-sm transition-all ${cycleRole === 'him' ? 'bg-blush text-charcoal' : 'text-clay'}`}>His Interface</button>
+                                    </div>
+                                </div>
+
+                                {/* 2. Active Role render */}
+                                {cycleRole === 'her' ? (
+                                    /* HER LOGGER INTERFACE VIEW */
+                                    <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
+                                        <div className="border-b-3 border-clay pb-4">
+                                            <h2 className="font-black text-3xl text-charcoal">My Wellness Cycle Logger</h2>
+                                            <p className="text-xs font-bold text-clay">Track days, update energy, and communicate boundaries easily and securely.</p>
+                                        </div>
+
+                                        {/* Day counter slider */}
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs uppercase font-extrabold text-clay">Cycle Day Counter</span>
+                                                <span className="text-sm font-black bg-blush px-3 py-0.5 border-2 border-clay rounded-full text-charcoal">Day {myCycle.day}</span>
+                                            </div>
+                                            <input type="range" min="1" max="28" value={myCycle.day} onChange={e => updateCycle({ day: parseInt(e.target.value) })} />
+                                        </div>
+
+                                        {/* Mood quick toggles */}
+                                        <div className="flex flex-col gap-2">
+                                            <span className="text-xs uppercase font-extrabold text-clay">Quick Mood Status</span>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                {['Tired 🥱', 'Cramps ⚡', 'Happy ✨'].map((m) => (
+                                                    <button key={m} onClick={() => updateCycle({ mood: m })} className={`p-3 rounded-xl border-3 border-clay font-bold text-sm text-center brutal-btn ${myCycle.mood === m ? 'bg-blush shadow-brutal-sm translate-x-1' : 'bg-paper'}`}>
+                                                        {m}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Status boundary flag toggler */}
+                                        <div className="flex flex-col gap-2">
+                                            <span className="text-xs uppercase font-extrabold text-clay">Send Notification Indicator Status</span>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                {['Need space 🤍', 'Send snacks 🍫'].map((s) => (
+                                                    <button key={s} onClick={() => updateCycle({ status: s })} className={`p-3 rounded-xl border-3 border-clay font-bold text-sm text-center brutal-btn ${myCycle.status === s ? 'bg-blush shadow-brutal-sm translate-x-1' : 'bg-paper'}`}>
+                                                        {s}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
                                 ) : (
-                                    <div className="flex flex-col gap-8">
-                                        <div className="flex justify-between items-center bg-card border-3 border-tech-blue p-4 rounded-2xl shadow-brutal-sm">
-                                            <div className="flex items-center gap-3"><span className="text-2xl">🟢</span><h3 className="font-bold text-white">Spotify Connected</h3></div>
-                                            <button className="brutal-btn border-2 border-tech-blue bg-paper px-4 py-2 rounded-lg font-bold text-sm text-white" onClick={() => setIsSpotifyConnected(false)}>Disconnect</button>
+                                    /* HIS SUPPORTIVE VIEW CARD */
+                                    <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6 text-center">
+                                        <div className="w-16 h-16 bg-blush border-3 border-clay rounded-full flex items-center justify-center text-3xl mx-auto shadow-brutal-sm">🤍</div>
+                                        <div>
+                                            <h3 className="text-2xl font-black text-charcoal">Partner Cycle Sync</h3>
+                                            <p className="text-xs font-bold text-clay uppercase tracking-widest mt-1">Glanceable Dashboard Sync</p>
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                            <div className="bg-card border-3 border-tech-blue p-6 rounded-3xl shadow-brutal flex flex-col items-center text-center">
-                                                <div className="w-32 h-32 rounded-full border-3 border-tech-blue bg-sunflower shadow-brutal overflow-hidden mb-4 animate-[spin_10s_linear_infinite]">
-                                                    <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80" className="w-full h-full object-cover opacity-80" />
+
+                                        <div className="bg-beige border-3 border-clay p-6 rounded-2xl flex flex-col gap-3">
+                                            <div className="flex justify-around items-center divide-x-2 divide-clay/20">
+                                                <div>
+                                                    <span className="text-xs uppercase font-extrabold text-clay block">Cycle Status</span>
+                                                    <span className="text-lg font-black text-charcoal block mt-1">Day {partnerCycle.day}</span>
                                                 </div>
-                                                <h3 className="font-extrabold text-2xl text-white">Yellow</h3>
-                                                <p className="font-bold opacity-70 text-blue-300">Coldplay</p>
-                                                <button className="brutal-btn bg-tech-blue text-paper w-full border-3 border-tech-blue p-3 rounded-xl mt-6 font-black flex items-center justify-center gap-2" onClick={() => alert("Opening Spotify...")}><span className="text-lg">▶️</span> Play on Spotify</button>
-                                            </div>
-                                            <div className="bg-card border-3 border-tech-blue p-6 rounded-3xl shadow-brutal flex flex-col items-center text-center">
-                                                <div className="w-32 h-32 rounded-full border-3 border-tech-blue bg-partner-blue shadow-brutal overflow-hidden mb-4 animate-[spin_10s_linear_infinite]">
-                                                    <img src="https://images.unsplash.com/photo-1493225457124-a1a2a5fa3685?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80" className="w-full h-full object-cover opacity-80" />
+                                                <div className="pl-6">
+                                                    <span className="text-xs uppercase font-extrabold text-clay block">Feeling</span>
+                                                    <span className="text-lg font-black text-charcoal block mt-1">{partnerCycle.mood}</span>
                                                 </div>
-                                                <h3 className="font-extrabold text-2xl text-white">Sweater Weather</h3>
-                                                <p className="font-bold opacity-70 text-blue-300">The Neighbourhood</p>
-                                                <button className="brutal-btn bg-tech-blue text-paper w-full border-3 border-tech-blue p-3 rounded-xl mt-6 font-black flex items-center justify-center gap-2" onClick={() => alert("Opening Spotify...")}><span className="text-lg">▶️</span> Play on Spotify</button>
+                                                <div className="pl-6">
+                                                    <span className="text-xs uppercase font-extrabold text-clay block">Boundary Status</span>
+                                                    <span className="text-lg font-black text-charcoal block mt-1">{partnerCycle.status}</span>
+                                                </div>
                                             </div>
+                                        </div>
+
+                                        <div className="p-4 bg-blush/30 border-3 border-dashed border-clay rounded-xl text-sm font-black text-charcoal leading-relaxed">
+                                            📢 Partner Cycle Sync: Day {partnerCycle.day} (Energy: {partnerCycle.mood.includes('Tired') || partnerCycle.mood.includes('Cramps') ? 'Low' : 'High'}) 🤍. 
+                                            {partnerCycle.status.includes('snacks') ? " Chocolates and snacks recommended!" : " Giving space and extra supportive love today might be nice!"}
                                         </div>
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        {/* PAGE: WELLNESS */}
-                        {activePage === 'wellness' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="bg-card border-3 border-tech-blue p-8 rounded-3xl shadow-brutal flex flex-col gap-2">
-                                    <h3 className="font-black text-2xl flex items-center gap-3 mb-2 text-white"><span className="text-3xl">🌙</span> Sleep Cycle</h3>
-                                    <div className="border-b-3 border-tech-blue border-dashed pb-4 mb-2">
-                                        <p className="font-extrabold text-lg text-blue-400">Partner slept 6.5h last night.</p>
-                                    </div>
-                                    <p className="font-bold opacity-80 text-blue-100">Low energy expected today. Recommendation: Don't bring up heavy topics before dinner.</p>
-                                </div>
-                                <div className="bg-card border-3 border-tech-blue p-8 rounded-3xl shadow-brutal flex flex-col gap-2">
-                                    <h3 className="font-black text-2xl flex items-center gap-3 mb-2 text-white"><span className="text-3xl">💧</span> Flo App</h3>
-                                    <div className="border-b-3 border-tech-blue border-dashed pb-4 mb-2">
-                                        <p className="font-extrabold text-lg text-blue-400">Partner is in Luteal phase.</p>
-                                    </div>
-                                    <p className="font-bold opacity-80 text-blue-100">Recommendation: Send chocolate and extra supportive messages.</p>
-                                </div>
-                            </div>
-                        )}
-
                         {/* PAGE: GROWTH ARC */}
                         {activePage === 'growth' && (
-                            <div className="bg-card border-3 border-tech-blue p-8 rounded-3xl shadow-brutal max-w-3xl mx-auto">
-                                <h2 className="font-black text-3xl mb-8 border-b-3 border-tech-blue pb-4 text-white">Our Journey</h2>
-                                <div className="border-l-3 border-tech-blue ml-4 pl-10 flex flex-col gap-10">
+                            <div className="bg-card border-3 border-clay p-8 rounded-3xl shadow-brutal max-w-3xl mx-auto">
+                                <h2 className="font-black text-3xl mb-8 border-b-3 border-clay pb-4 text-charcoal">Our Journey</h2>
+                                <div className="border-l-3 border-clay ml-4 pl-10 flex flex-col gap-10">
                                     <div className="relative">
-                                        <div className="absolute -left-[43.5px] top-0 w-8 h-8 bg-sunflower border-3 border-tech-blue rounded-full shadow-brutal-sm"></div>
-                                        <h3 className="font-black text-2xl text-white">Chapter 1: The Meeting</h3>
-                                        <p className="opacity-70 font-bold uppercase tracking-widest text-sm mb-2 text-blue-400">August 2024</p>
-                                        <p className="font-bold text-blue-100">The day we first met at the coffee shop in downtown.</p>
+                                        <div className="absolute -left-[43.5px] top-0 w-8 h-8 bg-blush border-3 border-clay rounded-full shadow-brutal-sm"></div>
+                                        <h3 className="font-black text-2xl text-charcoal">Chapter 1: The Meeting</h3>
+                                        <p className="opacity-70 font-bold uppercase tracking-widest text-sm mb-2 text-clay">August 2024</p>
+                                        <p className="font-bold text-charcoal/80">The day we first met at the coffee shop in downtown.</p>
                                     </div>
                                     <div className="relative">
-                                        <div className="absolute -left-[43.5px] top-0 w-8 h-8 bg-partner-blue border-3 border-tech-blue rounded-full shadow-brutal-sm"></div>
-                                        <h3 className="font-black text-2xl text-white">Chapter 2: The Distance</h3>
-                                        <p className="opacity-70 font-bold uppercase tracking-widest text-sm mb-2 text-blue-400">December 2024</p>
-                                        <p className="font-bold text-blue-100">Moving 300 miles apart for the new job opportunity. Hard, but worth it.</p>
+                                        <div className="absolute -left-[43.5px] top-0 w-8 h-8 bg-blush border-3 border-clay rounded-full shadow-brutal-sm"></div>
+                                        <h3 className="font-black text-2xl text-charcoal">Chapter 2: The Distance</h3>
+                                        <p className="opacity-70 font-bold uppercase tracking-widest text-sm mb-2 text-clay">December 2024</p>
+                                        <p className="font-bold text-charcoal/80">Moving apart for the new job opportunity. Hard, but worth it.</p>
                                     </div>
                                 </div>
                             </div>
