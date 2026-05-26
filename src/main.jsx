@@ -1,1630 +1,1340 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
-import { motion, AnimatePresence, useSpring, useTransform } from 'framer-motion';
+// hooks imported directly
 
-// Exactly 6 Wellness Categories for the life balance tracker
-const CATEGORIES = [
-    'Romance, Intimacy & Relationships',
-    'Physical & Mental Health',
-    'Personal Growth & Spirituality',
-    'Career & Business',
-    'Finances',
-    'Fun & Leisure'
-];
+        // Exactly 6 Wellness Categories
+        const CATEGORIES = [
+            'Romance, Intimacy & Relationships',
+            'Physical & Mental Health',
+            'Personal Growth & Spirituality',
+            'Career & Business',
+            'Finances',
+            'Fun & Leisure'
+        ];
 
-// --- UTILS ---
-const parseSpotifyUrl = (url) => {
-    if (!url) return '';
-    const regex = /(?:https?:\/\/)?(?:open\.)?spotify\.com\/(playlist|track|album)\/([a-zA-Z0-9]{22})/;
-    const match = url.match(regex);
-    if (match) {
-        return `https://open.spotify.com/embed/${match[1]}/${match[2]}`;
-    }
-    return '';
-};
+        // --- UTILS ---
+        const polarToCartesian = (centerX, centerY, radius, angleInDegrees) => {
+            const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+            return { x: centerX + (radius * Math.cos(angleInRadians)), y: centerY + (radius * Math.sin(angleInRadians)) };
+        };
 
-const parseImageUrl = (url) => {
-    if (!url) return '';
-    const urlRegex = /(https?:\/\/[^\s"'>\(\)]+)/;
-    const match = url.match(urlRegex);
-    let extractedUrl = match ? match[1] : url;
-    extractedUrl = extractedUrl.replace(/["'>\)]+$/, '');
+        // Spotify URL extractor and embed formatter
+        const parseSpotifyUrl = (url) => {
+            if (!url) return '';
+            // Robust regex to extract the 22-character alphanumeric ID and type from playlist or track URLs
+            const regex = /(?:https?:\/\/)?(?:open\.)?spotify\.com\/(playlist|track|album)\/([a-zA-Z0-9]{22})/;
+            const match = url.match(regex);
+            if (match) {
+                return `https://open.spotify.com/embed/${match[1]}/${match[2]}`;
+            }
+            return '';
+        };
 
-    if (extractedUrl.includes('googleusercontent.com') || extractedUrl.includes('lh3.google.com') || extractedUrl.includes('lh3.googleusercontent.com')) {
-        const cleanUrl = extractedUrl.split('=')[0];
-        return `${cleanUrl}=w1000-h1000`;
-    }
-    return extractedUrl;
-};
+        // Google Photos image parser and direct file extractor
+        const parseImageUrl = (url) => {
+            if (!url) return '';
+            // If the user pasted an HTML tag wrapper, extract the URL itself
+            const urlRegex = /(https?:\/\/[^\s"'>\(\)]+)/;
+            const match = url.match(urlRegex);
+            let extractedUrl = match ? match[1] : url;
+            extractedUrl = extractedUrl.replace(/["'>\)]+$/, '');
 
-// --- GOOGLE DRIVE APP DATA SYNCING HELPERS ---
-const GOOGLE_CLIENT_ID = "887230704768-mh4ea4sl361fjhq20k03056bjmc49mkv.apps.googleusercontent.com";
-let isGapiInitialized = false;
-let gapiInitPromise = null;
+            // Strip webpage wrappers or sizing parameters for Google Photos / googleusercontent URLs
+            if (extractedUrl.includes('googleusercontent.com') || extractedUrl.includes('lh3.google.com') || extractedUrl.includes('lh3.googleusercontent.com')) {
+                const cleanUrl = extractedUrl.split('=')[0];
+                return `${cleanUrl}=w1000-h1000`;
+            }
+            return extractedUrl;
+        };
 
-const ensureGapiInitialized = async (accessToken) => {
-    if (isGapiInitialized) {
-        if (accessToken && window.gapi && gapi.client) {
-            gapi.client.setToken({ access_token: accessToken });
-        }
-        return;
-    }
-    
-    if (!gapiInitPromise) {
-        gapiInitPromise = (async () => {
-            let attempts = 0;
-            while (!window.gapi) {
-                attempts++;
-                if (attempts > 100) {
-                    throw new Error("Google API library (gapi) failed to load.");
+        // --- GOOGLE DRIVE APP DATA SYNCING HELPERS ---
+        
+        const GOOGLE_CLIENT_ID = "436330682579-98k02r6ekk3lbu94d1n4k4e87cnvio2f.apps.googleusercontent.com";
+               // Helper to load and initialize standard Google API Client (gapi.client) silently and securely
+        let isGapiInitialized = false;
+        let gapiInitPromise = null;
+        
+        const ensureGapiInitialized = async (accessToken) => {
+            if (isGapiInitialized) {
+                if (accessToken && window.gapi && gapi.client) {
+                    gapi.client.setToken({ access_token: accessToken });
                 }
-                await new Promise(resolve => setTimeout(resolve, 100));
-            }
-            await new Promise((resolve) => gapi.load('client', resolve));
-            await gapi.client.init({
-                discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/discovery"],
-            });
-            isGapiInitialized = true;
-        })();
-    }
-    
-    await gapiInitPromise;
-    if (accessToken && window.gapi && gapi.client) {
-        gapi.client.setToken({ access_token: accessToken });
-    }
-};
-
-const executeGapiOperation = async (accessToken, operation) => {
-    await ensureGapiInitialized(accessToken);
-    if (!isGapiInitialized || !window.gapi || !gapi.client) {
-        throw new Error("The gapi client has not been initialized yet.");
-    }
-    return await operation();
-};
-
-const createNewSyncFile = async (accessToken, content) => {
-    return await executeGapiOperation(accessToken, async () => {
-        const boundary = "314159265358979323846";
-        const metadata = {
-            name: "anti_gravity_sync.json",
-            parents: ["appDataFolder"]
-        };
-        const response = await gapi.client.request({
-            path: '/upload/drive/v3/files',
-            method: 'POST',
-            params: { uploadType: 'multipart' },
-            headers: {
-                'Content-Type': `multipart/related; boundary=${boundary}`
-            },
-            body: `\r\n--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}` +
-                  `\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(content)}` +
-                  `\r\n--${boundary}--`
-        });
-        return response.result.id;
-    });
-};
-
-const checkOrCreateSyncFile = async (accessToken, initialContent) => {
-    return await executeGapiOperation(accessToken, async () => {
-        const response = await gapi.client.drive.files.list({
-            spaces: 'appDataFolder',
-            q: "name = 'anti_gravity_sync.json' and 'appDataFolder' in parents",
-            fields: 'files(id, name)'
-        });
-        const files = response.result.files;
-        if (files && files.length > 0) {
-            return files[0].id;
-        } else {
-            return await createNewSyncFile(accessToken, initialContent);
-        }
-    });
-};
-
-const downloadSyncState = async (accessToken, fileId) => {
-    return await executeGapiOperation(accessToken, async () => {
-        try {
-            const response = await gapi.client.drive.files.get({
-                fileId: fileId,
-                alt: 'media'
-            });
-            return response.result;
-        } catch (err) {
-            if (err.status === 404) {
-                return null;
-            }
-            throw err;
-        }
-    });
-};
-
-const uploadSyncState = async (accessToken, fileId, content) => {
-    return await executeGapiOperation(accessToken, async () => {
-        const response = await gapi.client.request({
-            path: `/upload/drive/v3/files/${fileId}`,
-            method: 'PATCH',
-            params: { uploadType: 'media' },
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(content)
-        });
-        return response.result;
-    });
-};
-
-const fetchGoogleUserInfo = async (accessToken) => {
-    const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-        headers: { "Authorization": `Bearer ${accessToken}` }
-    });
-    if (!res.ok) throw new Error("Failed to fetch Google profile.");
-    return await res.json();
-};
-
-// --- RENDER SOUND/PING EFFECT ---
-const playSoftChime = () => {
-    try {
-        const context = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = context.createOscillator();
-        const gain = context.createGain();
-        osc.connect(gain);
-        gain.connect(context.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(440, context.currentTime); // A4 note
-        osc.frequency.exponentialRampToValueAtTime(880, context.currentTime + 0.15); // Slide up to A5
-        gain.gain.setValueAtTime(0.08, context.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.6);
-        osc.start(context.currentTime);
-        osc.stop(context.currentTime + 0.6);
-    } catch (e) {
-        // AudioContext browser restrictions fallback
-    }
-};
-
-// --- SUNBEAM FIELD COMPONENT (Warm, golden dots drifting upward) ---
-const SunbeamField = () => {
-    const [particles, setParticles] = useState([]);
-    useEffect(() => {
-        setParticles(Array.from({ length: 30 }, (_, i) => ({
-            id: i,
-            x: Math.random() * 100,
-            y: Math.random() * 100,
-            size: Math.random() * 4 + 2,
-            duration: Math.random() * 12 + 8,
-            delay: Math.random() * 6
-        })));
-    }, []);
-
-    return (
-        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-            {particles.map(p => (
-                <motion.div
-                    key={p.id}
-                    className="absolute rounded-full"
-                    style={{
-                        left: `${p.x}%`,
-                        top: `${p.y}%`,
-                        width: p.size,
-                        height: p.size,
-                        backgroundColor: 'rgba(232,184,75,0.22)',
-                    }}
-                    animate={{ y: [0, -100, 0], opacity: [0.1, 0.45, 0.1] }}
-                    transition={{ duration: p.duration, repeat: Infinity, delay: p.delay, ease: 'easeInOut' }}
-                />
-            ))}
-        </div>
-    );
-};
-
-// --- CUSTOM SVG ICONS (Clean, lightweight inline replacements matching Lucide) ---
-const MailIcon = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <rect width="20" height="16" x="2" y="4" rx="2" />
-        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-    </svg>
-);
-
-const PenLineIcon = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <path d="M12 20h9" />
-        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
-);
-
-const ImageIcon = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-        <circle cx="9" cy="9" r="2" />
-        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-    </svg>
-);
-
-const HeartIcon = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
-    </svg>
-);
-
-const SettingsIcon = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-        <circle cx="12" cy="12" r="3" />
-    </svg>
-);
-
-// --- CHARTS: Warm Sunflower Rethemed ---
-const RethemedDashboardChart = ({ myMood, partnerMood, myName, partnerName }) => {
-    const canvasRef = useRef(null);
-    const chartRef = useRef(null);
-
-    useEffect(() => {
-        if (!canvasRef.current) return;
-        const ctx = canvasRef.current.getContext('2d');
-
-        if (chartRef.current) {
-            chartRef.current.destroy();
-        }
-
-        chartRef.current = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: [myName, partnerName],
-                datasets: [
-                    {
-                        data: [myMood, 10 - myMood],
-                        backgroundColor: ['#E8B84B', '#FAF6EC'],
-                        borderColor: '#A07850',
-                        borderWidth: 1.5,
-                        circumference: 180,
-                        rotation: 270,
-                        weight: 0.5,
-                        borderRadius: 4
-                    },
-                    {
-                        data: [partnerMood, 10 - partnerMood],
-                        backgroundColor: ['#E8C5C0', '#FAF6EC'],
-                        borderColor: '#A07850',
-                        borderWidth: 1.5,
-                        circumference: 180,
-                        rotation: 270,
-                        weight: 0.5,
-                        borderRadius: 4
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '70%',
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        enabled: true,
-                        backgroundColor: '#FFFEF9',
-                        titleColor: '#2C2A26',
-                        bodyColor: '#2C2A26',
-                        borderColor: 'rgba(160, 120, 80, 0.15)',
-                        borderWidth: 1.5,
-                        bodyFont: { family: 'Nunito', size: 12 }
-                    }
-                }
-            }
-        });
-
-        return () => {
-            if (chartRef.current) chartRef.current.destroy();
-        };
-    }, [myMood, partnerMood, myName, partnerName]);
-
-    return (
-        <div className="relative w-40 h-40 flex items-center justify-center">
-            <canvas ref={canvasRef} />
-            <div className="absolute flex flex-col items-center justify-center text-center mt-3">
-                <span className="text-[9px] font-mono tracking-wider text-text-muted uppercase">Mood Level</span>
-                <div className="flex gap-1.5 items-baseline">
-                    <span className="text-lg font-bold text-sunflower">{myMood}</span>
-                    <span className="text-xs text-text-muted">/</span>
-                    <span className="text-lg font-bold text-blush">{partnerMood}</span>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const RethemedHistoryChart = ({ historyYou, historyThem, myName, partnerName }) => {
-    const canvasRef = useRef(null);
-    const chartRef = useRef(null);
-
-    useEffect(() => {
-        if (!canvasRef.current) return;
-        const ctx = canvasRef.current.getContext('2d');
-
-        if (chartRef.current) {
-            chartRef.current.destroy();
-        }
-
-        chartRef.current = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                datasets: [
-                    {
-                        label: myName,
-                        data: historyYou,
-                        borderColor: '#E8B84B',
-                        backgroundColor: 'rgba(232, 184, 75, 0.05)',
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 2,
-                        pointBackgroundColor: '#E8B84B',
-                        pointBorderColor: '#FAF6EC',
-                        pointHoverRadius: 6,
-                        pointRadius: 4,
-                    },
-                    {
-                        label: partnerName,
-                        data: historyThem,
-                        borderColor: '#E8C5C0',
-                        backgroundColor: 'rgba(232, 197, 192, 0.05)',
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 2,
-                        pointBackgroundColor: '#E8C5C0',
-                        pointBorderColor: '#FAF6EC',
-                        pointHoverRadius: 6,
-                        pointRadius: 4,
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true,
-                        labels: {
-                            color: '#2C2A26',
-                            font: { family: 'Nunito', size: 11 }
-                        }
-                    },
-                    tooltip: {
-                        backgroundColor: '#FFFEF9',
-                        titleColor: '#2C2A26',
-                        bodyColor: '#2C2A26',
-                        borderColor: 'rgba(160, 120, 80, 0.15)',
-                        borderWidth: 1.5
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#8A7F72', font: { family: 'Nunito', size: 10 } }
-                    },
-                    y: {
-                        min: 1,
-                        max: 10,
-                        grid: { color: 'rgba(160, 120, 80, 0.06)' },
-                        ticks: { color: '#8A7F72', font: { family: 'Nunito', size: 10 } }
-                    }
-                }
-            }
-        });
-
-        return () => {
-            if (chartRef.current) chartRef.current.destroy();
-        };
-    }, [historyYou, historyThem, myName, partnerName]);
-
-    return (
-        <div className="w-full h-48">
-            <canvas ref={canvasRef} />
-        </div>
-    );
-};
-
-// --- MAIN APP COMPONENT ---
-const App = () => {
-    const [currentView, setCurrentView] = useState('A'); 
-    const [activeRoom, setActiveRoom] = useState('inbox'); 
-    const [isSending, setIsSending] = useState(false);
-    const [reactionTarget, setReactionTarget] = useState(null);
-    const [floatingReactions, setFloatingReactions] = useState([]);
-    const [selectedPhoto, setSelectedPhoto] = useState(null);
-
-    // Core Relationship synchronized state
-    const [relationship, setRelationship] = useState({
-        scores_a: [8, 7, 9, 6, 8, 9],
-        scores_b: [7, 8, 8, 5, 9, 9],
-        meals_a: { breakfast: true, lunch: false, dinner: false },
-        meals_b: { breakfast: false, lunch: true, dinner: false },
-        cycle_a: { day: 14, mood: 'Calm ✨', status: 'Send love 🤍' },
-        cycle_b: { day: 10, mood: 'Tired ☕', status: 'Need a warm hug' },
-        memories: [
-            { id: 1, url: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', caption: 'That rainy afternoon where we shared an umbrella and got lost in Montmartre.', date: 'Oct 12, 2025' }
-        ],
-        notes: [
-            { id: 1, text: "Thinking of you as the golden sun settles in here. The space between us feels wide tonight, but looking up at the same light makes it a little smaller.", sender: 'B', timestamp: '10:14 PM', reactions: ['heart'] },
-            { id: 2, text: "Always under the same sky, my love. I just set our favorite sunflower on the counter. It feels like you're right here.", sender: 'A', timestamp: '10:18 PM', reactions: ['star'] }
-        ],
-        checkin_a: {
-            mood: 8,
-            q1: "The flower stand down the street had some fresh, tall golden daisies.",
-            q2: "Golden Hour - Kacey Musgraves",
-            q3: "Keep warm, sleep early. I'm with you in my sweet dreams."
-        },
-        checkin_b: {
-            mood: 6,
-            q1: "A quiet, gentle sunbeam hit my notebook today. It felt so soft.",
-            q2: "Sunflower - Rex Orange County",
-            q3: "I left a tiny warm trace on our timeline. Read it when you wake."
-        },
-        mood_history_a: [7, 8, 6, 8, 9, 7, 8],
-        mood_history_b: [6, 7, 5, 6, 8, 6, 6],
-        spotify_url: "https://open.spotify.com/playlist/37i9dQZF1EJH75B3mnDgmp?si=31caa83610fa42a2"
-    });
-
-    const [noteText, setNoteText] = useState("");
-    const [newPhotoUrl, setNewPhotoUrl] = useState("");
-    const [newPhotoCap, setNewPhotoCap] = useState("");
-    const [uploading, setUploading] = useState(false);
-
-    // Google Auth & Sync States
-    const [accessToken, setAccessToken] = useState(() => localStorage.getItem('antigravity_access_token') || 'OFFLINE_BYPASS');
-    const [googleUser, setGoogleUser] = useState(null);
-    const [syncFileId, setSyncFileId] = useState(() => localStorage.getItem('antigravity_file_id') || '');
-    const [syncStatus, setSyncStatus] = useState('offline'); 
-    const [gapiLoading, setGapiLoading] = useState(false);
-    const [gapiStatus, setGapiStatus] = useState('loading'); 
-    const [localAlert, setLocalAlert] = useState("");
-
-    const tokenClientRef = useRef(null);
-
-    // Check prefers-reduced-motion
-    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    // Toast alarm utility
-    const triggerToast = (msg) => {
-        setLocalAlert(msg);
-        setTimeout(() => setLocalAlert(""), 4500);
-    };
-
-    // Load standard Google API client silently
-    useEffect(() => {
-        const warmUpGapi = async () => {
-            try {
-                await ensureGapiInitialized(accessToken);
-                setGapiStatus('ready');
-            } catch (err) {
-                console.error("GAPI warmup failed:", err);
-                setGapiStatus('error');
-            }
-        };
-        warmUpGapi();
-    }, []);
-
-    // Init Google Identity Services with Retry Loop (Bug 2 Fix)
-    useEffect(() => {
-        if (gapiStatus !== 'ready') return;
-
-        const tryInit = () => {
-            if (!window.google?.accounts) {
-                setTimeout(tryInit, 200); 
                 return;
             }
-            google.accounts.id.initialize({
-                client_id: GOOGLE_CLIENT_ID,
-                callback: async (credentialResponse) => {
-                    try {
-                        const base64Url = credentialResponse.credential.split('.')[1];
-                        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                        const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
-                            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                        }).join(''));
-                        const decodedUser = JSON.parse(jsonPayload);
-                        setGoogleUser({
-                            name: decodedUser.name,
-                            email: decodedUser.email,
-                            picture: decodedUser.picture
-                        });
-                    } catch (e) {
-                        console.error("Failed to decode JWT:", e);
+            
+            if (!gapiInitPromise) {
+                gapiInitPromise = (async () => {
+                    // 1. Wait for standard window.gapi script to load completely (with a 10s timeout)
+                    let attempts = 0;
+                    while (!window.gapi) {
+                        attempts++;
+                        if (attempts > 100) { // 100 * 100ms = 10 seconds
+                            throw new Error("Google API library (gapi) failed to load. Please check your network connection.");
+                        }
+                        await new Promise(resolve => setTimeout(resolve, 100));
                     }
+                    
+                    // 2. Load the 'client' module
+                    await new Promise((resolve) => gapi.load('client', resolve));
+                    
+                    // 3. Initialize the Google API client purely with Discovery Docs (no clientId to avoid legacy auth2 loading)
+                    await gapi.client.init({
+                        discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"],
+                    });
+                    
+                    isGapiInitialized = true;
+                })();
+            }
+            
+            await gapiInitPromise;
+            if (accessToken && window.gapi && gapi.client) {
+                gapi.client.setToken({ access_token: accessToken });
+            }
+        };
 
-                    if (tokenClientRef.current) {
-                        setSyncStatus('connecting');
-                        tokenClientRef.current.requestAccessToken();
-                    }
+        // Safety wrapper to guarantee that any Google API call only executes after full client initialization
+        const executeGapiOperation = async (accessToken, operation) => {
+            await ensureGapiInitialized(accessToken);
+            if (!isGapiInitialized || !window.gapi || !gapi.client) {
+                throw new Error("The gapi client has not been initialized yet. Call gapi.client.init() first.");
+            }
+            return await operation();
+        };
+
+        // Silent production fallback to create a new sync file in the Shared Google Drive Folder
+        const createNewSyncFile = async (accessToken, content) => {
+            return await executeGapiOperation(accessToken, async () => {
+                const boundary = "314159265358979323846";
+                const metadata = {
+                    name: "anti_gravity_sync.json",
+                    parents: ["1STj7pICszrgkrfZCFzvo94g-y_Y78Vvf"]
+                };
+                const response = await gapi.client.request({
+                    path: '/upload/drive/v3/files',
+                    method: 'POST',
+                    params: { uploadType: 'multipart', supportsAllDrives: true },
+                    headers: {
+                        'Content-Type': `multipart/related; boundary=${boundary}`
+                    },
+                    body: `\r\n--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}` +
+                          `\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(content)}` +
+                          `\r\n--${boundary}--`
+                });
+                return response.result.id;
+            });
+        };
+
+        // Searches for anti_gravity_sync.json inside the shared folder or creates it if missing. Returns file ID.
+        const checkOrCreateSyncFile = async (accessToken, initialContent) => {
+            return await executeGapiOperation(accessToken, async () => {
+                const response = await gapi.client.drive.files.list({
+                    spaces: 'drive',
+                    q: "name = 'anti_gravity_sync.json' and '1STj7pICszrgkrfZCFzvo94g-y_Y78Vvf' in parents and trashed = false",
+                    fields: 'files(id, name)',
+                    supportsAllDrives: true,
+                    includeItemsFromAllDrives: true
+                });
+                const files = response.result.files;
+                if (files && files.length > 0) {
+                    return files[0].id;
+                } else {
+                    return await createNewSyncFile(accessToken, initialContent);
                 }
             });
+        };
 
-            tokenClientRef.current = google.accounts.oauth2.initTokenClient({
-                client_id: GOOGLE_CLIENT_ID,
-                scope: 'https://www.googleapis.com/auth/drive.appdata',
-                callback: async (tokenResponse) => {
-                    if (tokenResponse.error) {
-                        setSyncStatus('error');
-                        triggerToast("Google Sync authorization failed.");
+        // Download contents of anti_gravity_sync.json from the shared Google Drive folder. Returns null if 404.
+        const downloadSyncState = async (accessToken, fileId) => {
+            return await executeGapiOperation(accessToken, async () => {
+                try {
+                    const response = await gapi.client.drive.files.get({
+                        fileId: fileId,
+                        alt: 'media',
+                        supportsAllDrives: true
+                    });
+                    return response.result;
+                } catch (err) {
+                    if (err.status === 404) {
+                        return null;
+                    }
+                    throw err;
+                }
+            });
+        };
+
+        // Upload/Save contents of anti_gravity_sync.json to the shared Google Drive folder
+        const uploadSyncState = async (accessToken, fileId, content) => {
+            return await executeGapiOperation(accessToken, async () => {
+                const response = await gapi.client.request({
+                    path: `/upload/drive/v3/files/${fileId}`,
+                    method: 'PATCH',
+                    params: { uploadType: 'media', supportsAllDrives: true },
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(content)
+                });
+                return response.result;
+            });
+        };
+
+        // Retrieve user profile metadata using access token
+        const fetchGoogleUserInfo = async (accessToken) => {
+            const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+                headers: { "Authorization": `Bearer ${accessToken}` }
+            });
+            if (!res.ok) throw new Error("Failed to fetch Google profile.");
+            return await res.json();
+        };
+
+        // --- COMPONENTS ---
+        
+        // 6-Section Radar Chart with Dual Overlays (translucent Clay Taupe and Muted Blush) using Chart.js
+        const RadarChart = ({ userScores, partnerScores, myName, partnerName }) => {
+            const canvasRef = React.useRef(null);
+            const chartRef = React.useRef(null);
+
+            React.useEffect(() => {
+                if (!canvasRef.current) return;
+                const ctx = canvasRef.current.getContext('2d');
+
+                // Destroy any existing chart instance to prevent memory leaks and glitching
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                // Create standard Chart.js Radar Chart
+                chartRef.current = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: CATEGORIES.map(c => c.split(',')[0]), // Shorten category labels
+                        datasets: [
+                            {
+                                label: myName || 'You',
+                                data: userScores,
+                                backgroundColor: 'rgba(162, 140, 129, 0.4)', // Clay Taupe translucent
+                                borderColor: '#A28C81',
+                                borderWidth: 3,
+                                pointBackgroundColor: '#A28C81',
+                                pointBorderColor: '#FAF8F5',
+                                pointHoverBackgroundColor: '#FAF8F5',
+                                pointHoverBorderColor: '#A28C81',
+                                fill: true,
+                            },
+                            {
+                                label: partnerName || 'Partner',
+                                data: partnerScores,
+                                backgroundColor: 'rgba(232, 197, 200, 0.5)', // Muted Blush translucent
+                                borderColor: '#E8C5C8',
+                                borderWidth: 3,
+                                pointBackgroundColor: '#E8C5C8',
+                                pointBorderColor: '#FAF8F5',
+                                pointHoverBackgroundColor: '#FAF8F5',
+                                pointHoverBorderColor: '#E8C5C8',
+                                fill: true,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    color: '#2F2E2C',
+                                    font: {
+                                        family: 'Nunito',
+                                        weight: 'bold',
+                                        size: 11
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#2F2E2C',
+                                titleFont: { family: 'Nunito', weight: 'bold' },
+                                bodyFont: { family: 'Nunito' }
+                            }
+                        },
+                        scales: {
+                            r: {
+                                circular: true, // Guarantees a perfect circle layout geometry
+                                suggestedMin: 0,
+                                suggestedMax: 10,
+                                ticks: {
+                                    display: false,
+                                    stepSize: 2
+                                },
+                                grid: {
+                                    color: 'rgba(162, 140, 129, 0.25)',
+                                    lineWidth: 1
+                                },
+                                angleLines: {
+                                    color: 'rgba(162, 140, 129, 0.25)'
+                                },
+                                pointLabels: {
+                                    color: '#2F2E2C',
+                                    font: {
+                                        family: 'Nunito',
+                                        weight: 'black',
+                                        size: 10
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [userScores, partnerScores, myName, partnerName]);
+
+            return (
+                <div className="relative w-full aspect-square max-w-[340px] mx-auto p-4 bg-paper border-3 border-clay rounded-3xl shadow-brutal flex items-center justify-center">
+                    <canvas ref={canvasRef} />
+                </div>
+            );
+        };
+
+        const ConfettiOverlay = () => (
+            <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none z-50 flex items-end justify-center pb-10">
+                {Array.from({length: 15}).map((_, i) => (
+                    <div key={i} className="absolute w-4 h-4 confetti-particle border-2 border-clay" style={{ backgroundColor: i % 2 === 0 ? '#E8C5C8' : '#FAF8F5', left: '50%', bottom: '20px', animationDelay: `${Math.random() * 0.1}s`, '--tx': `${-100 + Math.random() * 200}px`, '--ty': `${-150 - Math.random() * 150}px`, borderRadius: Math.random() > 0.5 ? '50%' : '0' }}></div>
+                ))}
+            </div>
+        );
+
+        const GoalCard = ({ goal, onToggleMini, onAddMini }) => {
+            const [newMiniText, setNewMiniText] = useState("");
+            const [animatingMiniId, setAnimatingMiniId] = useState(null);
+            const [showConfetti, setShowConfetti] = useState(false);
+            const completedCount = goal.miniGoals.filter(m => m.completed).length;
+            const progress = goal.miniGoals.length === 0 ? 0 : (completedCount / goal.miniGoals.length) * 100;
+
+            const handleToggle = (miniId, wasCompleted) => {
+                onToggleMini(goal.id, miniId);
+                if (!wasCompleted) {
+                    setAnimatingMiniId(miniId); setTimeout(() => setAnimatingMiniId(null), 500);
+                    if (completedCount + 1 === goal.miniGoals.length && goal.miniGoals.length > 0) {
+                        setShowConfetti(true); setTimeout(() => setShowConfetti(false), 2000);
+                    }
+                }
+            };
+            return (
+                <div className="bg-paper border-3 border-clay p-5 rounded-3xl shadow-brutal relative flex flex-col gap-4">
+                    {showConfetti && <ConfettiOverlay />}
+                    <div className="flex justify-between items-start"><span className="text-xs font-black uppercase tracking-widest bg-blush border-2 border-clay px-3 py-1 rounded-full shadow-brutal-active text-charcoal">{goal.category.split(',')[0]}</span></div>
+                    <h3 className="text-xl font-extrabold text-charcoal">{goal.title}</h3>
+                    <div className="w-full h-4 rounded-full border-3 border-clay overflow-hidden bg-beige"><div className="h-full bg-clay transition-all duration-500 ease-out" style={{width: `${progress}%`}}></div></div>
+                    <div className="flex flex-col gap-3 mt-2">
+                        {goal.miniGoals.map(mini => (
+                            <div key={mini.id} className="flex items-center gap-3 relative">
+                                {animatingMiniId === mini.id && <div className="absolute -left-3 text-2xl burst-animation pointer-events-none z-10">✨</div>}
+                                <button className={`monoline-checkbox shrink-0 ${mini.completed ? 'checked' : ''}`} onClick={() => handleToggle(mini.id, mini.completed)}></button>
+                                <span className={`font-bold leading-tight ${mini.completed ? 'line-through opacity-50 text-clay' : 'text-charcoal'}`}>{mini.text}</span>
+                            </div>
+                        ))}
+                    </div>
+                    <input type="text" placeholder="+ Add mini-goal (Press Enter)..." className="notebook-textarea min-h-0 h-10 mt-2 px-1 text-sm bg-transparent placeholder-clay" value={newMiniText} onChange={e => setNewMiniText(e.target.value)} onKeyDown={e => { if(e.key === 'Enter' && newMiniText.trim()){ onAddMini(goal.id, newMiniText); setNewMiniText(""); } }} />
+                </div>
+            );
+        };
+
+        const Sidebar = ({ activePage, setActivePage, isMobileMenuOpen, setIsMobileMenuOpen }) => {
+            const navItems = [
+                { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+                { id: 'wheel', icon: '🎡', label: 'Life Balance' },
+                { id: 'mood', icon: '😊', label: 'Mood Space' },
+                { id: 'journal', icon: '📸', label: 'Memory Journal' },
+                { id: 'goals', icon: '✅', label: 'Goal Tracker' },
+                { id: 'soundtrack', icon: '🎵', label: 'Soundtrack' },
+                { id: 'wellness', icon: '💖', label: 'Cycle Tracker' },
+                { id: 'growth', icon: '📈', label: 'Growth Arc' }
+            ];
+            return (
+                <aside className={`w-64 fixed top-0 left-0 h-screen bg-paper border-r-3 border-clay p-6 flex flex-col gap-4 z-50 overflow-y-auto transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+                    <div className="flex items-center gap-3 border-b-3 border-clay pb-6 mt-4 mb-4">
+                        <div className="w-10 h-10 bg-blush border-3 border-clay rounded-lg shadow-brutal-active flex items-center justify-center shrink-0 text-xl text-charcoal">☀️</div>
+                        <h1 className="font-black text-2xl tracking-widest text-charcoal">LUMINA</h1>
+                    </div>
+                    <nav className="flex flex-col gap-3 flex-1">
+                        {navItems.map(item => (
+                            <button key={item.id} onClick={() => { setActivePage(item.id); setIsMobileMenuOpen(false); }} className={`brutal-btn flex items-center gap-3 p-3 rounded-xl border-3 border-clay font-bold transition-all text-left ${activePage === item.id ? 'bg-blush shadow-brutal-sm translate-x-1 text-charcoal' : 'bg-paper text-charcoal hover:bg-blush/20'}`}>
+                                <span className="w-5 h-5 flex items-center justify-center shrink-0 text-lg">{item.icon}</span>{item.label}
+                            </button>
+                        ))}
+                    </nav>
+                </aside>
+            );
+        };
+
+        // --- MAIN APP ---
+        const App = () => {
+            // Local View Toggle
+            const [currentView, setCurrentView] = useState('A'); // 'A' representing Partner A, 'B' representing Partner B
+            
+            const [activePage, setActivePage] = useState('dashboard');
+            const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+            const [isAnimating, setIsAnimating] = useState(false);
+
+            // Shared Relationship State held in Memory
+            const [relationship, setRelationship] = useState({
+                scores_a: [7, 6, 8, 5, 7, 9],
+                scores_b: [6, 8, 7, 4, 8, 9],
+                meals_a: { breakfast: true, lunch: false, dinner: false },
+                meals_b: { breakfast: false, lunch: true, dinner: false },
+                cycle_a: { day: 14, mood: 'Happy ✨', status: 'Send snacks 🍫' },
+                cycle_b: { day: 10, mood: 'Tired 🥱', status: 'Need space 🤍' },
+                memories: [
+                    { id: 1, url: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', caption: 'Coffee in Montmartre.', date: 'Oct 12' }
+                ],
+                goals: [
+                    { id: 1, title: "Plan Anniversary Trip", category: "Romance, Intimacy & Relationships", miniGoals: [ {id: 101, text: "Book flights to Kyoto", completed: false}, {id: 102, text: "Reserve ryokan", completed: true} ] }
+                ],
+                spotify_url: "https://open.spotify.com/playlist/37i9dQZF1EJH75B3mnDgmp?si=31caa83610fa42a2"
+            });
+
+            // Local Toast Alert
+            const [localAlert, setLocalAlert] = useState("");
+
+            // Testing Cycle tracker role and partner meal nudge states
+            const [cycleRole, setCycleRole] = useState('her');
+            const [nudgeState, setNudgeState] = useState({ A: false, B: false });
+
+            // Auto-sync cycle tracker interface role based on profile view changes
+            useEffect(() => {
+                setCycleRole(currentView === 'A' ? 'her' : 'him');
+            }, [currentView]);
+
+            // Notify user if partner sent a meal reminder nudge when they switch view
+            useEffect(() => {
+                if (nudgeState[currentView]) {
+                    setLocalAlert(`🔔 Hey ${currentView === 'A' ? 'Partner A' : 'Partner B'}, your partner is reminding you to eat! 🍳🥪🍛`);
+                    setNudgeState(prev => ({ ...prev, [currentView]: false }));
+                }
+            }, [currentView, nudgeState]);
+
+            // --- GOOGLE DRIVE SYNC STATES ---
+            const [accessToken, setAccessToken] = useState(() => localStorage.getItem('antigravity_access_token') || '');
+            const [googleUser, setGoogleUser] = useState(null);
+            const [syncFileId, setSyncFileId] = useState(() => localStorage.getItem('antigravity_file_id') || '');
+            const [syncStatus, setSyncStatus] = useState('offline'); // 'offline' | 'connecting' | 'synced' | 'error'
+            const [gapiLoading, setGapiLoading] = useState(false);
+            const [gapiStatus, setGapiStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
+
+            const tokenClientRef = React.useRef(null);
+
+            // Warm up GAPI library on mount to ensure gapi.client is pre-loaded and ready
+            useEffect(() => {
+                const warmUpGapi = async () => {
+                    try {
+                        await ensureGapiInitialized(accessToken);
+                        setGapiStatus('ready');
+                    } catch (err) {
+                        console.error("GAPI warmup failed:", err);
+                        setGapiStatus('error');
+                        setLocalAlert("⚠️ Google API library loading error. Please check your connection.");
+                    }
+                };
+                warmUpGapi();
+            }, []);
+
+            // Initialize Token Client and standard GIS authentication button when Google library is ready
+            useEffect(() => {
+                if (gapiStatus !== 'ready') return;
+
+                const tryInit = () => {
+                    if (!window.google?.accounts?.id) {
+                        setTimeout(tryInit, 200); // retry until GIS is ready
                         return;
                     }
-                    if (tokenResponse.access_token) {
-                        setAccessToken(tokenResponse.access_token);
-                        localStorage.setItem('antigravity_access_token', tokenResponse.access_token);
-                        setSyncStatus('connecting');
+                    // 1. Initialize modern Sign-In with Google (Authentication)
+                    google.accounts.id.initialize({
+                        client_id: GOOGLE_CLIENT_ID,
+                        callback: async (credentialResponse) => {
+                            // Decode JWT to extract user profile details instantly
+                            try {
+                                const base64Url = credentialResponse.credential.split('.')[1];
+                                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                                const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+                                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                                }).join(''));
+                                const decodedUser = JSON.parse(jsonPayload);
+                                setGoogleUser({
+                                    name: decodedUser.name,
+                                    email: decodedUser.email,
+                                    picture: decodedUser.picture
+                                });
+                            } catch (e) {
+                                console.error("Failed to decode JWT:", e);
+                            }
+
+                            // Trigger standard OAuth 2.0 Authorization for Drive API access token
+                            if (tokenClientRef.current) {
+                                setSyncStatus('connecting');
+                                setLocalAlert("🔌 Connecting to Google Drive...");
+                                tokenClientRef.current.requestAccessToken();
+                            }
+                        }
+                    });
+
+                    // 2. Render the official native Sign-In button
+                    const btnParent = document.getElementById("gis-login-btn");
+                    if (btnParent) {
+                        google.accounts.id.renderButton(
+                            btnParent,
+                            { theme: "filled_blue", size: "large", width: btnParent.clientWidth || 320, shape: "rectangular" }
+                        );
                     }
-                },
-            });
-        };
 
-        tryInit();
-    }, [gapiStatus]);
+                    // 3. Initialize standard OAuth 2.0 Token Client (Authorization)
+                    tokenClientRef.current = google.accounts.oauth2.initTokenClient({
+                        client_id: GOOGLE_CLIENT_ID,
+                        scope: 'https://www.googleapis.com/auth/drive',
+                        callback: async (tokenResponse) => {
+                            if (tokenResponse.error) {
+                                setSyncStatus('error');
+                                setLocalAlert(`⠌ Google Sync authorization failed: ${tokenResponse.error}`);
+                                return;
+                            }
+                            if (tokenResponse.access_token) {
+                                setAccessToken(tokenResponse.access_token);
+                                localStorage.setItem('antigravity_access_token', tokenResponse.access_token);
+                                setSyncStatus('connecting');
+                                setLocalAlert("🔌 Synchronizing Google Drive...");
+                            }
+                        },
+                    });
+                };
 
-    const handleConnectDrive = () => {
-        if (tokenClientRef.current) {
-            tokenClientRef.current.requestAccessToken();
-        } else {
-            triggerToast("Sync Portal is warm-connecting. Retry in a second.");
-        }
-    };
-
-    const handleDisconnectDrive = () => {
-        if (accessToken && accessToken !== 'OFFLINE_BYPASS') {
-            try { google.accounts.oauth2.revoke(accessToken, () => {}); } catch(e){}
-        }
-        setAccessToken('');
-        setGoogleUser(null);
-        setSyncFileId('');
-        setSyncStatus('offline');
-        localStorage.removeItem('antigravity_access_token');
-        localStorage.removeItem('antigravity_file_id');
-        triggerToast("Disconnected from secure cloud backup.");
-    };
-
-    // Auto-Sync Drive Loop
-    useEffect(() => {
-        if (!accessToken) {
-            setSyncStatus('offline');
-            return;
-        }
-
-        if (accessToken === 'OFFLINE_BYPASS') {
-            setSyncStatus('synced');
-            setGoogleUser({ name: 'Local User', email: 'offline@local', picture: null });
-            return;
-        }
-
-        const setupSync = async () => {
-            setGapiLoading(true);
-            try {
-                const userInfo = await fetchGoogleUserInfo(accessToken);
-                setGoogleUser(userInfo);
-
-                let fileId = await checkOrCreateSyncFile(accessToken, relationship);
-                setSyncFileId(fileId);
-                localStorage.setItem('antigravity_file_id', fileId);
-
-                let driveState = await downloadSyncState(accessToken, fileId);
-                if (driveState === null) {
-                    fileId = await createNewSyncFile(accessToken, relationship);
-                    setSyncFileId(fileId);
-                    localStorage.setItem('antigravity_file_id', fileId);
-                    driveState = relationship;
-                }
-
-                if (driveState && driveState.notes) {
-                    setRelationship(driveState);
-                }
+                // Initialize GIS
+                tryInit();
                 
-                setSyncStatus('synced');
-                triggerToast("Aligned orbits perfectly. Connected to Drive.");
-            } catch (err) {
-                console.error("Sync setup failed:", err);
-                setSyncStatus('error');
-                triggerToast("Cloud connection lost. Reconnect to keep state backed up.");
-            } finally {
-                setGapiLoading(false);
-            }
-        };
-
-        setupSync();
-    }, [accessToken]);
-
-    const relationshipRef = useRef(relationship);
-    useEffect(() => {
-        relationshipRef.current = relationship;
-    }, [relationship]);
-
-    // Pull from cloud every 8 seconds (Bug 4 Fix)
-    useEffect(() => {
-        if (syncStatus !== 'synced' || !accessToken || !syncFileId) return;
-        if (accessToken === 'OFFLINE_BYPASS') return; 
-
-        const interval = setInterval(async () => {
-            try {
-                const driveState = await downloadSyncState(accessToken, syncFileId);
-                if (driveState && driveState.notes) {
-                    if (JSON.stringify(driveState) !== JSON.stringify(relationshipRef.current)) {
-                        setRelationship(driveState);
-                        triggerToast("Partner just left a small footprint in the room ✨");
+                // Set up polling in case DOM elements were slow to render
+                const renderTimer = setInterval(() => {
+                    const btnParent = document.getElementById("gis-login-btn");
+                    if (btnParent && btnParent.innerHTML === "") {
+                        if (window.google?.accounts?.id) {
+                            google.accounts.id.renderButton(
+                                btnParent,
+                                { theme: "filled_blue", size: "large", width: btnParent.clientWidth || 320, shape: "rectangular" }
+                            );
+                        }
+                    } else if (btnParent) {
+                        clearInterval(renderTimer);
                     }
-                }
-            } catch (err) {
-                console.error("Background pull failed:", err);
-            }
-        }, 8000);
-
-        return () => clearInterval(interval);
-    }, [syncStatus, accessToken, syncFileId]);
-
-    const pushStateToDrive = async (updatedState) => {
-        if (syncStatus !== 'synced' || !accessToken || !syncFileId) return;
-        if (accessToken === 'OFFLINE_BYPASS') return; 
-        try {
-            await uploadSyncState(accessToken, syncFileId, updatedState);
-        } catch (err) {
-            console.error("State push failed:", err);
-        }
-    };
-
-    // Derived states depending on Active view A vs B
-    const myName = currentView === 'A' ? 'Partner A' : 'Partner B';
-    const partnerName = currentView === 'A' ? 'Partner B' : 'Partner A';
-
-    const myMoodValue = currentView === 'A' ? relationship.checkin_a.mood : relationship.checkin_b.mood;
-    const partnerMoodValue = currentView === 'A' ? relationship.checkin_b.mood : relationship.checkin_a.mood;
-
-    const myMeals = currentView === 'A' ? relationship.meals_a : relationship.meals_b;
-    const partnerMeals = currentView === 'A' ? relationship.meals_b : relationship.meals_a;
-
-    const myCycle = currentView === 'A' ? relationship.cycle_a : relationship.cycle_b;
-    const partnerCycle = currentView === 'A' ? relationship.cycle_b : relationship.cycle_a;
-
-    const myCheckin = currentView === 'A' ? relationship.checkin_a : relationship.checkin_b;
-    const partnerCheckin = currentView === 'A' ? relationship.checkin_b : relationship.checkin_a;
-
-    const myHistory = currentView === 'A' ? relationship.mood_history_a : relationship.mood_history_b;
-    const partnerHistory = currentView === 'A' ? relationship.mood_history_b : relationship.mood_history_a;
-
-    // Mutate state functions
-    const toggleMeal = (mealKey) => {
-        const nextMeals = { ...myMeals, [mealKey]: !myMeals[mealKey] };
-        const next = {
-            ...relationship,
-            [currentView === 'A' ? 'meals_a' : 'meals_b']: nextMeals
-        };
-        setRelationship(next);
-        pushStateToDrive(next);
-        playSoftChime();
-    };
-
-    const triggerMealNudge = () => {
-        playSoftChime();
-        triggerToast(`Sent a gentle nudge for ${partnerName} to nourish themselves 🤍`);
-    };
-
-    // Form onSubmit bug fix: change form tags to div, trigger handler on button onClick
-    const submitNote = () => {
-        if (!noteText.trim()) return;
-
-        setIsSending(true);
-        playSoftChime();
-
-        setTimeout(() => {
-            const nextNotes = [
-                {
-                    id: Date.now(),
-                    text: noteText,
-                    sender: currentView,
-                    timestamp: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-                    reactions: []
-                },
-                ...relationship.notes
-            ];
-            const next = { ...relationship, notes: nextNotes };
-            setRelationship(next);
-            pushStateToDrive(next);
-            setNoteText("");
-            setIsSending(false);
-            triggerToast("Your warm letter has been placed on their desk.");
-        }, 1200);
-    };
-
-    const reactToEntry = (entryId, emoji) => {
-        const nextNotes = relationship.notes.map(note => {
-            if (note.id === entryId) {
-                const reactions = note.reactions || [];
-                const updatedReactions = reactions.includes(emoji) 
-                    ? reactions.filter(r => r !== emoji) 
-                    : [...reactions, emoji];
-                return { ...note, reactions: updatedReactions };
-            }
-            return note;
-        });
-
-        const next = { ...relationship, notes: nextNotes };
-        setRelationship(next);
-        pushStateToDrive(next);
-        playSoftChime();
-
-        const uniqueId = Math.random();
-        setFloatingReactions(prev => [...prev, { id: uniqueId, emoji, left: Math.random() * 60 + 20 }]);
-        setTimeout(() => {
-            setFloatingReactions(prev => prev.filter(f => f.id !== uniqueId));
-        }, 1500);
-    };
-
-    const submitCheckin = (moodVal, answers) => {
-        const nextCheckin = {
-            mood: moodVal,
-            q1: answers.q1,
-            q2: answers.q2,
-            q3: answers.q3
-        };
-        const nextHistory = [...myHistory.slice(1), moodVal];
-
-        const next = {
-            ...relationship,
-            [currentView === 'A' ? 'checkin_a' : 'checkin_b']: nextCheckin,
-            [currentView === 'A' ? 'mood_history_a' : 'mood_history_b']: nextHistory
-        };
-
-        setRelationship(next);
-        pushStateToDrive(next);
-        playSoftChime();
-    };
-
-    const addPhoto = () => {
-        if (!newPhotoUrl.trim()) return;
-
-        setUploading(true);
-        setTimeout(() => {
-            const cleanUrl = parseImageUrl(newPhotoUrl);
-            const newMemories = [
-                {
-                    id: Date.now(),
-                    url: cleanUrl,
-                    caption: newPhotoCap || "A quiet moment together",
-                    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                },
-                ...relationship.memories
-            ];
-
-            const next = { ...relationship, memories: newMemories };
-            setRelationship(next);
-            pushStateToDrive(next);
-            setNewPhotoUrl("");
-            setNewPhotoCap("");
-            setUploading(false);
-            triggerToast("Memory pinned to our corkboard.");
-        }, 1000);
-    };
-
-    const getGreeting = () => {
-        const hour = new Date().getHours();
-        if (hour < 12) return `Good morning, ${myName}.`;
-        if (hour < 18) return `Good afternoon, ${myName}.`;
-        return `Good evening, ${myName}.`;
-    };
-
-    return (
-        <div className="min-h-screen relative font-sans flex flex-col justify-between overflow-x-hidden pb-32">
-            
-            {/* Sunbeam golden particles field */}
-            <SunbeamField />
-
-            {/* Faint glowing dots representing far lovers */}
-            <motion.div 
-                animate={prefersReduced ? {} : { scale: [1, 1.3, 1], opacity: [0.4, 0.8, 0.4] }}
-                transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                className="fixed top-8 left-8 w-4 h-4 rounded-full bg-sunflower filter blur-sm pointer-events-none z-0 shadow-brutal-sm"
-            />
-            <motion.div 
-                animate={prefersReduced ? {} : { scale: [1, 1.3, 1], opacity: [0.4, 0.8, 0.4] }}
-                transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }}
-                className="fixed bottom-24 right-8 w-4 h-4 rounded-full bg-blush filter blur-sm pointer-events-none z-0 shadow-brutal-sm"
-            />
-
-            {/* Warm toast notification */}
-            <AnimatePresence>
-                {localAlert && (
-                    <motion.div
-                        initial={prefersReduced ? { opacity: 1, y: 0 } : { y: -60, opacity: 0, scale: 0.94 }}
-                        animate={{ y: 0, opacity: 1, scale: 1 }}
-                        exit={{ y: -40, opacity: 0, scale: 0.96 }}
-                        transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-                        className="fixed top-5 left-1/2 -translate-x-1/2 bg-[#FFFEF9] border-[1.5px] border-clay/15 shadow-brutal-gold rounded-2xl px-5 py-3.5 z-[2000] flex items-center gap-3 max-w-sm"
-                    >
-                        <span className="text-base">🌻</span>
-                        <p className="text-xs font-sans font-semibold text-charcoal tracking-wide">{localAlert}</p>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* MAIN APP CONTAINER */}
-            <div className="w-full max-w-4xl mx-auto px-4 md:px-8 py-8 relative z-10 flex-1 flex flex-col justify-start">
+                }, 300);
                 
-                {/* 1. THE THRESHOLD (Authentication gate redesign) */}
-                {!accessToken ? (
-                    <div className="flex-1 flex flex-col items-center justify-center min-h-[75vh] relative py-12">
-                        <motion.div
-                            initial={prefersReduced ? { opacity: 1 } : { opacity: 0, y: 15, filter: 'blur(8px)' }}
-                            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                            transition={{ duration: 1.2, ease: 'easeOut' }}
-                            className="text-center flex flex-col items-center gap-8 max-w-lg w-full"
-                        >
-                            <div className="flex flex-col gap-3 items-center">
-                                <motion.div 
-                                    animate={{ rotate: [0, 8, -8, 0] }}
-                                    transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-                                    className="text-4xl cursor-pointer"
-                                >
-                                    🌻
-                                </motion.div>
-                                <h1 className="font-serif text-charcoal text-5xl md:text-6xl font-semibold tracking-tight mt-2">
-                                    Anti-Gravity
-                                </h1>
-                                <p className="font-sans text-xs uppercase tracking-[0.25em] text-clay font-bold">
-                                    A private sanctuary for the ones who stay.
-                                </p>
-                            </div>
+                return () => clearInterval(renderTimer);
+            }, [gapiStatus]);
 
-                            <p className="text-sm font-serif italic text-text-muted leading-relaxed max-w-md">
-                                "Two cities. Different skies. But in our room, the distance between us melts completely."
-                            </p>
+            // Request active authorization token
+            const handleConnectDrive = () => {
+                if (tokenClientRef.current) {
+                    tokenClientRef.current.requestAccessToken({ prompt: 'consent' });
+                } else {
+                    setLocalAlert("⚠️ Google API library loading. Please wait a second and retry!");
+                }
+            };
 
-                            <div className="w-full flex flex-col items-center gap-4 mt-6">
-                                {gapiStatus === 'loading' ? (
-                                    <div className="flex flex-col items-center gap-2">
-                                        <div className="animate-spin text-2xl">🌻</div>
-                                        <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest mt-2">Connecting orbital link...</span>
-                                    </div>
-                                ) : (
-                                    <button 
-                                        onClick={handleConnectDrive} 
-                                        className="bg-white border-[1.5px] border-clay text-charcoal font-semibold text-sm px-8 py-3.5 rounded-full transition-all duration-300 shadow-brutal hover:bg-sunflower hover:shadow-brutal-gold active:translate-y-1 active:shadow-brutal-sm flex items-center gap-2 group"
-                                    >
-                                        Step inside our room <span className="group-hover:translate-x-1.5 transition-transform duration-300">→</span>
-                                    </button>
-                                )}
-                            </div>
-                        </motion.div>
-                    </div>
-                ) : (
-                    
-                    /* AUTHENTICATED COMPLETED ROOMS LAYOUT */
-                    <div className="w-full flex-1 flex flex-col">
+            // Revoke current session
+            const handleDisconnectDrive = () => {
+                if (accessToken) {
+                    google.accounts.oauth2.revoke(accessToken, () => {});
+                }
+                setAccessToken('');
+                setGoogleUser(null);
+                setSyncFileId('');
+                setSyncStatus('offline');
+                localStorage.removeItem('antigravity_access_token');
+                localStorage.removeItem('antigravity_file_id');
+                setLocalAlert("🔌 Disconnected from Google Drive.");
+                setTimeout(() => setLocalAlert(""), 3000);
+            };
+
+            // Authenticated Setup Loop (Queries user, matches state file)
+            useEffect(() => {
+                if (!accessToken) {
+                    setSyncStatus('offline');
+                    return;
+                }
+
+                const setupSync = async () => {
+                    setGapiLoading(true);
+                    try {
+                        const userInfo = await fetchGoogleUserInfo(accessToken);
+                        setGoogleUser(userInfo);
+
+                        let fileId = await checkOrCreateSyncFile(accessToken, relationship);
+                        setSyncFileId(fileId);
+                        localStorage.setItem('antigravity_file_id', fileId);
+
+                        let driveState = await downloadSyncState(accessToken, fileId);
+                        if (driveState === null) {
+                            // Silently trigger file creation if the file doesn't exist or fileId was stale/deleted
+                            fileId = await createNewSyncFile(accessToken, relationship);
+                            setSyncFileId(fileId);
+                            localStorage.setItem('antigravity_file_id', fileId);
+                            driveState = relationship;
+                        }
+
+                        if (driveState && driveState.scores_a) {
+                            setRelationship(driveState);
+                        }
                         
-                        {/* TOP STATUS WRAPPER */}
-                        <header className="flex justify-between items-center mb-10 pb-4 border-b border-clay/10">
-                            <div className="flex items-center gap-3">
-                                <div className="relative">
-                                    <div className="w-2.5 h-2.5 rounded-full bg-stem"></div>
-                                    <div className="absolute inset-0 rounded-full bg-stem animate-ping opacity-60"></div>
-                                </div>
-                                <span className="text-[10px] font-mono tracking-wider text-text-muted uppercase font-bold">Secure Cloud Connected</span>
-                            </div>
+                        setSyncStatus('synced');
+                        setLocalAlert("🟢 Synced with the Shared Google Drive Folder successfully!");
+                        setTimeout(() => setLocalAlert(""), 3000);
+                    } catch (err) {
+                        console.error("Sync setup failed:", err);
+                        setSyncStatus('error');
+                        setLocalAlert("❌ Google Drive connection error. Please reconnect.");
+                    } finally {
+                        setGapiLoading(false);
+                    }
+                };
 
-                            <div className="flex gap-2.5 items-center">
-                                <span className="text-[10px] font-mono tracking-wider text-text-muted uppercase">Active Space:</span>
-                                <span className={`text-[10px] font-mono font-bold px-3 py-1 rounded-full uppercase tracking-wider border-[1.5px] ${
-                                    currentView === 'A' ? 'bg-sunflower/10 border-sunflower text-charcoal' : 'bg-blush/20 border-blush text-charcoal'
-                                }`}>
-                                    {myName}
-                                </span>
+                setupSync();
+            }, [accessToken]);
+
+            // Background Polling loop (pulls partner updates every 8 seconds)
+            useEffect(() => {
+                if (syncStatus !== 'synced' || !accessToken || !syncFileId) return;
+
+                const interval = setInterval(async () => {
+                    try {
+                        const driveState = await downloadSyncState(accessToken, syncFileId);
+                        if (driveState && driveState.scores_a) {
+                            if (JSON.stringify(driveState) !== JSON.stringify(relationship)) {
+                                setRelationship(driveState);
+                            }
+                        }
+                    } catch (err) {
+                        console.error("Background pull failed:", err);
+                    }
+                }, 8000);
+
+                return () => clearInterval(interval);
+            }, [syncStatus, accessToken, syncFileId, relationship]);
+
+            // Push State Updates to Drive
+            const pushStateToDrive = async (updatedRelationship) => {
+                if (syncStatus !== 'synced' || !accessToken || !syncFileId) return;
+                try {
+                    await uploadSyncState(accessToken, syncFileId, updatedRelationship);
+                } catch (err) {
+                    console.error("State push failed:", err);
+                }
+            };
+
+            // Derived States based on Active View
+            const userScores = currentView === 'A' ? relationship.scores_a : relationship.scores_b;
+            const partnerScores = currentView === 'A' ? relationship.scores_b : relationship.scores_a;
+            
+            const myMeals = currentView === 'A' ? relationship.meals_a : relationship.meals_b;
+            const partnerMeals = currentView === 'A' ? relationship.meals_b : relationship.meals_a;
+            
+            const myCycle = currentView === 'A' ? relationship.cycle_a : relationship.cycle_b;
+            const partnerCycle = currentView === 'A' ? relationship.cycle_b : relationship.cycle_a;
+
+            const memories = relationship.memories;
+            const macroGoals = relationship.goals;
+            const spotifyUrl = relationship.spotify_url;
+
+            const [newMemoryUrl, setNewMemoryUrl] = useState('');
+            const [newMemoryCap, setNewMemoryCap] = useState('');
+            const [selectedMemory, setSelectedMemory] = useState(null);
+
+            // Dashboard Sync Info
+            const partnerName = currentView === 'A' ? 'Partner B' : 'Partner A';
+            const myName = currentView === 'A' ? 'Partner A' : 'Partner B';
+
+            // State Mutations
+            const updateMyScores = (index, value) => {
+                const newScores = [...userScores];
+                newScores[index] = value;
+                const next = {
+                    ...relationship,
+                    [currentView === 'A' ? 'scores_a' : 'scores_b']: newScores
+                };
+                setRelationship(next);
+                pushStateToDrive(next);
+            };
+
+            const toggleMeal = (mealKey) => {
+                const currentMeals = { ...myMeals };
+                currentMeals[mealKey] = !currentMeals[mealKey];
+                const next = {
+                    ...relationship,
+                    [currentView === 'A' ? 'meals_a' : 'meals_b']: currentMeals
+                };
+                setRelationship(next);
+                pushStateToDrive(next);
+            };
+
+            const triggerNudge = () => {
+                const target = currentView === 'A' ? 'B' : 'A';
+                setNudgeState(prev => ({ ...prev, [target]: true }));
+                setLocalAlert(`🔔 Local Nudge sent! Switching to ${partnerName}'s view will simulate receiving this reminder.`);
+                setTimeout(() => setLocalAlert(""), 4000);
+            };
+
+            const updateCycle = (updates) => {
+                const currentCycle = { ...myCycle };
+                const newCycle = { ...currentCycle, ...updates };
+                const next = {
+                    ...relationship,
+                    [currentView === 'A' ? 'cycle_a' : 'cycle_b']: newCycle
+                };
+                setRelationship(next);
+                pushStateToDrive(next);
+            };
+
+            const addMemory = () => {
+                if (!newMemoryUrl) return;
+                const parsed = parseImageUrl(newMemoryUrl);
+                const newMem = {
+                    id: Date.now(),
+                    url: parsed,
+                    caption: newMemoryCap || 'A sweet memory',
+                    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                };
+                const next = {
+                    ...relationship,
+                    memories: [newMem, ...relationship.memories]
+                };
+                setRelationship(next);
+                pushStateToDrive(next);
+                setNewMemoryUrl(''); setNewMemoryCap('');
+            };
+
+            const toggleMiniGoal = (mId, miId) => {
+                const next = {
+                    ...relationship,
+                    goals: relationship.goals.map(g => {
+                        if (g.id === mId) {
+                            return {
+                                ...g,
+                                miniGoals: g.miniGoals.map(m => m.id === miId ? { ...m, completed: !m.completed } : m)
+                            };
+                        }
+                        return g;
+                    })
+                };
+                setRelationship(next);
+                pushStateToDrive(next);
+            };
+
+            const addMiniGoal = (mId, text) => {
+                const next = {
+                    ...relationship,
+                    goals: relationship.goals.map(g => {
+                        if (g.id === mId) {
+                            return {
+                                ...g,
+                                miniGoals: [...g.miniGoals, { id: Date.now(), text, completed: false }]
+                            };
+                        }
+                        return g;
+                    })
+                };
+                setRelationship(next);
+                pushStateToDrive(next);
+            };
+
+            const addMacroGoal = () => {
+                const title = prompt("Enter Macro Goal Title:");
+                if (!title) return;
+                const newGoal = {
+                    id: Date.now(),
+                    title,
+                    category: "Romance, Intimacy & Relationships",
+                    miniGoals: []
+                };
+                const next = {
+                    ...relationship,
+                    goals: [...relationship.goals, newGoal]
+                };
+                setRelationship(next);
+                pushStateToDrive(next);
+            };
+
+            const saveSpotifyPlaylist = (url) => {
+                const next = {
+                    ...relationship,
+                    spotify_url: url
+                };
+                setRelationship(next);
+                pushStateToDrive(next);
+            };
+
+            // Radar computations
+            const combinedScores = userScores.map((s, i) => s + partnerScores[i]);
+            const focusCategory = CATEGORIES[combinedScores.indexOf(Math.min(...combinedScores))];
+
+            if (!accessToken && false) { // BYPASSED FOR TESTING
+                return (
+                    <div className="min-h-screen bg-beige flex items-center justify-center p-4 relative overflow-hidden">
+                        {/* Dot Grid Background */}
+                        <div className="dot-grid"></div>
+                        
+                        {/* Cozy Notification Toast */}
+                        {localAlert && (
+                            <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-blush border-3 border-clay p-4 rounded-2xl shadow-brutal z-[200] flex items-center gap-3 max-w-sm animate-bounce">
+                                <span className="text-2xl">âš¡</span>
+                                <p className="text-xs font-black text-charcoal">{localAlert}</p>
+                                <button onClick={() => setLocalAlert("")} className="text-charcoal font-black text-sm ml-2">✕</button>
+                            </div>
+                        )}
+
+                        {/* Sign-In Cozy Card */}
+                        <div className="bg-paper border-3 border-clay p-8 md:p-12 rounded-3xl shadow-brutal max-w-md w-full text-center flex flex-col items-center gap-6 relative overflow-hidden animate-fade-in">
+                            {/* Logo */}
+                            <div className="w-16 h-16 bg-blush border-3 border-clay rounded-2xl shadow-brutal-sm flex items-center justify-center text-charcoal text-3xl">🪐</div>
+                            
+                            <div>
+                                <h1 className="font-black text-3xl tracking-widest text-charcoal mb-2">ANTI-GRAVITY</h1>
+                                <p className="text-xs font-black text-clay uppercase tracking-widest">Orbital Sync Portal</p>
+                            </div>
+                            
+                            <p className="text-sm font-bold text-charcoal/80 leading-relaxed bg-beige/50 p-4 border-3 border-clay border-dashed rounded-2xl">
+                                Welcome to your private, cozy space. Please sign in with Google to align your orbits and synchronize your wellness data, memories, and soundtrack in real-time with your partner.
+                            </p>
+                            
+                            {gapiStatus === 'loading' ? (
+                                <div className="w-full flex flex-col items-center gap-2">
+                                    <button 
+                                        disabled
+                                        className="w-full bg-beige border-3 border-clay border-dashed rounded-2xl font-black p-4 text-center text-clay text-base flex items-center justify-center gap-3 opacity-60 cursor-not-allowed"
+                                    >
+                                        ⏳ Loading Google API...
+                                    </button>
+                                    <span className="text-[10px] font-black text-clay uppercase tracking-widest animate-pulse">Establishing orbital link...</span>
+                                </div>
+                            ) : gapiStatus === 'error' ? (
+                                <div className="w-full flex flex-col items-center gap-2">
+                                    <button 
+                                        onClick={() => window.location.reload()}
+                                        className="w-full bg-red-100 border-3 border-red-400 rounded-2xl font-black p-4 text-center text-red-800 text-base flex items-center justify-center gap-3 hover:bg-red-200 transition-all brutal-btn"
+                                    >
+                                        ⚠️ Connection Failed (Tap to Retry)
+                                    </button>
+                                    <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Check network or adblockers</span>
+                                </div>
+                            ) : (
+                                <div className="w-full flex flex-col items-center gap-3 bg-beige/40 p-4 border-3 border-clay border-dashed rounded-2xl">
+                                    <div id="gis-login-btn" className="w-full min-h-[44px] flex justify-center"></div>
+                                    <p className="text-[10px] font-bold text-clay uppercase tracking-widest mt-1">Safe single-tap secure sign-in</p>
+                                </div>
+                            )}
+                            
+                            <div className="text-[10px] font-black text-clay uppercase tracking-widest mt-2">
+                                Protected Client-Side Encryption
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (gapiLoading) {
+                return (
+                    <div className="min-h-screen bg-beige flex items-center justify-center p-4 relative overflow-hidden">
+                        {/* Dot Grid Background */}
+                        <div className="dot-grid"></div>
+                        
+                        {/* Cozy Spinner */}
+                        <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal max-w-sm w-full text-center flex flex-col items-center gap-6 relative overflow-hidden animate-pulse">
+                            <div className="w-12 h-12 bg-blush border-3 border-clay rounded-xl shadow-brutal-sm flex items-center justify-center text-charcoal text-xl relative">
+                                🔄
+                            </div>
+                            <div>
+                                <h2 className="font-black text-2xl tracking-wide text-charcoal mb-2">Aligning Orbits...</h2>
+                                <p className="text-xs font-black text-clay uppercase tracking-widest">Connecting to Google Drive</p>
+                            </div>
+                            <p className="text-sm font-bold text-charcoal/70 leading-relaxed bg-beige/50 p-4 border-3 border-clay border-dashed rounded-2xl">
+                                Silent GAPI initialization is active in the background. Please wait a brief moment while we establish your private secure sync.
+                            </p>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen md:pl-64 relative pb-24 pt-20 md:pt-0">
+                    
+                    {/* Custom Local Alert Notification Popup */}
+                    {localAlert && (
+                        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-blush border-3 border-clay p-4 rounded-2xl shadow-brutal z-[200] flex items-center gap-3 max-w-sm animate-bounce">
+                            <span className="text-2xl">âš¡</span>
+                            <p className="text-xs font-black text-charcoal">{localAlert}</p>
+                            <button onClick={() => setLocalAlert("")} className="text-charcoal font-black text-sm ml-2">✕</button>
+                        </div>
+                    )}
+
+                    {/* Mobile Header */}
+                    <div className="md:hidden fixed top-0 left-0 w-full bg-paper border-b-3 border-clay p-4 z-40 flex justify-between items-center shadow-brutal-sm">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-blush border-2 border-clay rounded flex items-center justify-center shrink-0 text-lg text-charcoal">☀️</div>
+                            <h1 className="font-black text-xl tracking-widest text-charcoal">LUMINA</h1>
+                        </div>
+                        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="brutal-btn p-2 border-2 border-clay bg-paper rounded-lg w-10 h-10 flex items-center justify-center text-xl text-charcoal">
+                            {isMobileMenuOpen ? "❌" : "☰"}
+                        </button>
+                    </div>
+
+                    {/* Mobile Menu Overlay */}
+                    {isMobileMenuOpen && <div className="fixed inset-0 bg-[#A28C81]/30 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>}
+
+                    <Sidebar activePage={activePage} setActivePage={setActivePage} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
+                    
+                    {/* Memory Detail Modal Overlay */}
+                    {selectedMemory && (
+                        <div className="fixed inset-0 bg-[#2F2E2C]/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setSelectedMemory(null)}>
+                            <div className="bg-paper border-3 border-clay p-6 rounded-3xl shadow-brutal max-w-2xl w-full" onClick={e => e.stopPropagation()}>
+                                <img src={selectedMemory.url} className="w-full h-[400px] object-cover border-3 border-clay rounded-xl mb-6"/>
+                                <h3 className="font-black text-3xl mb-2 text-charcoal">{selectedMemory.caption}</h3>
+                                <p className="font-bold opacity-50 uppercase tracking-widest text-clay">{selectedMemory.date}</p>
+                                <button className="brutal-btn bg-blush border-3 border-clay p-4 mt-8 rounded-xl w-full font-black text-lg text-paper" onClick={() => setSelectedMemory(null)}>Close Memory</button>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="max-w-6xl mx-auto p-4 md:p-8">
+                        {/* Header */}
+                        <header className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8 bg-paper border-3 border-clay p-4 rounded-2xl shadow-brutal">
+                            <div className="flex items-center gap-3 w-full md:w-auto">
+                                <div className="w-12 h-12 rounded-full bg-blush border-3 border-clay flex items-center justify-center shadow-brutal-sm text-2xl text-charcoal">🌻</div>
+                                <div>
+                                    <h2 className="font-extrabold text-xl leading-tight text-charcoal">Your Journey</h2>
+                                    <p className="text-xs font-bold opacity-70 text-clay">Active: {myName} View</p>
+                                </div>
+                            </div>
+                            <h1 className="font-black text-2xl tracking-widest uppercase hidden md:block text-charcoal">
+                                {activePage === 'wheel' ? 'Life Balance' : activePage.replace('-', ' ')}
+                            </h1>
+                            <div className="flex items-center gap-3 text-right w-full md:w-auto justify-end">
+                                <div>
+                                    <h2 className="font-extrabold text-xl leading-tight text-charcoal">{partnerName} Sync</h2>
+                                    <p className="text-xs font-bold opacity-70 text-clay">Offline Local Sync</p>
+                                </div>
+                                <div className="w-12 h-12 rounded-full bg-blush border-3 border-clay flex items-center justify-center shadow-brutal-sm text-2xl relative text-charcoal">
+                                    🎧{isAnimating && <div className="absolute -top-4 -right-2 text-xl sweat-animation">💦</div>}
+                                </div>
                             </div>
                         </header>
 
-                        {/* ANIME ROOM ROUTING */}
-                        <AnimatePresence mode="wait">
-                            <motion.main
-                                key={activeRoom}
-                                initial={prefersReduced ? { opacity: 1 } : { opacity: 0, y: 12, filter: 'blur(4px)' }}
-                                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                                exit={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
-                                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                                className="w-full flex-1"
-                            >
+                        {/* PAGE: DASHBOARD */}
+                        {activePage === 'dashboard' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
                                 
-                                {/* ROOM 01 — THE INBOX (Home Dashboard) */}
-                                {activeRoom === 'inbox' && (
-                                    <div className="flex flex-col gap-10 py-2">
-                                        
-                                        {/* Dynamic Intimate Header */}
-                                        <div className="flex flex-col gap-1">
-                                            <h2 className="font-serif italic text-3xl md:text-4xl text-charcoal">
-                                                {getGreeting()}
-                                            </h2>
-                                            <p className="text-xs text-text-muted font-sans font-semibold mt-1">
-                                                {partnerName} visited our place recently.
+                                {/* 1. Today's Summary & Cycle Status */}
+                                <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
+                                    <h2 className="font-black text-2xl border-b-3 border-clay pb-4 text-charcoal">Today's Summary</h2>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-16 h-16 rounded-full bg-blush border-3 border-clay flex items-center justify-center text-3xl text-charcoal">✨</div>
+                                        <div>
+                                            <h3 className="font-bold text-lg text-charcoal">Active Session: {myName}</h3>
+                                            <p className="opacity-70 font-bold text-clay text-sm">Testing dashboard state seamlessly offline.</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4 mt-4 border-t-2 border-clay/20 pt-4">
+                                        <div className="w-16 h-16 rounded-full bg-blush border-3 border-clay flex items-center justify-center text-3xl text-charcoal">❤️</div>
+                                        <div>
+                                            <h3 className="font-bold text-lg text-charcoal">{partnerName}'s Cycle</h3>
+                                            <p className="opacity-70 font-bold text-clay text-sm">
+                                                Day {partnerCycle.day} ({partnerCycle.mood}) — {partnerCycle.status}
                                             </p>
                                         </div>
-
-                                        {/* Center Metaphor Card: The Notes Inbox */}
-                                        <div className="card p-6 flex flex-col gap-5 relative overflow-hidden">
-                                            <div className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-10 bg-sunflower filter blur-[30px]"></div>
-                                            
-                                            <div className="flex justify-between items-center border-b border-clay/10 pb-3">
-                                                <span className="text-[10px] font-mono tracking-widest text-text-muted uppercase font-bold">MOST RECENT — FROM {partnerName}</span>
-                                            </div>
-
-                                            {relationship.notes.filter(n => n.sender !== currentView).length > 0 ? (
-                                                <p className="font-serif italic text-lg leading-relaxed text-charcoal pl-4 border-l-[3px] border-sunflower">
-                                                    "{relationship.notes.filter(n => n.sender !== currentView)[0].text}"
-                                                </p>
-                                            ) : (
-                                                <p className="font-serif italic text-base text-text-muted leading-relaxed">
-                                                    "No letter in the mailbox today. Leave a trace of your day for them to find when they step in."
-                                                </p>
-                                            )}
-
-                                            <div className="flex justify-start pt-2">
-                                                <button 
-                                                    onClick={() => setActiveRoom('journal')}
-                                                    className="border-[1.5px] border-clay bg-[#FFFEF9] font-mono text-[10px] uppercase font-bold tracking-wider px-4 py-2 rounded-full transition-all duration-300 hover:bg-sunflower hover:shadow-brutal-sm shadow-brutal-sm"
-                                                >
-                                                    Write back →
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {/* Bottom Split layout: Mood snapshot & Presence Indicators */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                            
-                                            {/* Rethemed Chart.js Mood snapshot */}
-                                            <div className="card p-6 flex items-center gap-6">
-                                                <RethemedDashboardChart 
-                                                    myMood={myMoodValue}
-                                                    partnerMood={partnerMoodValue}
-                                                    myName={myName}
-                                                    partnerName={partnerName}
-                                                />
-                                                <div className="flex flex-col gap-1.5">
-                                                    <h3 className="font-serif text-charcoal text-lg font-semibold">Daily Resonance</h3>
-                                                    <p className="text-xs text-text-muted leading-relaxed">
-                                                        Rethemed mood indicator capturing your emotional orbits in real-time.
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            {/* Small Ritual presence card */}
-                                            <div className="card p-6 flex flex-col gap-4 justify-between">
-                                                <div className="flex flex-col gap-1.5">
-                                                    <h3 className="font-serif text-charcoal text-lg font-semibold">Daily Wellness Connection</h3>
-                                                    <p className="text-xs text-text-muted leading-relaxed">
-                                                        Ensure your partner feels nourished, even from afar. Check-in to let them know.
-                                                    </p>
-                                                </div>
-
-                                                <div className="flex justify-between items-center pt-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-2.5 h-2.5 rounded-full bg-stem"></div>
-                                                        <span className="text-[10px] font-mono tracking-widest text-text-muted uppercase font-bold">Nourished Today</span>
-                                                    </div>
-                                                    <button 
-                                                        onClick={triggerMealNudge} 
-                                                        className="border-[1.5px] border-clay bg-[#FFFEF9] hover:bg-sunflower hover:shadow-brutal-sm shadow-brutal-sm transition-all duration-300 font-mono text-[9px] uppercase tracking-wider px-4 py-2 rounded-full font-bold active:translate-y-0.5"
-                                                    >
-                                                        Remind Partner
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                        </div>
-
                                     </div>
-                                )}
+                                </div>
 
-                                {/* ROOM 02 — THE JOURNAL (Timeline & Writing Pad) */}
-                                {activeRoom === 'journal' && (
-                                    <div className="flex flex-col gap-8 py-2 max-w-2xl mx-auto">
-                                        
-                                        {/* Curated Notebook style editor pad */}
-                                        <div className="card p-6 flex flex-col gap-4 relative">
-                                            
-                                            {/* Envelope send animation (Bug template upgrade) */}
-                                            {isSending && (
-                                                <motion.div
-                                                    initial={prefersReduced ? { opacity: 0 } : { x: 0, y: 0, opacity: 1, rotate: 0 }}
-                                                    animate={prefersReduced ? {} : {
-                                                        x: [0, 80, 220, 420],
-                                                        y: [0, -60, -120, -280],
-                                                        rotate: [0, 10, 20, 35],
-                                                        opacity: [1, 1, 0.7, 0],
-                                                        scale: [1, 1.15, 0.9, 0.4]
-                                                    }}
-                                                    transition={{ duration: 1.3, ease: 'easeIn' }}
-                                                    className="absolute pointer-events-none text-2xl z-50"
-                                                    style={{ bottom: 20, right: 20 }}
-                                                >
-                                                    ✉️
-                                                </motion.div>
-                                            )}
-
-                                            <div className="border-b border-clay/10 pb-2 flex justify-between items-center">
-                                                <span className="text-[10px] font-mono tracking-widest text-text-muted uppercase font-bold">LINED LETTER PAD</span>
-                                                <span className="text-[10px] font-mono text-text-muted tracking-wider uppercase">Lora Italic Font</span>
-                                            </div>
-
-                                            <textarea 
-                                                className="notebook-textarea min-h-[140px] focus:outline-none" 
-                                                placeholder="Write something sweet... leave a footprint of your heart..."
-                                                value={noteText}
-                                                onChange={e => setNoteText(e.target.value)}
-                                            />
-
-                                            <div className="flex justify-between items-center pt-2">
-                                                <span className="text-[10px] font-mono text-text-muted italic">Drafts are fully encrypted.</span>
-                                                <button 
-                                                    onClick={submitNote}
-                                                    className="bg-sunflower hover:shadow-brutal-gold text-charcoal border-[1.5px] border-clay font-bold text-xs px-6 py-3 rounded-full transition-all duration-300 transform shadow-brutal active:translate-y-1 active:shadow-brutal-sm"
-                                                >
-                                                    Send Note
-                                                </button>
-                                            </div>
+                                {/* 2. Daily Food Tracker widget */}
+                                <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
+                                    <div className="border-b-3 border-clay pb-4 flex justify-between items-center">
+                                        <h2 className="font-black text-2xl text-charcoal">Daily Wellness Check</h2>
+                                        <span className="text-xs uppercase font-extrabold bg-blush border-2 border-clay px-2 py-0.5 rounded-full text-charcoal">Meal Logger</span>
+                                    </div>
+                                    
+                                    <p className="text-sm font-bold text-clay">Did your partner eat today?</p>
+                                    
+                                    <div className="grid grid-cols-2 gap-6">
+                                        {/* My meal trackers */}
+                                        <div className="flex flex-col gap-3">
+                                            <h3 className="font-black text-xs text-clay uppercase tracking-wider">Your Meals ({myName})</h3>
+                                            {['breakfast', 'lunch', 'dinner'].map((mealKey) => (
+                                                <div key={mealKey} className="flex items-center gap-3">
+                                                    <button className={`monoline-checkbox shrink-0 ${myMeals[mealKey] ? 'checked' : ''}`} onClick={() => toggleMeal(mealKey)}></button>
+                                                    <span className="font-bold capitalize text-charcoal text-sm">
+                                                        {mealKey === 'breakfast' ? 'Breakfast 🍳' : mealKey === 'lunch' ? 'Lunch 🥪' : 'Dinner 🍛'}
+                                                    </span>
+                                                </div>
+                                            ))}
                                         </div>
 
-                                        {/* Journal entries chronological list */}
-                                        <motion.div 
-                                            variants={{
-                                                hidden: {},
-                                                show: { transition: { staggerChildren: 0.07, delayChildren: 0.1 } }
-                                            }}
-                                            initial="hidden"
-                                            animate="show"
-                                            className="flex flex-col gap-6 mt-6"
+                                        {/* Partner meal trackers */}
+                                        <div className="flex flex-col gap-3 border-l-2 border-clay/20 pl-6">
+                                            <h3 className="font-black text-xs text-clay uppercase tracking-wider">{partnerName}'s Meals</h3>
+                                            {['breakfast', 'lunch', 'dinner'].map((mealKey) => (
+                                                <div key={mealKey} className="flex items-center gap-3">
+                                                    <div className={`monoline-checkbox shrink-0 pointer-events-none ${partnerMeals[mealKey] ? 'checked' : 'opacity-40'}`}></div>
+                                                    <span className="font-bold capitalize text-charcoal text-sm">
+                                                        {mealKey === 'breakfast' ? 'Breakfast 🍳' : mealKey === 'lunch' ? 'Lunch 🥪' : 'Dinner 🍛'}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <button onClick={triggerNudge} className="brutal-btn bg-blush border-3 border-clay rounded-xl font-bold p-3 mt-2 text-center text-charcoal shadow-brutal-sm text-sm">
+                                        🔔 Remind Partner to Eat
+                                    </button>
+                                </div>
+
+                                {/* 3. Memory Polaroid Widget */}
+                                <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col items-center gap-6">
+                                    <div className="border-b-3 border-clay pb-4 w-full flex justify-between items-center">
+                                        <h2 className="font-black text-2xl text-charcoal text-left">Memory Polaroid</h2>
+                                        <span className="text-xs uppercase font-extrabold bg-blush border-2 border-clay px-2 py-0.5 rounded-full text-charcoal">Synced Photo</span>
+                                    </div>
+                                    {memories.length > 0 ? (
+                                        <div className="polaroid w-full max-w-[240px] my-2" style={{ '--rand': 0.03 }} onClick={() => setSelectedMemory(memories[0])}>
+                                            <img src={memories[0].url} alt="Latest Memory" />
+                                            <p className="mt-4 font-black text-base text-center tracking-wide text-charcoal">{memories[0].caption}</p>
+                                            <p className="text-center text-xs font-bold opacity-50 mt-1 text-clay">Updated: {memories[0].date}</p>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center p-8 border-3 border-dashed border-clay rounded-2xl w-full text-center">
+                                            <span className="text-4xl mb-2">📸</span>
+                                            <p className="font-bold text-sm text-clay">No memories synced yet.</p>
+                                            <button onClick={() => setActivePage('journal')} className="brutal-btn bg-blush border-3 border-clay rounded-xl font-bold p-2 mt-4 text-xs text-charcoal">
+                                                Add First Photo
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 4. Google Drive Sync Settings Widget */}
+                                <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
+                                    <div className="border-b-3 border-clay pb-4 w-full flex justify-between items-center">
+                                        <h2 className="font-black text-2xl text-charcoal text-left">Google Sync</h2>
+                                        <span className={`text-xs uppercase font-extrabold border-2 border-clay px-2.5 py-0.5 rounded-full ${syncStatus === 'synced' ? 'bg-green-200 text-green-800' : 'bg-blush text-charcoal'}`}>
+                                            {syncStatus}
+                                        </span>
+                                    </div>
+                                    
+                                    <div className="flex flex-col gap-4">
+                                        {googleUser && (
+                                            <div className="flex items-center gap-3 bg-beige border-3 border-clay p-3 rounded-2xl">
+                                                {googleUser.picture ? (
+                                                    <img src={googleUser.picture} className="w-10 h-10 rounded-full border-2 border-clay shrink-0" alt="Profile" />
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-full bg-blush border-2 border-clay flex items-center justify-center shrink-0 text-lg">👤</div>
+                                                )}
+                                                <div className="overflow-hidden">
+                                                    <h4 className="font-extrabold text-sm text-charcoal leading-tight truncate">{googleUser.name}</h4>
+                                                    <p className="text-xs font-bold text-clay truncate">{googleUser.email}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        
+                                        <div className="text-[11px] font-bold text-clay leading-snug">
+                                            <p>🔄 Auto-syncing anti_gravity_sync.json in the shared Google Drive folder every 8 seconds.</p>
+                                            <p className="mt-1 font-mono text-[9px] truncate">File ID: {syncFileId}</p>
+                                        </div>
+                                        
+                                        <button 
+                                            onClick={handleDisconnectDrive} 
+                                            className="brutal-btn bg-paper border-3 border-clay rounded-xl font-bold p-2 text-center text-charcoal shadow-brutal-sm text-xs hover:bg-blush/20"
                                         >
-                                            {relationship.notes.map((note, index) => {
-                                                const isMine = note.sender === currentView;
-                                                
-                                                return (
-                                                    <motion.div
-                                                        key={note.id}
-                                                        variants={{
-                                                            hidden: { opacity: 0, y: 20, scale: 0.97 },
-                                                            show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 90, damping: 14 } }
-                                                        }}
-                                                        whileHover={{ y: -2 }}
-                                                        className={`w-full max-w-[85%] bg-surface border-[1.5px] border-clay/15 p-5 rounded-2xl flex flex-col gap-4 relative group transition-all duration-300 ${
-                                                            isMine 
-                                                                ? 'self-end items-end ml-auto border-l-[3px] border-l-sunflower shadow-brutal-gold' 
-                                                                : 'self-start items-start mr-auto border-l-[3px] border-l-blush shadow-brutal'
-                                                        }`}
-                                                    >
-                                                        {/* Interactive floating reactions */}
-                                                        {reactionTarget === note.id && (
-                                                            <div className="absolute -top-10 bg-[#FFFEF9] border-[1.5px] border-clay p-1.5 rounded-full flex gap-3 shadow-soft z-50">
-                                                                {['❤️', '😂', '😢', '⭐'].map(emoji => (
-                                                                    <button 
-                                                                        key={emoji}
-                                                                        onClick={() => {
-                                                                            reactToEntry(note.id, emoji);
-                                                                            setReactionTarget(null);
-                                                                        }}
-                                                                        className="hover:scale-125 transition-transform text-sm"
-                                                                    >
-                                                                        {emoji}
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        )}
-
-                                                        {/* Floating reactions indicator */}
-                                                        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                                                            {floatingReactions.map((f, i) => (
-                                                                <motion.span
-                                                                    key={i}
-                                                                    initial={{ y: 0, opacity: 1, scale: 1 }}
-                                                                    animate={{ y: -60, opacity: 0, scale: 1.4 }}
-                                                                    exit={{ opacity: 0 }}
-                                                                    transition={{ duration: 1.1, ease: 'easeOut' }}
-                                                                    className="absolute pointer-events-none text-lg"
-                                                                    style={{ left: `${f.left}%`, bottom: '20px' }}
-                                                                >
-                                                                    {f.emoji}
-                                                                </motion.span>
-                                                            ))}
-                                                        </div>
-
-                                                        {/* Header meta */}
-                                                        <div className={`flex items-center gap-2.5 w-full ${isMine ? 'justify-end' : 'justify-start'}`}>
-                                                            <span className={`text-[10px] font-mono tracking-widest uppercase font-bold ${
-                                                                isMine ? 'text-sunflower' : 'text-blush'
-                                                            }`}>
-                                                                {isMine ? myName : partnerName}
-                                                            </span>
-                                                            <span className="text-[10px] font-mono text-text-muted">•</span>
-                                                            <span className="text-[10px] font-mono text-text-muted font-bold">{note.timestamp}</span>
-                                                        </div>
-
-                                                        {/* Text note */}
-                                                        <p className={`font-serif italic text-base leading-relaxed text-charcoal ${isMine ? 'text-right' : 'text-left'}`}>
-                                                            "{note.text}"
-                                                        </p>
-
-                                                        {/* Footer reactions row */}
-                                                        <div className="flex gap-2 mt-2 items-center">
-                                                            <button 
-                                                                onClick={() => setReactionTarget(reactionTarget === note.id ? null : note.id)}
-                                                                className="text-[10px] font-mono font-bold text-text-muted hover:text-sunflower transition-colors p-1 border-[1.5px] border-clay/15 rounded-full px-3 py-1 bg-[#FFFEF9]"
-                                                            >
-                                                                ✨ feeling
-                                                            </button>
-                                                            
-                                                            {note.reactions && note.reactions.map((react, i) => (
-                                                                <span key={i} className="text-xs bg-[#FFFEF9] border-[1.5px] border-clay/10 px-2 py-0.5 rounded-full">
-                                                                    {react === 'heart' ? '❤️' : react === 'star' ? '⭐' : react}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    </motion.div>
-                                                );
-                                            })}
-                                        </motion.div>
-
+                                            🔌 Disconnect Account
+                                        </button>
                                     </div>
-                                )}
+                                </div>
 
-                                {/* ROOM 03 — THE WALL (Corkboard Polaroids) */}
-                                {activeRoom === 'photos' && (
-                                    <div className="flex flex-col gap-10 py-2 relative">
-                                        
-                                        {/* Immersive corkboard text */}
-                                        <div className="text-center flex flex-col gap-1.5">
-                                            <h2 className="font-serif italic text-3xl text-charcoal">Our Corkboard</h2>
-                                            <p className="text-xs text-text-muted font-sans font-semibold">
-                                                A collection of quiet moments, pinned with infinite warmth.
-                                            </p>
-                                        </div>
-
-                                        {/* Masonry Polaroids grid */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 justify-center pt-4">
-                                            {relationship.memories.map((mem, index) => {
-                                                const rotation = (mem.id % 5) - 2;
-                                                
-                                                return (
-                                                    <motion.div
-                                                        key={mem.id}
-                                                        initial={prefersReduced ? { opacity: 1 } : { y: -80, opacity: 0, rotate: -8 }}
-                                                        animate={{ y: 0, opacity: 1, rotate: rotation }}
-                                                        transition={{ type: 'spring', stiffness: 80, damping: 10, delay: index * 0.06 }}
-                                                        whileHover={{ scale: 1.05, rotate: 0, y: -4 }}
-                                                        onClick={() => setSelectedPhoto(mem)}
-                                                        className="polaroid cursor-pointer flex flex-col gap-3"
-                                                    >
-                                                        {/* Top pin representation */}
-                                                        <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-8 h-2 bg-clay/35 rounded-full border border-clay/20"></div>
-
-                                                        <div className="w-full h-44 overflow-hidden relative border border-clay/10 mt-1">
-                                                            <img 
-                                                                src={mem.url} 
-                                                                alt="Memory" 
-                                                                className="w-full h-full object-cover transition-transform duration-[8s] hover:scale-105"
-                                                            />
-                                                        </div>
-
-                                                        <div className="flex flex-col gap-1 select-none">
-                                                            <p className="font-serif italic text-sm text-charcoal text-center leading-relaxed px-1">
-                                                                {mem.caption}
-                                                            </p>
-                                                            <p className="text-center font-mono text-[9px] text-text-muted uppercase tracking-widest font-bold mt-1">
-                                                                {mem.date}
-                                                            </p>
-                                                        </div>
-                                                    </motion.div>
-                                                );
-                                            })}
-                                        </div>
-
-                                        {/* Upload memory form panel */}
-                                        <div className="card p-6 mt-12 max-w-md mx-auto w-full">
-                                            <h3 className="font-serif text-charcoal text-lg font-semibold mb-4 text-center">Pin a New Memory</h3>
-                                            <div className="flex flex-col gap-4">
-                                                <div className="flex flex-col gap-1">
-                                                    <label className="text-[10px] font-mono text-text-muted font-bold uppercase tracking-wider pl-1">Image URL</label>
-                                                    <input 
-                                                        type="text" 
-                                                        placeholder="Paste image link..."
-                                                        value={newPhotoUrl}
-                                                        onChange={e => setNewPhotoUrl(e.target.value)}
-                                                        className="w-full bg-surface-2 border-[1.5px] border-clay/20 text-charcoal px-4 py-2.5 rounded-xl font-sans text-xs focus:outline-none focus:border-sunflower"
-                                                    />
-                                                </div>
-
-                                                <div className="flex flex-col gap-1">
-                                                    <label className="text-[10px] font-mono text-text-muted font-bold uppercase tracking-wider pl-1">Caption</label>
-                                                    <input 
-                                                        type="text" 
-                                                        placeholder="Write a sweet caption..."
-                                                        value={newPhotoCap}
-                                                        onChange={e => setNewPhotoCap(e.target.value)}
-                                                        className="w-full bg-surface-2 border-[1.5px] border-clay/20 text-charcoal px-4 py-2.5 rounded-xl font-sans text-xs focus:outline-none focus:border-sunflower"
-                                                    />
-                                                </div>
-
-                                                <button 
-                                                    onClick={addPhoto}
-                                                    disabled={uploading}
-                                                    className="w-full bg-sunflower border-[1.5px] border-clay hover:shadow-brutal-gold text-charcoal font-bold text-xs py-3 rounded-xl transition-all duration-300 shadow-brutal active:translate-y-0.5 active:shadow-brutal-sm"
-                                                >
-                                                    {uploading ? "Pinning memory..." : "Pin Polaroid →"}
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {/* Lightbox Modal */}
-                                        <AnimatePresence>
-                                            {selectedPhoto && (
-                                                <motion.div
-                                                    initial={{ opacity: 0 }}
-                                                    animate={{ opacity: 1 }}
-                                                    exit={{ opacity: 0 }}
-                                                    onClick={() => setSelectedPhoto(null)}
-                                                    className="fixed inset-0 bg-[#2C2A26]/85 z-[2000] flex items-center justify-center p-4 backdrop-blur-sm cursor-zoom-out"
-                                                >
-                                                    <motion.div
-                                                        initial={{ scale: 0.95, filter: 'blur(6px)' }}
-                                                        animate={{ scale: 1, filter: 'blur(0px)' }}
-                                                        exit={{ scale: 0.95, filter: 'blur(6px)' }}
-                                                        onClick={e => e.stopPropagation()}
-                                                        className="bg-[#FFFEF9] border-[1.5px] border-clay p-5 rounded-2xl max-w-xl w-full flex flex-col gap-5 shadow-brutal relative"
-                                                    >
-                                                        <img 
-                                                            src={selectedPhoto.url} 
-                                                            className="w-full h-80 object-cover rounded-xl border border-clay/10"
-                                                        />
-                                                        <div className="flex flex-col gap-2">
-                                                            <p className="font-serif italic text-lg leading-relaxed text-charcoal text-center">
-                                                                "{selectedPhoto.caption}"
-                                                            </p>
-                                                            <span className="font-mono text-[9px] text-text-muted tracking-widest uppercase text-center mt-1 font-bold">
-                                                                {selectedPhoto.date}
-                                                            </span>
-                                                        </div>
-
-                                                        <button 
-                                                            onClick={() => setSelectedPhoto(null)}
-                                                            className="absolute top-4 right-4 bg-white/80 border border-clay text-charcoal font-mono text-xs w-7 h-7 rounded-full flex items-center justify-center shadow-brutal-sm active:translate-y-0.5"
-                                                        >
-                                                            ✕
-                                                        </button>
-                                                    </motion.div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-
+                                {/* 5. Quick Spaces */}
+                                <div className="md:col-span-2 lg:col-span-2 bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
+                                    <h2 className="font-black text-2xl border-b-3 border-clay pb-4 text-charcoal">Quick Spaces</h2>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <button className="brutal-btn bg-blush border-3 border-clay rounded-xl font-bold flex flex-col items-center justify-center p-4 text-charcoal" onClick={() => setActivePage('mood')}><span className="text-3xl mb-2">😊</span> Log Mood</button>
+                                        <button className="brutal-btn bg-blush border-3 border-clay rounded-xl font-bold flex flex-col items-center justify-center p-4 text-charcoal" onClick={() => setActivePage('journal')}><span className="text-3xl mb-2">📸</span> Add Memory</button>
+                                        <button className="brutal-btn bg-paper border-3 border-clay rounded-xl font-bold flex flex-col items-center justify-center p-4 text-charcoal hover:bg-blush/20" onClick={() => setActivePage('goals')}><span className="text-3xl mb-2">✅</span> View Goals</button>
+                                        <button className="brutal-btn bg-paper border-3 border-clay rounded-xl font-bold flex flex-col items-center justify-center p-4 text-charcoal hover:bg-blush/20" onClick={() => { setIsAnimating(true); setTimeout(() => setIsAnimating(false), 1500); }}><span className="text-3xl mb-2">âš¡</span> Send Ping</button>
                                     </div>
-                                )}
+                                </div>
+                            </div>
+                        )}
 
-                                {/* ROOM 04 — THE CHECK-IN (Daily Ritual & Line Chart) */}
-                                {activeRoom === 'checkin' && (
-                                    <div className="flex flex-col gap-10 py-2 max-w-2xl mx-auto">
-                                        
-                                        <div className="text-center flex flex-col gap-1.5">
-                                            <h2 className="font-serif italic text-3xl text-charcoal">Daily Check-In</h2>
-                                            <p className="text-xs text-text-muted font-sans font-semibold">
-                                                A daily ritual of closeness. Feel together, reflect together.
-                                            </p>
-                                        </div>
-
-                                        {/* Slider container with live color shifting */}
-                                        <div className="card p-6 flex flex-col gap-8 items-center text-center relative overflow-hidden">
-                                            <h3 className="font-serif italic text-xl text-charcoal">
-                                                "How are you feeling today?"
-                                            </h3>
-
-                                            {/* Big mood rating number with warm glow */}
-                                            <div className="flex flex-col items-center">
-                                                <motion.div 
-                                                    animate={{ boxShadow: [
-                                                        '0 0 12px rgba(232,184,75,0.2)',
-                                                        '0 0 28px rgba(232,184,75,0.45)',
-                                                        '0 0 12px rgba(232,184,75,0.2)'
-                                                    ]}}
-                                                    transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-                                                    className="w-24 h-24 rounded-full border-2 border-sunflower bg-[#FFFEF9] flex items-center justify-center text-4xl font-bold font-serif text-charcoal shadow-brutal"
-                                                >
-                                                    {myCheckin.mood}
-                                                </motion.div>
-                                                <span className="text-[9px] font-mono text-text-muted uppercase tracking-widest font-bold mt-4">Drag the slider below</span>
-                                            </div>
-
-                                            {/* Slider input */}
-                                            <div className="w-full max-w-md px-4">
-                                                <input 
-                                                    type="range" 
-                                                    min="1" 
-                                                    max="10" 
-                                                    value={myCheckin.mood} 
-                                                    onChange={e => submitCheckin(parseInt(e.target.value), {
-                                                        q1: myCheckin.q1,
-                                                        q2: myCheckin.q2,
-                                                        q3: myCheckin.q3
-                                                    })}
-                                                    className="w-full"
-                                                />
-                                            </div>
-
-                                            {/* Three Lined Prompt Prompts */}
-                                            <div className="w-full flex flex-col gap-6 text-left pt-6 border-t border-clay/10">
-                                                <div className="flex flex-col gap-2">
-                                                    <span className="text-[10px] font-mono text-text-muted font-bold uppercase tracking-wider">A small detail from today I wish you were here for:</span>
-                                                    <textarea 
-                                                        className="notebook-textarea focus:outline-none min-h-[35px]"
-                                                        value={myCheckin.q1}
-                                                        onChange={e => submitCheckin(myCheckin.mood, { ...myCheckin, q1: e.target.value })}
-                                                    />
-                                                </div>
-
-                                                <div className="flex flex-col gap-2">
-                                                    <span className="text-[10px] font-mono text-text-muted font-bold uppercase tracking-wider">The track fitting my headspace right now:</span>
-                                                    <input 
-                                                        type="text" 
-                                                        className="notebook-textarea focus:outline-none min-h-[35px]"
-                                                        value={myCheckin.q2}
-                                                        onChange={e => submitCheckin(myCheckin.mood, { ...myCheckin, q2: e.target.value })}
-                                                    />
-                                                </div>
-
-                                                <div className="flex flex-col gap-2">
-                                                    <span className="text-[10px] font-mono text-text-muted font-bold uppercase tracking-wider">A tender word of warmth for you:</span>
-                                                    <textarea 
-                                                        className="notebook-textarea focus:outline-none min-h-[35px]"
-                                                        value={myCheckin.q3}
-                                                        onChange={e => submitCheckin(myCheckin.mood, { ...myCheckin, q3: e.target.value })}
-                                                    />
+                        {/* PAGE: LIFE BALANCE WHEEL */}
+                        {activePage === 'wheel' && (
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-16">
+                                <div className="lg:col-span-5 bg-card border-3 border-clay p-6 rounded-3xl shadow-brutal flex flex-col gap-6">
+                                    <div className="flex items-center gap-2 mb-2 text-charcoal"><span className="text-xl">🎚️</span><h2 className="font-extrabold text-xl">Adjust Balance</h2></div>
+                                    <div className="overflow-y-auto pr-2" style={{maxHeight: '520px'}}>
+                                        {CATEGORIES.map((cat, i) => (
+                                            <div key={i} className="mb-6 pb-6 border-b-2 border-clay border-dashed last:border-0 last:pb-0">
+                                                <h3 className="font-bold text-sm mb-3 text-charcoal">{cat}</h3>
+                                                <div className="flex items-center gap-4 mb-3">
+                                                    <div className="w-8 h-8 rounded-full bg-blush border-2 border-clay flex items-center justify-center font-bold text-xs shadow-brutal-active shrink-0 text-charcoal">{userScores[i]}</div>
+                                                    <input type="range" min="1" max="10" value={userScores[i]} onChange={e => updateMyScores(i, parseInt(e.target.value))} />
                                                 </div>
                                             </div>
-                                        </div>
-
-                                        {/* Partner's Check-in card shown beneath */}
-                                        <div className="card p-6 flex flex-col gap-5 relative overflow-hidden bg-surface-2 border-l-[3px] border-l-blush shadow-brutal-sm">
-                                            <div className="flex justify-between items-center border-b border-clay/10 pb-3">
-                                                <h4 className="font-serif italic text-base text-charcoal">{partnerName}'s Check-In Today</h4>
-                                                <span className="text-xs font-mono text-blush font-bold">Mood Rating: {partnerCheckin.mood}</span>
-                                            </div>
-
-                                            <div className="flex flex-col gap-4 text-sm font-serif italic text-charcoal">
-                                                <div>
-                                                    <span className="text-[9px] font-mono tracking-widest uppercase block not-italic font-bold text-text-muted mb-1">Today's Detail:</span>
-                                                    "{partnerCheckin.q1 || "Quiet footprint today."}"
-                                                </div>
-                                                <div>
-                                                    <span className="text-[9px] font-mono tracking-widest uppercase block not-italic font-bold text-text-muted mb-1">Headspace track:</span>
-                                                    "{partnerCheckin.q2 || "No song shared."}"
-                                                </div>
-                                                <div>
-                                                    <span className="text-[9px] font-mono tracking-widest uppercase block not-italic font-bold text-text-muted mb-1">Warmth left for you:</span>
-                                                    "{partnerCheckin.q3 || "Thinking of you."}"
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Rethemed Chart.js 7-Day Line Chart */}
-                                        <div className="card p-6">
-                                            <div className="flex flex-col gap-1.5 mb-6">
-                                                <h3 className="font-serif text-charcoal text-lg font-semibold">7-Day Harmony</h3>
-                                                <p className="text-xs text-text-muted leading-relaxed">
-                                                    Resonating emotional frequencies, showing our visual heartbeat.
-                                                </p>
-                                            </div>
-                                            <RethemedHistoryChart 
-                                                historyYou={myHistory}
-                                                historyThem={partnerHistory}
-                                                myName={myName}
-                                                partnerName={partnerName}
-                                            />
-                                        </div>
-
+                                        ))}
                                     </div>
-                                )}
+                                </div>
 
-                                {/* ROOM 05 — THE DOCK CONFIG (Settings) */}
-                                {activeRoom === 'settings' && (
-                                    <div className="flex flex-col gap-10 py-2 max-w-md mx-auto">
-                                        
-                                        <div className="text-center flex flex-col gap-1.5">
-                                            <h2 className="font-serif italic text-3xl text-charcoal">The Quiet Corner</h2>
-                                            <p className="text-xs text-text-muted font-sans font-semibold">
-                                                Dim the candlelight, disconnect, or sync your orbital links.
-                                            </p>
+                                <div className="lg:col-span-7 flex flex-col gap-8">
+                                    <RadarChart userScores={userScores} partnerScores={partnerScores} myName={myName} partnerName={partnerName} />
+                                    <div className="relative">
+                                        {isAnimating && <div className="absolute top-1/2 left-1/2 z-50 text-4xl fly-animation pointer-events-none">✈️</div>}
+                                        <button onClick={() => { setIsAnimating(true); setTimeout(() => setIsAnimating(false), 1500); }} className="brutal-btn w-full bg-blush border-3 border-clay rounded-2xl shadow-brutal p-6 flex flex-col items-center justify-center text-center relative overflow-hidden text-paper">
+                                            <span className="text-sm font-extrabold uppercase tracking-widest opacity-80 mb-1">Recommended Action</span>
+                                            <h3 className="text-2xl font-black">Plan a {focusCategory.split(',')[0]} Activity</h3>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PAGE: GOALS */}
+                        {activePage === 'goals' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                {macroGoals.map(goal => (
+                                    <GoalCard key={goal.id} goal={goal} 
+                                        onToggleMini={toggleMiniGoal} 
+                                        onAddMini={addMiniGoal} 
+                                    />
+                                ))}
+                                <button className="brutal-btn bg-paper border-3 border-clay border-dashed p-5 rounded-3xl shadow-brutal flex flex-col items-center justify-center min-h-[200px]" onClick={addMacroGoal}>
+                                    <div className="w-12 h-12 rounded-full border-3 border-clay flex items-center justify-center text-2xl font-black bg-card mb-3 text-charcoal">+</div>
+                                    <h3 className="font-extrabold text-lg text-charcoal">New Macro Goal</h3>
+                                </button>
+                            </div>
+                        )}
+
+                        {/* PAGE: MOOD SPACE */}
+                        {activePage === 'mood' && (
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+                                <div className="md:col-span-5 bg-card border-3 border-clay p-6 rounded-3xl shadow-brutal">
+                                    <h2 className="font-black text-2xl mb-6 text-charcoal">Log Your Mood</h2>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                                        {[['Happy','😊'],['Calm','😌'],['Stressed','😫'],['Sad','🥺'],['Excited','🤩'],['Tired','😴']].map(([m, e]) => (
+                                            <button key={m} onClick={() => alert("Logged Mood: " + m)} className="brutal-btn bg-paper border-3 border-clay rounded-xl p-4 flex flex-col items-center hover:bg-blush/30 text-charcoal">
+                                                <span className="text-3xl mb-2">{e}</span><span className="font-bold text-xs">{m}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <textarea className="notebook-textarea border-3 border-clay bg-paper rounded-xl p-4 w-full text-charcoal" placeholder="Add a note to your mood..."></textarea>
+                                </div>
+                                <div className="md:col-span-7 flex flex-col gap-4">
+                                    <h2 className="font-black text-2xl mb-2 text-charcoal">Mood History</h2>
+                                    <div className="bg-card border-3 border-clay p-4 rounded-2xl shadow-brutal-sm flex gap-4 items-center">
+                                        <div className="w-16 h-16 shrink-0 bg-blush border-3 border-clay rounded-full flex items-center justify-center text-3xl text-charcoal">✨</div>
+                                        <div>
+                                            <h3 className="font-extrabold text-lg text-charcoal">Connected</h3>
+                                            <p className="font-bold opacity-80 text-sm mt-1 text-clay">"Testing mood parameters."</p>
+                                            <p className="text-xs font-black opacity-50 mt-2 text-clay">Just now</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PAGE: MEMORY JOURNAL */}
+                        {activePage === 'journal' && (
+                            <div>
+                                <div className="bg-card border-3 border-clay p-6 rounded-3xl shadow-brutal mb-8 flex flex-col md:flex-row gap-4 md:items-center">
+                                    <div className="flex-1 flex flex-col gap-1">
+                                        <label className="text-xs font-black text-clay uppercase tracking-widest pl-1">Google Photos / Direct Image URL</label>
+                                        <input type="text" placeholder="Image URL..." className="border-3 border-clay bg-paper p-3 rounded-xl font-bold outline-none text-charcoal placeholder-clay text-sm w-full" value={newMemoryUrl} onChange={e => setNewMemoryUrl(e.target.value)} />
+                                    </div>
+                                    <div className="flex-1 flex flex-col gap-1">
+                                        <label className="text-xs font-black text-clay uppercase tracking-widest pl-1">Caption</label>
+                                        <input type="text" placeholder="Caption..." className="border-3 border-clay bg-paper p-3 rounded-xl font-bold outline-none text-charcoal placeholder-clay text-sm w-full" value={newMemoryCap} onChange={e => setNewMemoryCap(e.target.value)} />
+                                    </div>
+                                    <button onClick={addMemory} className="brutal-btn bg-blush border-3 border-clay p-3 px-6 rounded-xl font-black text-charcoal self-end mb-1">Add Memory</button>
+                                </div>
+                                <div className="flex flex-wrap gap-6 md:gap-12 justify-center pt-8">
+                                    {memories.map((mem, i) => (
+                                        <div key={mem.id} className="polaroid w-full max-w-[250px]" style={{'--rand': 0.1}} onClick={() => setSelectedMemory(mem)}>
+                                            <img src={mem.url} alt="Memory" />
+                                            <p className="mt-4 font-black text-lg text-center tracking-wide text-charcoal">{mem.caption}</p>
+                                            <p className="text-center text-xs font-bold opacity-50 mt-1 text-clay">{mem.date || 'Just now'}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PAGE: SOUNDTRACK */}
+                        {activePage === 'soundtrack' && (
+                            <div>
+                                <div className="bg-card border-3 border-clay p-6 rounded-3xl shadow-brutal mb-8 flex flex-col gap-4">
+                                    <h2 className="font-black text-2xl text-charcoal">Update Playlist Link</h2>
+                                    <p className="text-xs font-bold text-clay">Paste a standard Spotify playlist or track URL here to parse and embed dynamically:</p>
+                                    <div className="flex flex-col md:flex-row gap-4 items-center">
+                                        <input type="text" placeholder="https://open.spotify.com/playlist/..." className="border-3 border-clay bg-paper p-3 rounded-xl flex-1 font-bold outline-none text-charcoal placeholder-clay text-sm w-full" value={spotifyUrl} onChange={e => saveSpotifyPlaylist(e.target.value)} />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-8">
+                                    {spotifyUrl ? (
+                                        <div className="bg-card border-3 border-clay p-6 rounded-3xl shadow-brutal text-center flex flex-col items-center">
+                                            <h3 className="font-extrabold text-2xl text-charcoal mb-4">Your Synced Playlist</h3>
+                                            <div className="w-full max-w-2xl mx-auto rounded-2xl overflow-hidden border-3 border-clay">
+                                                <iframe src={parseSpotifyUrl(spotifyUrl)} width="100%" height="360" frameBorder="0" allowFullScreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" style={{ borderRadius: '12px' }}></iframe>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-card border-3 border-clay p-12 rounded-3xl shadow-brutal text-center flex flex-col items-center max-w-xl mx-auto">
+                                            <span className="text-6xl mb-4">🎵</span>
+                                            <h2 className="font-black text-2xl mb-4 text-charcoal">No Soundtrack Connected</h2>
+                                            <p className="font-bold opacity-70 mb-8 text-clay">Paste a standard Spotify URL in the container above to activate it!</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PAGE: WELLNESS CYCLE (FLO TRACKER ALTERNATIVE WIDGET) */}
+                        {activePage === 'wellness' && (
+                            <div className="flex flex-col gap-6 max-w-2xl mx-auto">
+                                
+                                {/* 1. Active Role view toggler for testing */}
+                                <div className="bg-card border-3 border-clay p-4 rounded-2xl shadow-brutal flex justify-between items-center">
+                                    <h3 className="font-black text-charcoal">View Cycle Tracker As</h3>
+                                    <div className="flex bg-beige border-2 border-clay rounded-xl overflow-hidden">
+                                        <button onClick={() => setCycleRole('her')} className={`p-2 px-4 font-black text-sm transition-all ${cycleRole === 'her' ? 'bg-blush text-charcoal' : 'text-clay'}`}>Her Interface</button>
+                                        <button onClick={() => setCycleRole('him')} className={`p-2 px-4 font-black text-sm transition-all ${cycleRole === 'him' ? 'bg-blush text-charcoal' : 'text-clay'}`}>His Interface</button>
+                                    </div>
+                                </div>
+
+                                {/* 2. Render selected view */}
+                                {cycleRole === 'her' ? (
+                                    /* HER CYCLE LOGGER VIEW */
+                                    <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
+                                        <div className="border-b-3 border-clay pb-4">
+                                            <h2 className="font-black text-3xl text-charcoal">My Wellness Cycle Logger</h2>
+                                            <p className="text-xs font-bold text-clay">A completely private manual logger of your daily energy parameters.</p>
                                         </div>
 
-                                        {/* Google Cloud account panel */}
-                                        <div className="card p-6 flex flex-col gap-5">
-                                            <h3 className="font-serif text-charcoal text-lg font-semibold border-b border-clay/10 pb-3">Cloud Sync Protection</h3>
-                                            
-                                            {googleUser ? (
-                                                <div className="flex flex-col gap-5">
-                                                    <div className="flex items-center gap-3 bg-surface-2 border border-clay/10 p-4 rounded-xl">
-                                                        {googleUser.picture ? (
-                                                            <img src={googleUser.picture} className="w-10 h-10 rounded-full border border-clay/15 shrink-0" alt="Profile" />
-                                                        ) : (
-                                                            <div className="w-10 h-10 rounded-full bg-sunflower border border-clay/15 flex items-center justify-center shrink-0 text-lg font-bold">🌻</div>
-                                                        )}
-                                                        <div className="overflow-hidden">
-                                                            <h4 className="font-sans font-semibold text-sm text-charcoal leading-tight truncate">{googleUser.name}</h4>
-                                                            <p className="text-[10px] font-mono text-text-muted truncate mt-0.5 font-bold">{googleUser.email}</p>
-                                                        </div>
-                                                    </div>
+                                        {/* Slider day counter */}
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs uppercase font-extrabold text-clay">Cycle Day Counter</span>
+                                                <span className="text-sm font-black bg-blush px-3 py-0.5 border-2 border-clay rounded-full text-charcoal">Day {myCycle.day}</span>
+                                            </div>
+                                            <input type="range" min="1" max="28" value={myCycle.day} onChange={e => updateCycle({ day: parseInt(e.target.value) })} />
+                                        </div>
 
-                                                    <div className="flex flex-col gap-1.5 font-mono text-[9px] text-text-muted font-bold leading-relaxed">
-                                                        <p>⚡ Real-time Google Drive sync is active.</p>
-                                                        <p className="truncate">File ID: {syncFileId || 'OFFLINE_MODE'}</p>
-                                                    </div>
-
-                                                    <button 
-                                                        onClick={handleDisconnectDrive}
-                                                        className="w-full bg-[#FFFEF9] border-[1.5px] border-clay hover:bg-sunflower text-charcoal text-xs py-3 rounded-xl transition-all duration-300 font-mono font-bold uppercase tracking-wider shadow-brutal-sm active:translate-y-0.5"
-                                                    >
-                                                        Disconnect Secure Sync
+                                        {/* Mood selector icons */}
+                                        <div className="flex flex-col gap-2">
+                                            <span className="text-xs uppercase font-extrabold text-clay">Quick Mood Status</span>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                {['Tired 🥱', 'Cramps ⚡', 'Happy ✨'].map((m) => (
+                                                    <button key={m} onClick={() => updateCycle({ mood: m })} className={`p-3 rounded-xl border-3 border-clay font-bold text-sm text-center brutal-btn ${myCycle.mood === m ? 'bg-blush shadow-brutal-sm translate-x-1' : 'bg-paper'}`}>
+                                                        {m}
                                                     </button>
-                                                </div>
-                                            ) : (
-                                                <button 
-                                                    onClick={handleConnectDrive}
-                                                    className="w-full bg-sunflower border-[1.5px] border-clay hover:shadow-brutal-gold text-charcoal font-bold text-xs py-3.5 rounded-xl transition-all duration-300 shadow-brutal active:translate-y-0.5 active:shadow-brutal-sm"
-                                                >
-                                                    Enable Cloud Synced Backups →
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        {/* Soundtrack Connection Panel */}
-                                        <div className="card p-6 flex flex-col gap-4">
-                                            <h3 className="font-serif text-charcoal text-lg font-semibold border-b border-clay/10 pb-2">Shared Soundtrack</h3>
-                                            <p className="text-[10px] font-mono text-text-muted font-bold tracking-wide leading-relaxed">
-                                                Embed your special couple playlist here. Paste a standard Spotify track or playlist link.
-                                            </p>
-                                            
-                                            <input 
-                                                type="text"
-                                                placeholder="https://open.spotify.com/playlist/..."
-                                                value={relationship.spotify_url}
-                                                onChange={e => {
-                                                    const next = { ...relationship, spotify_url: e.target.value };
-                                                    setRelationship(next);
-                                                    pushStateToDrive(next);
-                                                }}
-                                                className="w-full bg-surface-2 border-[1.5px] border-clay/20 text-charcoal px-4 py-2.5 rounded-xl font-mono text-xs focus:outline-none focus:border-sunflower"
-                                            />
-
-                                            {relationship.spotify_url && (
-                                                <div className="rounded-xl overflow-hidden border border-clay/10 mt-2 bg-[#FFFEF9]">
-                                                    <iframe 
-                                                        src={parseSpotifyUrl(relationship.spotify_url)} 
-                                                        width="100%" 
-                                                        height="80" 
-                                                        frameBorder="0" 
-                                                        allowFullScreen 
-                                                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-                                                        loading="lazy"
-                                                    ></iframe>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Unique Invites Panel */}
-                                        <div className="card p-6 flex flex-col gap-3">
-                                            <h3 className="font-serif text-charcoal text-lg font-semibold border-b border-clay/10 pb-2">Pairing Invite</h3>
-                                            <p className="text-[10px] font-mono text-text-muted font-bold leading-relaxed">
-                                                Copy and send this special room link to your partner to merge your orbits permanently.
-                                            </p>
-                                            
-                                            <div className="bg-surface-2 border-[1.5px] border-clay/20 p-3 rounded-xl flex items-center justify-between mt-2">
-                                                <span className="font-mono text-xs text-sunflower font-bold tracking-wider">antigravity.space/invite/{syncFileId.slice(0, 8) || 'local'}</span>
-                                                <button 
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(`antigravity.space/invite/${syncFileId || 'local'}`);
-                                                        triggerToast("Invite code copied successfully.");
-                                                    }}
-                                                    className="text-[10px] font-mono font-bold text-clay hover:text-sunflower transition-colors"
-                                                >
-                                                    Copy
-                                                </button>
+                                                ))}
                                             </div>
                                         </div>
 
-                                        {/* Cozy wordmark footer */}
-                                        <div className="text-center flex flex-col gap-1.5 pt-8">
-                                            <span className="font-serif italic text-xs text-text-muted">"Anti-Gravity — built for the ones who stay."</span>
-                                            <span className="font-mono text-[8px] text-text-muted font-bold uppercase tracking-widest">Version 3.0.0 Sunflower Redesign</span>
+                                        {/* Status boundary toggler flags */}
+                                        <div className="flex flex-col gap-2">
+                                            <span className="text-xs uppercase font-extrabold text-clay">Send Notification Indicator Status</span>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                {['Need space 🤍', 'Send snacks 🍫'].map((s) => (
+                                                    <button key={s} onClick={() => updateCycle({ status: s })} className={`p-3 rounded-xl border-3 border-clay font-bold text-sm text-center brutal-btn ${myCycle.status === s ? 'bg-blush shadow-brutal-sm translate-x-1' : 'bg-paper'}`}>
+                                                        {s}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    /* HIS SUPPORTIVE VIEW CARD */
+                                    <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6 text-center">
+                                        <div className="w-16 h-16 bg-blush border-3 border-clay rounded-full flex items-center justify-center text-3xl mx-auto shadow-brutal-sm">🤍</div>
+                                        <div>
+                                            <h3 className="text-2xl font-black text-charcoal">Partner Cycle Sync</h3>
+                                            <p className="text-xs font-bold text-clay uppercase tracking-widest mt-1">Glanceable Cycle Summary</p>
                                         </div>
 
+                                        <div className="bg-beige border-3 border-clay p-6 rounded-2xl flex flex-col gap-3">
+                                            <div className="flex justify-around items-center divide-x-2 divide-clay/20">
+                                                <div>
+                                                    <span className="text-xs uppercase font-extrabold text-clay block">Cycle Status</span>
+                                                    <span className="text-lg font-black text-charcoal block mt-1">Day {partnerCycle.day}</span>
+                                                </div>
+                                                <div className="pl-6">
+                                                    <span className="text-xs uppercase font-extrabold text-clay block">Energy Level</span>
+                                                    <span className="text-lg font-black text-charcoal block mt-1">{partnerCycle.mood}</span>
+                                                </div>
+                                                <div className="pl-6">
+                                                    <span className="text-xs uppercase font-extrabold text-clay block">Status Message</span>
+                                                    <span className="text-lg font-black text-charcoal block mt-1">{partnerCycle.status}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-4 bg-blush/30 border-3 border-dashed border-clay rounded-xl text-sm font-black text-charcoal leading-relaxed">
+                                            📢 Partner Cycle Sync: Day {partnerCycle.day} (Energy: {partnerCycle.mood.includes('Tired') || partnerCycle.mood.includes('Cramps') ? 'Low' : 'High'}) 🤍. Sending extra love today might be nice!
+                                        </div>
                                     </div>
                                 )}
+                            </div>
+                        )}
 
-                            </motion.main>
-                        </AnimatePresence>
+                        {/* PAGE: GROWTH ARC */}
+                        {activePage === 'growth' && (
+                            <div className="bg-card border-3 border-clay p-8 rounded-3xl shadow-brutal max-w-3xl mx-auto">
+                                <h2 className="font-black text-3xl mb-8 border-b-3 border-clay pb-4 text-charcoal">Our Journey</h2>
+                                <div className="border-l-3 border-clay ml-4 pl-10 flex flex-col gap-10">
+                                    <div className="relative">
+                                        <div className="absolute -left-[43.5px] top-0 w-8 h-8 bg-blush border-3 border-clay rounded-full shadow-brutal-sm"></div>
+                                        <h3 className="font-black text-2xl text-charcoal">Chapter 1: The Meeting</h3>
+                                        <p className="opacity-70 font-bold uppercase tracking-widest text-sm mb-2 text-clay">August 2024</p>
+                                        <p className="font-bold text-charcoal/80">The day we first met at the coffee shop in downtown.</p>
+                                    </div>
+                                    <div className="relative">
+                                        <div className="absolute -left-[43.5px] top-0 w-8 h-8 bg-blush border-3 border-clay rounded-full shadow-brutal-sm"></div>
+                                        <h3 className="font-black text-2xl text-charcoal">Chapter 2: The Distance</h3>
+                                        <p className="opacity-70 font-bold uppercase tracking-widest text-sm mb-2 text-clay">December 2024</p>
+                                        <p className="font-bold text-charcoal/80">Moving apart for the new job opportunity. Hard, but worth it.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                     </div>
-                )}
 
-            </div>
-
-            {/* --- IMMERSIVE PERSISTENT FIXED FLOATING ICON DOCK (21st.dev Retheme Navigation) --- */}
-            {accessToken && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#FDFAF4]/90 backdrop-blur-md border-[1.5px] border-clay/25 rounded-[24px] px-6 py-2.5 flex items-center gap-6 shadow-brutal z-[1500]">
-                    {[
-                        { id: 'inbox', icon: MailIcon, label: 'Inbox' },
-                        { id: 'journal', icon: PenLineIcon, label: 'Journal' },
-                        { id: 'photos', icon: ImageIcon, label: 'Wall' },
-                        { id: 'checkin', icon: HeartIcon, label: 'Ritual' },
-                        { id: 'settings', icon: SettingsIcon, label: 'Corner' }
-                    ].map(tab => {
-                        const Icon = tab.icon;
-                        const isActive = activeRoom === tab.id;
+                    {/* --- 1. PERSISTENT LOCAL NO-AUTH PROFILE SWITCHER UTILITY BAR --- */}
+                    <div className="fixed bottom-0 left-0 w-full bg-paper border-t-3 border-clay p-4 z-[100] flex justify-between items-center shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl">🪐</span>
+                            <span className="font-black text-sm text-charcoal tracking-wide hidden sm:inline">Anti-Gravity Local Switcher:</span>
+                        </div>
                         
-                        return (
-                            <button
-                                key={tab.id}
-                                onClick={() => {
-                                    playSoftChime();
-                                    setActiveRoom(tab.id);
-                                }}
-                                className="relative flex flex-col items-center justify-center px-3 py-1 group"
-                            >
-                                <Icon className={`w-5 h-5 transition-colors duration-300 relative z-10 ${
-                                    isActive ? 'text-charcoal' : 'text-clay/70 group-hover:text-charcoal'
-                                }`} />
-                                <span className={`text-[8px] font-mono uppercase mt-1 tracking-wider transition-colors duration-300 relative z-10 ${
-                                    isActive ? 'text-charcoal font-bold' : 'text-clay/70 group-hover:text-charcoal'
-                                }`}>
-                                    {tab.label}
-                                </span>
-                                
-                                {isActive && (
-                                    <motion.div 
-                                        layoutId="activeTab"
-                                        className="absolute inset-0 bg-sunflower rounded-2xl -z-10 border border-clay/35 shadow-brutal-sm"
-                                        transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-                                    />
-                                )}
+                        <div className="flex bg-beige border-2 border-clay rounded-xl overflow-hidden shadow-brutal-active">
+                            <button onClick={() => setCurrentView('A')} className={`p-2 px-6 font-black text-xs uppercase tracking-wider transition-all brutal-btn ${currentView === 'A' ? 'bg-blush text-charcoal font-black' : 'text-clay font-bold'}`}>
+                                Partner A View {currentView === 'A' && '👤'}
                             </button>
-                        );
-                    })}
-                </div>
-            )}
+                            <button onClick={() => setCurrentView('B')} className={`p-2 px-6 font-black text-xs uppercase tracking-wider transition-all brutal-btn ${currentView === 'B' ? 'bg-blush text-charcoal font-black' : 'text-clay font-bold'}`}>
+                                Partner B View {currentView === 'B' && '👤'}
+                            </button>
+                        </div>
 
-            {/* --- PERSISTENT DUAL PROFILE SIMULATING SWITCHER BAR --- */}
-            <div className="fixed bottom-0 left-0 w-full bg-[#FAF6EC]/95 border-t-[1.5px] border-clay/15 py-2.5 px-4 z-[1400] flex justify-between items-center shadow-soft backdrop-blur-sm">
-                <div className="flex items-center gap-2 text-text-muted">
-                    <span className="text-sm">🪐</span>
-                    <span className="font-mono text-[9px] tracking-wide uppercase font-bold hidden sm:inline">Orbit Simulator:</span>
-                </div>
-                
-                <div className="flex bg-[#FFFEF9] border-[1.5px] border-clay/20 rounded-full p-0.5 shadow-brutal-sm">
-                    <button 
-                        onClick={() => {
-                            setCurrentView('A');
-                            playSoftChime();
-                            triggerToast("Simulating Partner A. Accent color: Sunflower Gold 🌻");
-                        }} 
-                        className={`px-4 py-1.5 rounded-full font-mono text-[9px] uppercase tracking-wider transition-all duration-300 ${
-                            currentView === 'A' ? 'bg-sunflower text-charcoal font-bold border border-clay/35' : 'text-text-muted hover:text-charcoal'
-                        }`}
-                    >
-                        Partner A {currentView === 'A' && '🌻'}
-                    </button>
-                    <button 
-                        onClick={() => {
-                            setCurrentView('B');
-                            playSoftChime();
-                            triggerToast("Simulating Partner B. Accent color: Blush Rose 🌸");
-                        }} 
-                        className={`px-4 py-1.5 rounded-full font-mono text-[9px] uppercase tracking-wider transition-all duration-300 ${
-                            currentView === 'B' ? 'bg-blush text-charcoal font-bold border border-clay/35' : 'text-text-muted hover:text-charcoal'
-                        }`}
-                    >
-                        Partner B {currentView === 'B' && '🌸'}
-                    </button>
-                </div>
+                        <div className="text-xs font-black text-clay uppercase tracking-widest hidden md:inline-block">
+                            Local Syncing Simulator
+                        </div>
+                    </div>
 
-                <div className="text-[9px] font-mono text-text-muted font-bold uppercase tracking-widest hidden md:inline-block">
-                    Merged Orbit System Offline Sync
                 </div>
-            </div>
+            );
+        };
 
-        </div>
-    );
-};
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
