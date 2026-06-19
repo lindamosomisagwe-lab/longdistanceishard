@@ -21,7 +21,9 @@ const defaultState = {
     distance: 6400, coRegulation: 62,
     partnerA_cycleData: { day: 14, symptoms: [], needSpace: false, sendSnacks: false },
     reEntryEndTime: null, // 72-hour timer for atmospheric re-entry
-    wakes: { A: [], B: [] } // Asynchronous wakes (stardust trails)
+    wakes: { A: [], B: [] }, // Asynchronous wakes (stardust trails)
+    isThermalBlanketActive: false, // Empathy Loop: Thermal Blanket
+    liftForce: { A: 0, B: 0 } // Empathy Loop: The Tether
 };
 
 const loadState = (def) => {
@@ -40,6 +42,30 @@ const CATEGORIES = [
     'Romance', 'Physical & Mental Health', 'Personal Growth', 
     'Career & Business', 'Finances', 'Leisure'
 ];
+
+// --- ECHOES OVERLAY ---
+const EchoesOverlay = ({ moods, view }) => {
+    // Show only the other partner's notes
+    const otherPartner = view === 'A' ? 'B' : 'A';
+    const recentEchoes = moods.filter(m => m.partner === otherPartner && m.note).slice(0, 3);
+
+    return (
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+            {recentEchoes.map((echo, i) => (
+                <div 
+                    key={echo.id} 
+                    className="echo-text"
+                    style={{
+                        top: `${20 + (i * 25)}%`,
+                        animationDelay: `${i * 15}s`
+                    }}
+                >
+                    {echo.note}
+                </div>
+            ))}
+        </div>
+    );
+};
 
 // --- COMPONENTS ---
 
@@ -103,7 +129,7 @@ const Sidebar = ({ activePage, setActivePage, view, resetRole, isReEntry }) => {
     }
 
     return (
-        <aside className="w-full md:w-64 shrink-0 flex flex-col gap-6">
+        <aside className="w-full md:w-64 shrink-0 flex flex-col gap-6 relative z-10">
             <div className={`glass-panel p-6 flex flex-col h-full relative ${isReEntry ? 'border-indigo-500/30' : ''}`}>
                 <div className="flex items-center gap-3 mb-10">
                     <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(255,255,255,0.1)] border border-white/20">
@@ -145,7 +171,7 @@ const Sidebar = ({ activePage, setActivePage, view, resetRole, isReEntry }) => {
 };
 
 const Header = ({ view, setView, distance, isReEntry }) => (
-    <header className="glass-panel px-6 py-4 flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+    <header className="glass-panel px-6 py-4 flex flex-col md:flex-row justify-between items-center mb-6 gap-4 relative z-10">
         <div className="flex items-center gap-4">
             <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
                 <Star size={16} className="text-brand-accent" />
@@ -182,23 +208,67 @@ const OurSpace = ({ distance, setDistance, coreg, setCoreg, view, relationship, 
     const syncInterval = useRef(null);
     const drainInterval = useRef(null);
     const canvasRef = useRef(null);
+    const liftInterval = useRef(null);
 
     // Physics constants
     const inertia = isReEntry ? '3s' : '0.5s';
 
-    // Heartbeat Logic: Find last mood per partner
+    // Empathy Tether Logic
     const getMoodAura = (partnerId) => {
         const partnerMoods = relationship.moods.filter(m => m.partner === partnerId);
-        if (partnerMoods.length === 0) return { filter: `blur(${isReEntry ? '8px' : '4px'})`, drift: 0 };
+        if (partnerMoods.length === 0) return { isHeavy: false, filter: `blur(${isReEntry ? '8px' : '4px'})`, drift: 0 };
         const lastMood = partnerMoods[0].mood; // newest first
         if (lastMood === 'Stressed' || lastMood === 'Tired' || lastMood === 'Sad') {
-            return { filter: 'blur(12px)', drift: 10 }; // hazy, drifts further
+            return { isHeavy: true, filter: 'blur(12px)', drift: 10 }; // hazy, drifts further
         }
-        return { filter: `blur(${isReEntry ? '8px' : '4px'})`, drift: 0 };
+        return { isHeavy: false, filter: `blur(${isReEntry ? '8px' : '4px'})`, drift: 0 };
     };
 
     const auraA = getMoodAura('A');
     const auraB = getMoodAura('B');
+
+    // Empathy Support Lift
+    const startLifting = (partnerId) => {
+        clearInterval(liftInterval.current);
+        liftInterval.current = setInterval(() => {
+            const currentForce = relationship.liftForce[partnerId];
+            if (currentForce < 100) {
+                updateData({ liftForce: { ...relationship.liftForce, [partnerId]: currentForce + 5 } });
+            }
+        }, 100);
+    };
+
+    const stopLifting = (partnerId) => {
+        clearInterval(liftInterval.current);
+        liftInterval.current = setInterval(() => {
+            // Can't use stale relationship state inside setInterval directly without ref, 
+            // but updateData gets latest from parent if we pass a callback. Wait, updateData doesn't accept callbacks.
+            // We'll just rely on the effect below to drain liftForce globally.
+        }, 100);
+    };
+
+    useEffect(() => {
+        const t = setInterval(() => {
+            // Drain lift force organically if not being lifted
+            if (relationship.liftForce.A > 0 || relationship.liftForce.B > 0) {
+                updateData({ 
+                    liftForce: { 
+                        A: Math.max(0, relationship.liftForce.A - 1), 
+                        B: Math.max(0, relationship.liftForce.B - 1) 
+                    } 
+                });
+            }
+        }, 500);
+        return () => clearInterval(t);
+    }, [relationship.liftForce]);
+
+    // Calculate vertical position (Empathy Tether gravity)
+    const getVerticalOffset = (partnerId, isHeavy) => {
+        if (!isHeavy) return '50%';
+        const force = relationship.liftForce[partnerId];
+        // 100% force = 50% top (center), 0% force = 80% top (sinking)
+        return `calc(80% - ${(force / 100) * 30}%)`;
+    };
 
     useEffect(() => {
         if (isSyncing) {
@@ -222,9 +292,7 @@ const OurSpace = ({ distance, setDistance, coreg, setCoreg, view, relationship, 
         updateData({ [view === 'A' ? 'meals_a' : 'meals_b']: { ...meals, [meal]: !meals[meal] } });
     };
 
-    // Calculate sphere positions based on coregulation, adding drift if stressed
     let sphereDist = 40 - (coreg * 0.35);
-
     const partnerAData = relationship.partnerA_cycleData || defaultState.partnerA_cycleData;
 
     // Asynchronous Stardust Logic
@@ -234,28 +302,38 @@ const OurSpace = ({ distance, setDistance, coreg, setCoreg, view, relationship, 
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         
-        // Push stardust particle
         const newWake = { x, y, id: Date.now() };
         const wakes = { ...relationship.wakes };
-        wakes[view] = [...(wakes[view] || []), newWake].slice(-15); // keep last 15
+        wakes[view] = [...(wakes[view] || []), newWake].slice(-15);
         updateData({ wakes });
 
-        // Check if interacting with partner's stardust
         const partner = view === 'A' ? 'B' : 'A';
         const partnerWakes = wakes[partner] || [];
         partnerWakes.forEach(w => {
             const dx = Math.abs(w.x - x);
             const dy = Math.abs(w.y - y);
             if (dx < 30 && dy < 30) {
-                // Kinetic attraction triggered!
                 setCoreg(prev => Math.min(100, prev + 5));
             }
         });
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6">
-            <div className="flex-1 glass-panel p-6 flex flex-col">
+        <div className="flex flex-col lg:flex-row gap-6 relative z-10">
+            <div className="flex-1 glass-panel p-6 flex flex-col relative">
+                
+                {/* Empathy Feedback UI */}
+                {view === 'A' && relationship.liftForce.A > 20 && auraA.isHeavy && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-sm font-serif italic text-brand-accent animate-pulse pointer-events-none z-50">
+                        He is holding your star right now.
+                    </div>
+                )}
+                {view === 'B' && relationship.liftForce.B > 20 && auraB.isHeavy && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-sm font-serif italic text-brand-accent animate-pulse pointer-events-none z-50">
+                        She is holding your star right now.
+                    </div>
+                )}
+
                 <div className="flex justify-between items-center mb-6">
                     <div>
                         <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-1">The Night Canvas</h3>
@@ -301,12 +379,43 @@ const OurSpace = ({ distance, setDistance, coreg, setCoreg, view, relationship, 
                         <div key={`wb-${w.id}`} className="stardust-trail bg-blue-100" style={{ left: w.x, top: w.y }}></div>
                     ))}
 
-                    {/* Connecting Line */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-px bg-white/20 z-10" style={{ width: `calc(${(sphereDist*2) + auraA.drift + auraB.drift}% + 3rem)`, transition: `all ${inertia} ease` }}></div>
+                    {/* Connecting Line (Only draw if stars are roughly aligned) */}
+                    {!(auraA.isHeavy && relationship.liftForce.A < 80) && !(auraB.isHeavy && relationship.liftForce.B < 80) && (
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-px bg-white/20 z-10" style={{ width: `calc(${(sphereDist*2) + auraA.drift + auraB.drift}% + 3rem)`, transition: `all ${inertia} ease` }}></div>
+                    )}
 
                     {/* Celestial Stars */}
-                    <div className="celestial-star star-a w-6 h-6" style={{ left: `calc(50% - 0.75rem - ${sphereDist + auraA.drift}%)`, filter: auraA.filter }}></div>
-                    <div className="celestial-star star-b w-6 h-6" style={{ right: `calc(50% - 0.75rem - ${sphereDist + auraB.drift}%)`, filter: auraB.filter }}></div>
+                    {/* Partner A Star */}
+                    <div 
+                        className={`celestial-star star-a w-6 h-6 ${view === 'B' && auraA.isHeavy ? 'cursor-grab active:cursor-grabbing' : ''}`} 
+                        style={{ 
+                            left: `calc(50% - 0.75rem - ${sphereDist + auraA.drift}%)`, 
+                            top: getVerticalOffset('A', auraA.isHeavy),
+                            filter: auraA.filter,
+                            opacity: auraA.isHeavy ? 0.3 + (relationship.liftForce.A/100)*0.7 : 1
+                        }}
+                        onMouseDown={() => view === 'B' && auraA.isHeavy && startLifting('A')}
+                        onMouseUp={() => view === 'B' && stopLifting('A')}
+                        onMouseLeave={() => view === 'B' && stopLifting('A')}
+                        onTouchStart={() => view === 'B' && auraA.isHeavy && startLifting('A')}
+                        onTouchEnd={() => view === 'B' && stopLifting('A')}
+                    ></div>
+                    
+                    {/* Partner B Star */}
+                    <div 
+                        className={`celestial-star star-b w-6 h-6 ${view === 'A' && auraB.isHeavy ? 'cursor-grab active:cursor-grabbing' : ''}`} 
+                        style={{ 
+                            right: `calc(50% - 0.75rem - ${sphereDist + auraB.drift}%)`, 
+                            top: getVerticalOffset('B', auraB.isHeavy),
+                            filter: auraB.filter,
+                            opacity: auraB.isHeavy ? 0.3 + (relationship.liftForce.B/100)*0.7 : 1
+                        }}
+                        onMouseDown={() => view === 'A' && auraB.isHeavy && startLifting('B')}
+                        onMouseUp={() => view === 'A' && stopLifting('B')}
+                        onMouseLeave={() => view === 'A' && stopLifting('B')}
+                        onTouchStart={() => view === 'A' && auraB.isHeavy && startLifting('B')}
+                        onTouchEnd={() => view === 'A' && stopLifting('B')}
+                    ></div>
                 </div>
 
             </div>
@@ -330,7 +439,16 @@ const OurSpace = ({ distance, setDistance, coreg, setCoreg, view, relationship, 
                             )}
                         </div>
                         
-                        <button className="glass-button w-full py-3 flex justify-center items-center gap-2 text-xs font-bold tracking-wider hover:border-sky-400/50 transition bg-white/5"><Heart size={14}/> Send a virtual warm blanket</button>
+                        <button 
+                            onMouseDown={() => updateData({ isThermalBlanketActive: true })}
+                            onMouseUp={() => updateData({ isThermalBlanketActive: false })}
+                            onMouseLeave={() => updateData({ isThermalBlanketActive: false })}
+                            onTouchStart={() => updateData({ isThermalBlanketActive: true })}
+                            onTouchEnd={() => updateData({ isThermalBlanketActive: false })}
+                            className={`glass-button w-full py-3 flex justify-center items-center gap-2 text-xs font-bold tracking-wider hover:border-sky-400/50 transition ${relationship.isThermalBlanketActive ? 'bg-sky-400/30' : 'bg-white/5'}`}
+                        >
+                            <Heart size={14}/> Hold to send a warm blanket
+                        </button>
                     </div>
                 ) : (
                     <div className="glass-panel p-6 flex flex-col gap-4">
@@ -380,9 +498,7 @@ const FutureDreams = ({ relationship, updateData }) => {
     const toggleGoal = (id, text) => {
         const goals = relationship.goals.map(g => {
             if (g.id === id) {
-                // If this is a major reunion milestone, trigger Re-Entry mode
                 if (!g.completed && (text.toLowerCase().includes('reunion') || text.toLowerCase().includes('visit') || text.toLowerCase().includes('trip'))) {
-                    // Set timer for 72 hours from now
                     const reEntryEnd = Date.now() + (72 * 60 * 60 * 1000);
                     updateData({ reEntryEndTime: reEntryEnd });
                 }
@@ -394,7 +510,7 @@ const FutureDreams = ({ relationship, updateData }) => {
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 h-full">
+        <div className="flex flex-col lg:flex-row gap-6 h-full relative z-10">
             <div className="flex-1 glass-panel p-8">
                 <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">The Horizon</h3>
                 <h2 className="text-2xl font-serif text-brand-accent mb-8">Pin Future Dreams</h2>
@@ -455,7 +571,7 @@ const OurRhythm = ({ view, relationship, updateData }) => {
     }, [scores, partnerScores, view]);
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 h-full">
+        <div className="flex flex-col lg:flex-row gap-6 h-full relative z-10">
             <div className="flex-1 glass-panel p-8">
                 <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Flow Check</h3>
                 <h2 className="text-2xl font-serif text-brand-accent mb-10">How is Partner {view} feeling?</h2>
@@ -497,7 +613,7 @@ const Heartbeats = ({ view, relationship, updateData, isReEntry }) => {
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 h-full">
+        <div className="flex flex-col lg:flex-row gap-6 h-full relative z-10">
             <div className="flex-1 glass-panel p-8">
                 <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Emotional Check-in</h3>
                 <h2 className="text-2xl font-serif text-brand-accent mb-8">What is your heartbeat today?</h2>
@@ -556,7 +672,7 @@ const Scrapbook = ({ relationship, updateData }) => {
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 h-full">
+        <div className="flex flex-col lg:flex-row gap-6 h-full relative z-10">
             <div className="flex-1 glass-panel p-8 relative overflow-y-auto max-h-[75vh]">
                 <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Our Story</h3>
                 <h2 className="text-2xl font-serif text-brand-accent mb-10">The timeline of two stars</h2>
@@ -603,7 +719,7 @@ const Soundtrack = ({ relationship, updateData }) => {
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 h-full">
+        <div className="flex flex-col lg:flex-row gap-6 h-full relative z-10">
             <div className="flex-1 glass-panel p-8">
                 <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Shared Audio</h3>
                 <h2 className="text-2xl font-serif text-brand-accent mb-4">The frequency between us</h2>
@@ -633,7 +749,7 @@ const SoftCare = ({ relationship, updateData }) => {
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 h-full">
+        <div className="flex flex-col lg:flex-row gap-6 h-full relative z-10">
             <div className="flex-1 glass-panel p-8">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 flex items-center gap-2"><Heart size={12}/> PRIVATE • STORED LOCALLY</h3>
@@ -697,19 +813,24 @@ const App = () => {
     // Re-entry logic
     const isReEntry = state.reEntryEndTime && Date.now() < state.reEntryEndTime;
 
-    // Apply background shift directly to body if Re-entry is active
+    // Apply background shifts
     useEffect(() => {
         const starfield = document.getElementById('starfield');
-        if (isReEntry) {
-            // The Afterglow: dim the background, dim the stars
-            document.body.style.setProperty('--bg-gradient', 'linear-gradient(to bottom, #02040a 0%, #060913 50%, #0a0d1a 100%)');
-            if (starfield) starfield.style.setProperty('--star-opacity', '0.3');
+        
+        if (state.isThermalBlanketActive && state.activeView === 'A') {
+            document.body.classList.add('thermal-active');
+            if (starfield) starfield.style.setProperty('--star-opacity', '0.1');
         } else {
-            // Midnight sky
-            document.body.style.setProperty('--bg-gradient', 'linear-gradient(to bottom, #000000 0%, #050a14 40%, #0a1020 100%)');
-            if (starfield) starfield.style.setProperty('--star-opacity', '1');
+            document.body.classList.remove('thermal-active');
+            if (isReEntry) {
+                document.body.style.setProperty('--bg-gradient', 'linear-gradient(to bottom, #02040a 0%, #060913 50%, #0a0d1a 100%)');
+                if (starfield) starfield.style.setProperty('--star-opacity', '0.3');
+            } else {
+                document.body.style.setProperty('--bg-gradient', 'linear-gradient(to bottom, #000000 0%, #050a14 40%, #0a1020 100%)');
+                if (starfield) starfield.style.setProperty('--star-opacity', '1');
+            }
         }
-    }, [isReEntry]);
+    }, [isReEntry, state.isThermalBlanketActive, state.activeView]);
 
     const updateData = (updates) => {
         const next = { ...state, ...updates };
@@ -742,15 +863,28 @@ const App = () => {
     if (!state.isRoleSelected) return <OnboardingScreen selectRole={handleSelectRole} />;
 
     return (
-        <div className="flex flex-col md:flex-row h-screen p-4 md:p-6 gap-6 relative z-10 text-white/90">
-            <Sidebar activePage={activePage} setActivePage={setActivePage} view={state.activeView} resetRole={() => updateData({ isRoleSelected: false })} isReEntry={isReEntry} />
-            <main className="flex-1 flex flex-col min-w-0">
-                <Header view={state.activeView} setView={(v) => updateData({ activeView: v })} distance={distance} isReEntry={isReEntry} />
-                <div className="flex-1 overflow-y-auto pb-6 pr-2">
-                    {renderPage()}
+        <>
+            <EchoesOverlay moods={state.moods} view={state.activeView} />
+
+            {/* Thermal Blanket Takeover Screen for Partner A */}
+            {state.isThermalBlanketActive && state.activeView === 'A' && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-md">
+                    <h1 className="text-4xl md:text-6xl font-serif text-orange-200 animate-pulse tracking-wide drop-shadow-2xl">
+                        He is with you.
+                    </h1>
                 </div>
-            </main>
-        </div>
+            )}
+
+            <div className={`flex flex-col md:flex-row h-screen p-4 md:p-6 gap-6 relative z-10 transition-opacity duration-1000 ${state.isThermalBlanketActive && state.activeView === 'A' ? 'opacity-20' : 'opacity-100 text-white/90'}`}>
+                <Sidebar activePage={activePage} setActivePage={setActivePage} view={state.activeView} resetRole={() => updateData({ isRoleSelected: false })} isReEntry={isReEntry} />
+                <main className="flex-1 flex flex-col min-w-0">
+                    <Header view={state.activeView} setView={(v) => updateData({ activeView: v })} distance={distance} isReEntry={isReEntry} />
+                    <div className="flex-1 overflow-y-auto pb-6 pr-2">
+                        {renderPage()}
+                    </div>
+                </main>
+            </div>
+        </>
     );
 };
 
