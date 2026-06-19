@@ -5,7 +5,7 @@ import { getDatabase } from "firebase/database";
 const firebaseConfig = {
   apiKey: "AIzaSyCAAGMZA3OdkHev0nsVTZk1S6ssmv3Lcmc",
   authDomain: "longdistanceishard.firebaseapp.com",
-  databaseURL: "https://longdistanceishard-default-rtdb.firebaseio.com",
+  databaseURL: "https://longdistanceishard-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "longdistanceishard",
   storageBucket: "longdistanceishard.firebasestorage.app",
   messagingSenderId: "74645249973",
