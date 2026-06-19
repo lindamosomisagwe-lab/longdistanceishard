@@ -442,7 +442,7 @@ const OurSpace = ({ distance, setDistance, harmony, setCoreg, view, relationship
                         </div>
                         <div className="grid grid-cols-3 gap-2">
                             {['breakfast', 'lunch', 'dinner'].map(m => (
-                                <button key={m} onClick={() => toggleMeal(m)} className={`glass-card p-3 flex flex-col items-center justify-center gap-2 transition ${meals[m] ? 'bg-white/20 text-brand-accent' : 'hover:bg-white/10'}`}>
+                                <button key={m} onClick={() => toggleMeal(m)} className={`glass-card p-3 flex flex-col items-center justify-center gap-2 transition ${meals[m] ? 'bg-yellow-400/20 text-yellow-400 border-yellow-400/50 shadow-[0_0_15px_rgba(253,224,71,0.2)]' : 'hover:bg-white/10 border-transparent'}`}>
                                     <Activity size={16} className={meals[m] ? '' : 'opacity-50'}/>
                                     <span className="text-[10px] font-bold capitalize">{m}</span>
                                 </button>
