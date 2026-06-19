@@ -41,12 +41,13 @@ const AuthScreen = () => {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError(''); setLoading(true);
+        setLoading(true);
+        setError('');
         try {
             if (isLogin) {
                 await signInWithEmailAndPassword(auth, email, password);
@@ -63,7 +64,7 @@ const AuthScreen = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-3xl">
             <div className="glass-panel p-12 max-w-md w-full text-center flex flex-col items-center">
                 <div className="w-16 h-16 rounded-full bg-brand-accent/10 flex items-center justify-center border border-brand-accent/30 mb-8 shadow-[0_0_30px_rgba(224,242,254,0.1)]">
-                    <Star size={32} className="text-brand-accent" />
+                    <Home size={32} className="text-brand-accent" />
                 </div>
                 <h1 className="text-3xl font-serif mb-2 text-white">Between Us</h1>
                 <p className="text-sm opacity-70 mb-8 text-blue-100">{isLogin ? 'Welcome back to the space.' : 'Create a new space.'}</p>
