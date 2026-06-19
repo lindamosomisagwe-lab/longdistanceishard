@@ -209,7 +209,7 @@ const Sidebar = ({ activePage, setActivePage, view, isReEntry, sanctuaryId }) =>
     );
 };
 
-const Header = ({ view, distance, isReEntry }) => (
+const Header = ({ view, distance, isReEntry, sanctuaryId, relationship }) => (
     <header className="glass-panel px-6 py-4 flex flex-col md:flex-row justify-between items-center mb-6 gap-4 relative z-10">
         <div className="flex items-center gap-4">
             <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
@@ -220,6 +220,14 @@ const Header = ({ view, distance, isReEntry }) => (
                 <p className="text-sm font-medium">Logged in as <span className="text-brand-accent font-semibold">Partner {view}</span></p>
             </div>
         </div>
+
+        {!relationship.partnerB && view === 'A' && (
+            <div className="flex-1 max-w-md mx-4 animate-pulse bg-brand-accent/20 border border-brand-accent text-brand-accent px-4 py-2 rounded-xl text-center">
+                <span className="font-bold text-sm tracking-widest uppercase block mb-1">Waiting for Partner B</span>
+                <span className="text-xs">Give them this Tether Code to join: <strong className="text-lg tracking-widest bg-black/40 px-3 py-1 rounded ml-2">{sanctuaryId}</strong></span>
+            </div>
+        )}
+
         <div className="flex gap-6 text-xs font-bold tracking-wider opacity-80">
             {isReEntry ? (
                 <span className="flex items-center gap-2 text-indigo-300"><Moon size={14}/> THE AFTERGLOW</span>
@@ -658,20 +666,24 @@ const App = () => {
 
     // Auth Listener
     useEffect(() => {
-        const unsub = onAuthStateChanged(auth, async (u) => {
+        let unsubUser = () => {};
+        const unsubAuth = onAuthStateChanged(auth, (u) => {
             setUser(u);
             if (u) {
-                // Fetch user data (role & sanctuaryId)
-                const docSnap = await getDoc(doc(db, 'users', u.uid));
-                if (docSnap.exists()) setUserData(docSnap.data());
-                else setUserData(null);
+                // Listen to user data (role & sanctuaryId) dynamically so creation triggers a re-render
+                unsubUser = onSnapshot(doc(db, 'users', u.uid), (docSnap) => {
+                    if (docSnap.exists()) setUserData(docSnap.data());
+                    else setUserData(null);
+                    setAuthLoading(false);
+                });
             } else {
+                unsubUser();
                 setUserData(null);
                 setRelationship(defaultState);
+                setAuthLoading(false);
             }
-            setAuthLoading(false);
         });
-        return unsub;
+        return () => { unsubAuth(); unsubUser(); };
     }, []);
 
     // Firestore Realtime Listener for the shared Sanctuary
@@ -735,7 +747,7 @@ const App = () => {
             <div className={`flex flex-col md:flex-row h-screen p-4 md:p-6 gap-6 relative z-10 transition-opacity duration-1000 ${relationship.isThermalBlanketActive && userData.role === 'A' ? 'opacity-20' : 'opacity-100 text-white/90'}`}>
                 <Sidebar activePage={activePage} setActivePage={setActivePage} view={userData.role} isReEntry={isReEntry} sanctuaryId={userData.sanctuaryId} />
                 <main className="flex-1 flex flex-col min-w-0">
-                    <Header view={userData.role} distance={distance} isReEntry={isReEntry} />
+                    <Header view={userData.role} distance={distance} isReEntry={isReEntry} sanctuaryId={userData.sanctuaryId} relationship={relationship} />
                     <div className="flex-1 overflow-y-auto pb-6 pr-2">
                         {renderPage()}
                     </div>
