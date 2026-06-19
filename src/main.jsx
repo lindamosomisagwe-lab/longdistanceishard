@@ -217,34 +217,85 @@ const Sidebar = ({ activePage, setActivePage, view, isReEntry, spaceId }) => {
     );
 };
 
-const Header = ({ view, distance, isReEntry, spaceId, relationship }) => (
-    <header className="glass-panel px-6 py-4 flex flex-col md:flex-row justify-between items-center mb-6 gap-4 relative z-10">
-        <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
-                <Star size={16} className="text-brand-accent" />
-            </div>
-            <div>
-                <p className="text-[10px] uppercase tracking-widest font-bold opacity-60">Firebase Realtime Sync</p>
-                <p className="text-sm font-medium">Logged in as <span className="text-brand-accent font-semibold">Partner {view}</span></p>
+const SettingsModal = ({ relationship, updateData, close }) => {
+    const [nameA, setNameA] = useState(relationship.nameA || '');
+    const [nameB, setNameB] = useState(relationship.nameB || '');
+    const [baseDistance, setBaseDistance] = useState(relationship.baseDistance || 6400);
+
+    const save = () => {
+        updateData({ nameA, nameB, baseDistance: Number(baseDistance) });
+        close();
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-3xl">
+            <div className="glass-panel p-8 max-w-md w-full">
+                <h2 className="text-2xl font-serif text-brand-accent mb-6">Space Settings</h2>
+                <div className="flex flex-col gap-4 mb-6">
+                    <div>
+                        <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Partner A's Name</label>
+                        <input type="text" className="glass-input w-full" value={nameA} onChange={e => setNameA(e.target.value)} placeholder="e.g. Linda" />
+                    </div>
+                    <div>
+                        <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Partner B's Name</label>
+                        <input type="text" className="glass-input w-full" value={nameB} onChange={e => setNameB(e.target.value)} placeholder="e.g. John" />
+                    </div>
+                    <div>
+                        <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Distance Apart (KM)</label>
+                        <input type="number" className="glass-input w-full" value={baseDistance} onChange={e => setBaseDistance(e.target.value)} />
+                    </div>
+                </div>
+                <div className="flex justify-end gap-4">
+                    <button onClick={close} className="px-4 py-2 text-sm opacity-60 hover:opacity-100 transition">Cancel</button>
+                    <button onClick={save} className="glass-button accent px-6 py-2 font-bold">Save</button>
+                </div>
             </div>
         </div>
+    );
+};
 
-        {!relationship.partnerB && view === 'A' && (
-            <div className="flex-1 max-w-md mx-4 animate-pulse bg-brand-accent/20 border border-brand-accent text-brand-accent px-4 py-2 rounded-xl text-center">
-                <span className="font-bold text-sm tracking-widest uppercase block mb-1">Waiting for Partner B</span>
-                <span className="text-xs">Give them this Connection Code to join: <strong className="text-lg tracking-widest bg-black/40 px-3 py-1 rounded ml-2">{spaceId}</strong></span>
-            </div>
-        )}
+const Header = ({ view, distance, isReEntry, spaceId, relationship, updateData }) => {
+    const [showSettings, setShowSettings] = useState(false);
+    
+    const myName = view === 'A' ? relationship.nameA : relationship.nameB;
+    const partnerName = view === 'A' ? relationship.nameB : relationship.nameA;
+    
+    const displayName = myName ? myName : `Partner ${view}`;
+    const displayPartner = partnerName ? partnerName : `Partner ${view === 'A' ? 'B' : 'A'}`;
+    const needsSetup = !relationship.nameA || !relationship.nameB;
 
-        <div className="flex gap-6 text-xs font-bold tracking-wider opacity-80">
-            {isReEntry ? (
-                <span className="flex items-center gap-2 text-indigo-300"><Moon size={14}/> THE AFTERGLOW</span>
-            ) : (
-                <span className="flex items-center gap-2"><Heart size={14} className="text-brand-accent"/> {distance.toLocaleString()} KM APART • CONNECTED</span>
-            )}
-        </div>
-    </header>
-);
+    return (
+        <>
+            {(showSettings || needsSetup) && <SettingsModal relationship={relationship} updateData={updateData} close={() => setShowSettings(false)} />}
+            <header className="glass-panel px-6 py-4 flex flex-col md:flex-row justify-between items-center mb-6 gap-4 relative z-10">
+                <div className="flex items-center gap-4">
+                    <button onClick={() => setShowSettings(true)} className={`w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border border-white/10 hover:bg-white/10 transition ${needsSetup ? 'animate-pulse border-brand-accent' : ''}`}>
+                        <User size={16} className={needsSetup ? 'text-brand-accent' : 'text-white/60'} />
+                    </button>
+                    <div>
+                        <p className="text-[10px] uppercase tracking-widest font-bold opacity-60 text-brand-accent">Connected with {displayPartner}</p>
+                        <p className="text-sm font-medium">Logged in as <span className="font-semibold text-white/90">{displayName}</span></p>
+                    </div>
+                </div>
+
+                {!relationship.partnerB && view === 'A' && (
+                    <div className="flex-1 max-w-md mx-4 animate-pulse bg-brand-accent/20 border border-brand-accent text-brand-accent px-4 py-2 rounded-xl text-center">
+                        <span className="font-bold text-sm tracking-widest uppercase block mb-1">Waiting for Partner B</span>
+                        <span className="text-xs">Give them this Connection Code to join: <strong className="text-lg tracking-widest bg-black/40 px-3 py-1 rounded ml-2">{spaceId}</strong></span>
+                    </div>
+                )}
+
+                <div className="flex gap-6 text-xs font-bold tracking-wider opacity-80">
+                    {isReEntry ? (
+                        <span className="flex items-center gap-2 text-indigo-300"><Moon size={14}/> THE AFTERGLOW</span>
+                    ) : (
+                        <span className="flex items-center gap-2"><Heart size={14} className="text-brand-accent"/> {Math.floor(distance).toLocaleString()} KM APART • CONNECTED</span>
+                    )}
+                </div>
+            </header>
+        </>
+    );
+};
 
 // --- TAB PAGES ---
 
@@ -339,11 +390,11 @@ const OurSpace = ({ distance, setDistance, harmony, setCoreg, view, relationship
             clearInterval(syncInterval.current);
             drainInterval.current = setInterval(() => {
                 setCoreg(prev => Math.max(0, prev - 0.2));
-                setDistance(prev => Math.min(6400, prev + 1));
+                setDistance(prev => Math.min(relationship.baseDistance || 6400, prev + 1));
             }, 200);
         }
         return () => { clearInterval(syncInterval.current); clearInterval(drainInterval.current); };
-    }, [isSyncing]);
+    }, [isSyncing, relationship.baseDistance]);
 
     const meals = view === 'A' ? relationship.meals_a : relationship.meals_b;
     const toggleMeal = (meal) => updateData({ [view === 'A' ? 'meals_a' : 'meals_b']: { ...meals, [meal]: !meals[meal] } });
@@ -831,7 +882,7 @@ const App = () => {
             <div className={`flex flex-col md:flex-row h-screen p-4 md:p-6 gap-6 relative z-10 transition-opacity duration-1000 ${relationship.isThermalBlanketActive && userData.role === 'A' ? 'opacity-20' : 'opacity-100 text-white/90'}`}>
                 <Sidebar activePage={activePage} setActivePage={setActivePage} view={userData.role} isReEntry={isReEntry} spaceId={userData.spaceId} />
                 <main className="flex-1 flex flex-col min-w-0">
-                    <Header view={userData.role} distance={distance} isReEntry={isReEntry} spaceId={userData.spaceId} relationship={relationship} />
+                    <Header view={userData.role} distance={distance} isReEntry={isReEntry} spaceId={userData.spaceId} relationship={relationship} updateData={updateData} />
                     <div className="flex-1 overflow-y-auto pb-6 pr-2">
                         {renderPage()}
                     </div>
