@@ -174,7 +174,8 @@ const EchoesOverlay = ({ moods, view }) => {
 };
 
 // --- COMPONENTS ---
-const Sidebar = ({ activePage, setActivePage, view, isReEntry, spaceId }) => {
+const Sidebar = ({ activePage, setActivePage, view, isReEntry, spaceId, relationship }) => {
+    const cycleUser = relationship.cycleUser || 'A';
     let navItems = [
         { id: 'orbital', label: 'Our Space', icon: <Star size={18} /> },
         { id: 'balance', label: 'Our Rhythm', icon: <Activity size={18} /> },
@@ -183,7 +184,7 @@ const Sidebar = ({ activePage, setActivePage, view, isReEntry, spaceId }) => {
         { id: 'journal', label: 'Scrapbook', icon: <BookOpen size={18} /> },
         { id: 'soundtrack', label: 'Soundtrack', icon: <Music size={18} /> },
     ];
-    if (view === 'A') navItems.push({ id: 'cycle', label: 'Soft Care', icon: <Calendar size={18} /> });
+    if (cycleUser !== 'None' && view === cycleUser) navItems.push({ id: 'cycle', label: 'Soft Care', icon: <Calendar size={18} /> });
 
     return (
         <aside className="w-full md:w-64 shrink-0 flex flex-col gap-6 relative z-10">
@@ -221,15 +222,16 @@ const SettingsModal = ({ relationship, updateData, close }) => {
     const [nameA, setNameA] = useState(relationship.nameA || '');
     const [nameB, setNameB] = useState(relationship.nameB || '');
     const [baseDistance, setBaseDistance] = useState(relationship.baseDistance || 6400);
+    const [cycleUser, setCycleUser] = useState(relationship.cycleUser || 'A');
 
     const save = () => {
-        updateData({ nameA, nameB, baseDistance: Number(baseDistance) });
+        updateData({ nameA, nameB, baseDistance: Number(baseDistance), cycleUser });
         close();
     };
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-3xl">
-            <div className="glass-panel p-8 max-w-md w-full">
+            <div className="glass-panel p-8 max-w-md w-full max-h-[90vh] overflow-y-auto">
                 <h2 className="text-2xl font-serif text-brand-accent mb-6">Space Settings</h2>
                 <div className="flex flex-col gap-4 mb-6">
                     <div>
@@ -243,6 +245,14 @@ const SettingsModal = ({ relationship, updateData, close }) => {
                     <div>
                         <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Distance Apart (KM)</label>
                         <input type="number" className="glass-input w-full" value={baseDistance} onChange={e => setBaseDistance(e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Who tracks their cycle? (Soft Care tab)</label>
+                        <select className="glass-input w-full text-black" value={cycleUser} onChange={e => setCycleUser(e.target.value)}>
+                            <option value="A">Partner A</option>
+                            <option value="B">Partner B</option>
+                            <option value="None">Neither</option>
+                        </select>
                     </div>
                 </div>
                 <div className="flex justify-end gap-4">
@@ -308,16 +318,17 @@ const PoeticStatus = ({ view, relationship }) => {
     const mealsEaten = Object.keys(meals).filter(k => meals[k]).length;
     const mealStatus = mealsEaten === 0 ? "hasn't eaten yet today" : (mealsEaten === 3 ? "is well-fed today" : "has had some food today");
 
+    const cycleUser = relationship.cycleUser || 'A';
     const cycleData = relationship.partnerA_cycleData || defaultState.partnerA_cycleData;
     let cycleStatus = "";
-    if (otherPartner === 'A') {
+    if (cycleUser !== 'None' && otherPartner === cycleUser) {
         if (cycleData.needSpace) cycleStatus = " and is hoping for a quiet day.";
         else if (cycleData.sendSnacks) cycleStatus = " and requested soft snacks.";
         else if (cycleData.symptoms.length > 0) cycleStatus = ` and is experiencing ${cycleData.symptoms[0].toLowerCase()}.`;
     }
 
-    const pronoun = otherPartner === 'A' ? 'She' : 'He';
-    const pronounPossessive = otherPartner === 'A' ? 'her' : 'his';
+    const otherName = otherPartner === 'A' ? relationship.nameA : relationship.nameB;
+    const pronoun = otherName ? otherName : (otherPartner === 'A' ? 'She' : 'He');
 
     return (
         <div className="mb-8 p-4 bg-white/5 border border-white/10 rounded-2xl italic font-serif text-lg leading-relaxed text-blue-100 shadow-inner">
@@ -461,12 +472,12 @@ const OurSpace = ({ distance, setDistance, harmony, setCoreg, view, relationship
             </div>
 
             <div className="w-full lg:w-80 shrink-0 flex flex-col gap-6">
-                {view === 'B' ? (
+                {(relationship.cycleUser || 'A') !== 'None' && view !== (relationship.cycleUser || 'A') ? (
                     <div className="glass-panel p-6 flex flex-col border border-white/10 relative overflow-hidden">
                         <div className="absolute -top-10 -right-10 w-32 h-32 bg-sky-400/10 rounded-full blur-2xl pointer-events-none"></div>
                         <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 flex items-center gap-2"><Heart size={12} className="text-sky-300"/> Care Panel</h3>
                         
-                        {(partnerAData.sendSnacks || partnerAData.needSpace || auraA.isHeavy) ? (
+                        {(partnerAData.sendSnacks || partnerAData.needSpace || otherPartnerAura.isHeavy) ? (
                             <div className="flex flex-col items-center py-6">
                                 {/* Proactive Care Orbit */}
                                 <div 
@@ -480,7 +491,7 @@ const OurSpace = ({ distance, setDistance, harmony, setCoreg, view, relationship
                                     <Heart size={24} className="text-sky-300 mb-1"/>
                                     <span className="text-[10px] font-bold tracking-widest uppercase text-sky-200">Hold</span>
                                 </div>
-                                <p className="text-xs text-center mt-6 text-sky-100/80">She needs support. Tap & hold to send a warm blanket.</p>
+                                <p className="text-xs text-center mt-6 text-sky-100/80">They need support. Tap & hold to send a warm blanket.</p>
                             </div>
                         ) : (
                             <div className="text-center opacity-60 py-10 italic text-sm">Everything is calm right now.</div>
@@ -866,21 +877,23 @@ const App = () => {
             case 'goals': return <FutureDreams relationship={relationship} updateData={updateData} />;
             case 'journal': return <Scrapbook relationship={relationship} updateData={updateData} />;
             case 'soundtrack': return <Soundtrack relationship={relationship} updateData={updateData} />;
-            case 'cycle': return userData.role === 'A' ? <SoftCare relationship={relationship} updateData={updateData} /> : null;
+            case 'cycle': return userData.role === (relationship.cycleUser || 'A') ? <SoftCare relationship={relationship} updateData={updateData} /> : null;
             default: return <OurSpace distance={distance} setDistance={setDistance} harmony={coRegulation} setCoreg={setCoRegulation} view={userData.role} relationship={relationship} updateData={updateData} isReEntry={isReEntry} />;
         }
     };
 
+    const cycleUser = relationship.cycleUser || 'A';
+
     return (
         <>
             <EchoesOverlay moods={relationship.moods} view={userData.role} />
-            {relationship.isThermalBlanketActive && userData.role === 'A' && (
+            {relationship.isThermalBlanketActive && userData.role === cycleUser && cycleUser !== 'None' && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-md">
-                    <h1 className="text-4xl md:text-6xl font-serif text-orange-200 animate-pulse tracking-wide drop-shadow-2xl">He is with you.</h1>
+                    <h1 className="text-4xl md:text-6xl font-serif text-orange-200 animate-pulse tracking-wide drop-shadow-2xl">They are with you.</h1>
                 </div>
             )}
-            <div className={`flex flex-col md:flex-row h-screen p-4 md:p-6 gap-6 relative z-10 transition-opacity duration-1000 ${relationship.isThermalBlanketActive && userData.role === 'A' ? 'opacity-20' : 'opacity-100 text-white/90'}`}>
-                <Sidebar activePage={activePage} setActivePage={setActivePage} view={userData.role} isReEntry={isReEntry} spaceId={userData.spaceId} />
+            <div className={`flex flex-col md:flex-row h-screen p-4 md:p-6 gap-6 relative z-10 transition-opacity duration-1000 ${relationship.isThermalBlanketActive && userData.role === cycleUser && cycleUser !== 'None' ? 'opacity-20' : 'opacity-100 text-white/90'}`}>
+                <Sidebar activePage={activePage} setActivePage={setActivePage} view={userData.role} isReEntry={isReEntry} spaceId={userData.spaceId} relationship={relationship} />
                 <main className="flex-1 flex flex-col min-w-0">
                     <Header view={userData.role} distance={distance} isReEntry={isReEntry} spaceId={userData.spaceId} relationship={relationship} updateData={updateData} />
                     <div className="flex-1 overflow-y-auto pb-6 pr-2">
