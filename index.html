@@ -3,51 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anti-Gravity — Private Space for Long Distance Couples</title>
+    <title>Anti-Gravity OS</title>
     
-    <!-- React app bundling module script -->
     <script type="module" src="/src/main.jsx"></script>
     
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Chart.js for premium circular charts -->
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <!-- Google Identity Services for Sign-In with Google -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-
-    <!-- Google API Client for Google Drive access -->
-    <script src="https://apis.google.com/js/api.js"></script>
-
-    <!-- Google Fonts: Nunito -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        'paper': '#FAF8F5',         // Cozy card paper background
-                        'beige': '#F4F1EA',         // Layout background
-                        'blush': '#E8C5C8',         // Muted Blush toggles and buttons
-                        'clay': '#A28C81',          // Clay Taupe accents, borders and charts
-                        'charcoal': '#2F2E2C',      // Typography and high-contrast structural text
-                        
-                        // Legacy utility aliases for zero-break compatibility
-                        'sunflower': '#E8C5C8',     
-                        'tech-blue': '#A28C81',     
-                        'partner-blue': '#2F2E2C'   
+                        'sunset-indigo': '#101524',
+                        'sunset-violet': '#172033',
+                        'sunset-orange': '#1d273d',
+                        'sunset-yellow': '#23304c',
+                        'brand-accent': '#f97316'
                     },
-                    fontFamily: { 'nunito': ['Nunito', 'sans-serif'] },
-                    boxShadow: {
-                        'brutal': '6px 6px 0px 0px #A28C81',
-                        'brutal-sm': '3px 3px 0px 0px #A28C81',
-                        'brutal-active': '1px 1px 0px 0px #A28C81',
-                    },
-                    borderWidth: { '3': '3px' }
+                    fontFamily: {
+                        'sans': ['Inter', 'sans-serif'],
+                        'serif': ['Inter', 'sans-serif']
+                    }
                 }
             }
         }
@@ -55,63 +40,157 @@
 
     <style>
         body {
-            font-family: 'Nunito', sans-serif;
-            background-color: #F4F1EA;
-            color: #2F2E2C;
+            font-family: 'Inter', sans-serif;
+            color: #ffffff;
             margin: 0;
             overflow-x: hidden;
+            /* Deep Apple Weather Night Sky Gradient */
+            background: linear-gradient(
+                to bottom,
+                #070b14 0%,    
+                #101726 30%,   
+                #172033 70%,   
+                #1d273d 100%   
+            );
+            background-attachment: fixed;
+            min-height: 100vh;
         }
-        .dot-grid {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background-image: radial-gradient(rgba(162, 140, 129, 0.15) 1.5px, transparent 1.5px);
-            background-size: 24px 24px; z-index: -1; pointer-events: none;
-        }
-        .brutal-btn { transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; }
-        .brutal-btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0px 0px #A28C81; }
-        
-        .notebook-textarea {
-            background-color: transparent;
-            background-image: repeating-linear-gradient(transparent, transparent 31px, rgba(162, 140, 129, 0.2) 32px);
-            line-height: 32px; padding-top: 6px; border: none; resize: vertical; outline: none;
-            font-family: 'Nunito', sans-serif; font-weight: 600; color: #2F2E2C; width: 100%;
-        }
-        textarea.notebook-textarea { min-height: 150px; }
-        
-        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%;
-            background: #E8C5C8; cursor: pointer; border: 3px solid #A28C81; margin-top: -8px; box-shadow: 2px 2px 0px 0px #A28C81;
-        }
-        input[type=range].partner-slider::-webkit-slider-thumb { background: #FAF8F5; border-color: #2F2E2C; box-shadow: 2px 2px 0px 0px #2F2E2C; }
-        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: rgba(162, 140, 129, 0.1); border-radius: 3px; border: 1px solid #A28C81; }
-        
-        .monoline-checkbox {
-            width: 24px; height: 24px; border: 3px solid #A28C81; border-radius: 6px; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; background: #FAF8F5; transition: all 0.1s ease-in-out; box-shadow: 2px 2px 0px 0px #A28C81;
-        }
-        .monoline-checkbox.checked { background: #E8C5C8; box-shadow: 1px 1px 0px 0px #A28C81; transform: translate(1px, 1px); }
-        .monoline-checkbox.checked::after { content: "X"; color: #2F2E2C; font-weight: 900; font-size: 16px; line-height: 1; }
-        
-        .polaroid {
-            background: #FAF8F5; padding: 12px 12px 40px 12px; border: 3px solid #A28C81;
-            box-shadow: 6px 6px 0px 0px #A28C81; transform: rotate(calc(-3deg + 6deg * var(--rand)));
-            transition: transform 0.2s; cursor: pointer;
-        }
-        .polaroid:hover { transform: scale(1.05) rotate(0deg); z-index: 10; }
-        .polaroid img { width: 100%; height: 200px; object-fit: cover; border: 3px solid #A28C81; }
 
-        @keyframes flyAirplane { 0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; } 50% { transform: translate(150px, -100px) rotate(15deg) scale(1.2); opacity: 1; } 100% { transform: translate(300px, -200px) rotate(30deg) scale(0.5); opacity: 0; } }
-        .fly-animation { animation: flyAirplane 1.5s ease-out forwards; }
-        @keyframes sweatDrop { 0% { transform: translateY(0) scale(0); opacity: 0; } 50% { transform: translateY(10px) scale(1); opacity: 1; } 100% { transform: translateY(20px) scale(0.5); opacity: 0; } }
-        .sweat-animation { animation: sweatDrop 1s ease-in forwards; }
-        @keyframes burstStar { 0% { transform: scale(0) rotate(0deg); opacity: 1; } 50% { transform: scale(1.5) rotate(45deg); opacity: 1; } 100% { transform: scale(2) rotate(90deg); opacity: 0; } }
-        .burst-animation { animation: burstStar 0.5s ease-out forwards; }
-        @keyframes shootConfetti { 0% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; } 100% { transform: translate(var(--tx), var(--ty)) scale(0.5) rotate(720deg); opacity: 0; } }
-        .confetti-particle { animation: shootConfetti 1.2s ease-out forwards; }
+        /* Weather App Glass Panels */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.4); /* Deep slate tint */
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 1.5rem;
+            box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 1rem;
+        }
+
+        .glass-button {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            transition: all 0.2s;
+            border-radius: 9999px;
+        }
+        .glass-button:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+        .glass-button.active {
+            background: #ffffff;
+            color: #0f172a;
+        }
+        .glass-button.accent {
+            background: rgba(255, 255, 255, 0.12);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .glass-input {
+            background: rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: white;
+            outline: none;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            width: 100%;
+        }
+        .glass-input:focus {
+            background: rgba(0, 0, 0, 0.25);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Ambient Fog for Orbital Canvas */
+        .ambient-fog {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            backdrop-filter: blur(var(--fog-density, 0px));
+            transition: backdrop-filter 0.5s ease;
+            z-index: 10;
+        }
+
+        /* Glowing Spheres Animation */
+        .partner-sphere {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(2px);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: pulse-glow 4s infinite alternate;
+            z-index: 20;
+        }
+        @keyframes pulse-glow {
+            0% { transform: scale(1); opacity: 0.85; }
+            100% { transform: scale(1.05); opacity: 1; }
+        }
+
+        .sphere-a {
+            background: radial-gradient(circle, #f97316 0%, rgba(249, 115, 22, 0.7) 60%, transparent 100%);
+            box-shadow: 0 0 24px rgba(249, 115, 22, 0.5);
+        }
+
+        .sphere-b {
+            background: radial-gradient(circle, #38bdf8 0%, rgba(56, 189, 248, 0.7) 60%, transparent 100%);
+            box-shadow: 0 0 24px rgba(56, 189, 248, 0.5);
+        }
+
+        /* Grid Background for Orbital Canvas */
+        .canvas-grid {
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 3px; }
+
+        /* Range Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(0,0,0,0.5);
+            margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+        }
+        
+        /* Growth Arc Timeline line */
+        .timeline-line {
+            position: absolute;
+            left: 24px;
+            top: 24px;
+            bottom: 0;
+            width: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            z-index: 0;
+        }
     </style>
 </head>
 <body>
-    <div class="dot-grid"></div>
     <div id="root"></div>
 </body>
 </html>

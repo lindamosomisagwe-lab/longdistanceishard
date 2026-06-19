@@ -1,1331 +1,533 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
-// hooks imported directly
+import { 
+    Orbit, Activity, Smile, BookOpen, Music, Calendar, 
+    Bell, Image as ImageIcon, ChevronLeft, ChevronRight, Plus, Moon
+} from 'lucide-react';
 
-        // Exactly 6 Wellness Categories
-        const CATEGORIES = [
-            'Romance, Intimacy & Relationships',
-            'Physical & Mental Health',
-            'Personal Growth & Spirituality',
-            'Career & Business',
-            'Finances',
-            'Fun & Leisure'
-        ];
+// --- STORAGE ---
+const STORAGE_KEY = 'lumina_v3_state';
+const loadState = (def) => {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) return { ...def, ...JSON.parse(stored) };
+    } catch (e) { console.warn(e); }
+    return def;
+};
+const saveState = (state) => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } 
+    catch (e) { console.warn(e); }
+};
 
-        // --- UTILS ---
-        const polarToCartesian = (centerX, centerY, radius, angleInDegrees) => {
-            const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
-            return { x: centerX + (radius * Math.cos(angleInRadians)), y: centerY + (radius * Math.sin(angleInRadians)) };
-        };
+const CATEGORIES = [
+    'Romance', 'Physical & Mental Health', 'Personal Growth', 
+    'Career & Business', 'Finances', 'Leisure'
+];
 
-        // Spotify URL extractor and embed formatter
-        const parseSpotifyUrl = (url) => {
-            if (!url) return '';
-            // Robust regex to extract the 22-character alphanumeric ID and type from playlist or track URLs
-            const regex = /(?:https?:\/\/)?(?:open\.)?spotify\.com\/(playlist|track|album)\/([a-zA-Z0-9]{22})/;
-            const match = url.match(regex);
-            if (match) {
-                return `https://open.spotify.com/embed/${match[1]}/${match[2]}`;
-            }
-            return '';
-        };
+// --- COMPONENTS ---
 
-        // Google Photos image parser and direct file extractor
-        const parseImageUrl = (url) => {
-            if (!url) return '';
-            // If the user pasted an HTML tag wrapper, extract the URL itself
-            const urlRegex = /(https?:\/\/[^\s"'>\(\)]+)/;
-            const match = url.match(urlRegex);
-            let extractedUrl = match ? match[1] : url;
-            extractedUrl = extractedUrl.replace(/["'>\)]+$/, '');
+const Sidebar = ({ activePage, setActivePage }) => {
+    const navItems = [
+        { id: 'orbital', label: 'Orbital Overview', icon: <Orbit size={18} /> },
+        { id: 'balance', label: 'Life Balance', icon: <Activity size={18} /> },
+        { id: 'mood', label: 'Mood Space', icon: <Smile size={18} /> },
+        { id: 'journal', label: 'Memory Journal', icon: <BookOpen size={18} /> },
+        { id: 'soundtrack', label: 'Synced Soundtrack', icon: <Music size={18} /> },
+        { id: 'cycle', label: 'Cycle Logger', icon: <Calendar size={18} /> },
+    ];
 
-            // Strip webpage wrappers or sizing parameters for Google Photos / googleusercontent URLs
-            if (extractedUrl.includes('googleusercontent.com') || extractedUrl.includes('lh3.google.com') || extractedUrl.includes('lh3.googleusercontent.com')) {
-                const cleanUrl = extractedUrl.split('=')[0];
-                return `${cleanUrl}=w1000-h1000`;
-            }
-            return extractedUrl;
-        };
-
-        // --- GOOGLE DRIVE APP DATA SYNCING HELPERS ---
-        
-        const GOOGLE_CLIENT_ID = "887230704768-mh4ea4sl361fjhq20k03056bjmc49mkv.apps.googleusercontent.com";
-               // Helper to load and initialize standard Google API Client (gapi.client) silently and securely
-        let isGapiInitialized = false;
-        let gapiInitPromise = null;
-        
-        const ensureGapiInitialized = async (accessToken) => {
-            if (isGapiInitialized) {
-                if (accessToken && window.gapi && gapi.client) {
-                    gapi.client.setToken({ access_token: accessToken });
-                }
-                return;
-            }
-            
-            if (!gapiInitPromise) {
-                gapiInitPromise = (async () => {
-                    // 1. Wait for standard window.gapi script to load completely (with a 10s timeout)
-                    let attempts = 0;
-                    while (!window.gapi) {
-                        attempts++;
-                        if (attempts > 100) { // 100 * 100ms = 10 seconds
-                            throw new Error("Google API library (gapi) failed to load. Please check your network connection.");
-                        }
-                        await new Promise(resolve => setTimeout(resolve, 100));
-                    }
-                    
-                    // 2. Load the 'client' module
-                    await new Promise((resolve) => gapi.load('client', resolve));
-                    
-                    // 3. Initialize the Google API client purely with Discovery Docs (no clientId to avoid legacy auth2 loading)
-                    await gapi.client.init({
-                        discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/discovery"],
-                    });
-                    
-                    isGapiInitialized = true;
-                })();
-            }
-            
-            await gapiInitPromise;
-            if (accessToken && window.gapi && gapi.client) {
-                gapi.client.setToken({ access_token: accessToken });
-            }
-        };
-
-        // Safety wrapper to guarantee that any Google API call only executes after full client initialization
-        const executeGapiOperation = async (accessToken, operation) => {
-            await ensureGapiInitialized(accessToken);
-            if (!isGapiInitialized || !window.gapi || !gapi.client) {
-                throw new Error("The gapi client has not been initialized yet. Call gapi.client.init() first.");
-            }
-            return await operation();
-        };
-
-        // Silent production fallback to create a new sync file in Google Drive AppDataFolder
-        const createNewSyncFile = async (accessToken, content) => {
-            return await executeGapiOperation(accessToken, async () => {
-                const boundary = "314159265358979323846";
-                const metadata = {
-                    name: "anti_gravity_sync.json",
-                    parents: ["appDataFolder"]
-                };
-                const response = await gapi.client.request({
-                    path: '/upload/drive/v3/files',
-                    method: 'POST',
-                    params: { uploadType: 'multipart' },
-                    headers: {
-                        'Content-Type': `multipart/related; boundary=${boundary}`
-                    },
-                    body: `\r\n--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}` +
-                          `\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(content)}` +
-                          `\r\n--${boundary}--`
-                });
-                return response.result.id;
-            });
-        };
-
-        // Searches for anti_gravity_sync.json inside appDataFolder or creates it if missing. Returns file ID.
-        const checkOrCreateSyncFile = async (accessToken, initialContent) => {
-            return await executeGapiOperation(accessToken, async () => {
-                const response = await gapi.client.drive.files.list({
-                    spaces: 'appDataFolder',
-                    q: "name = 'anti_gravity_sync.json' and 'appDataFolder' in parents",
-                    fields: 'files(id, name)'
-                });
-                const files = response.result.files;
-                if (files && files.length > 0) {
-                    return files[0].id;
-                } else {
-                    return await createNewSyncFile(accessToken, initialContent);
-                }
-            });
-        };
-
-        // Download contents of anti_gravity_sync.json from Google Drive appDataFolder. Returns null if 404.
-        const downloadSyncState = async (accessToken, fileId) => {
-            return await executeGapiOperation(accessToken, async () => {
-                try {
-                    const response = await gapi.client.drive.files.get({
-                        fileId: fileId,
-                        alt: 'media'
-                    });
-                    return response.result;
-                } catch (err) {
-                    if (err.status === 404) {
-                        return null;
-                    }
-                    throw err;
-                }
-            });
-        };
-
-        // Upload/Save contents of anti_gravity_sync.json to Google Drive appDataFolder
-        const uploadSyncState = async (accessToken, fileId, content) => {
-            return await executeGapiOperation(accessToken, async () => {
-                const response = await gapi.client.request({
-                    path: `/upload/drive/v3/files/${fileId}`,
-                    method: 'PATCH',
-                    params: { uploadType: 'media' },
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(content)
-                });
-                return response.result;
-            });
-        };
-
-        // Retrieve user profile metadata using access token
-        const fetchGoogleUserInfo = async (accessToken) => {
-            const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-                headers: { "Authorization": `Bearer ${accessToken}` }
-            });
-            if (!res.ok) throw new Error("Failed to fetch Google profile.");
-            return await res.json();
-        };
-
-        // --- COMPONENTS ---
-        
-        // 6-Section Radar Chart with Dual Overlays (translucent Clay Taupe and Muted Blush) using Chart.js
-        const RadarChart = ({ userScores, partnerScores, myName, partnerName }) => {
-            const canvasRef = React.useRef(null);
-            const chartRef = React.useRef(null);
-
-            React.useEffect(() => {
-                if (!canvasRef.current) return;
-                const ctx = canvasRef.current.getContext('2d');
-
-                // Destroy any existing chart instance to prevent memory leaks and glitching
-                if (chartRef.current) {
-                    chartRef.current.destroy();
-                }
-
-                // Create standard Chart.js Radar Chart
-                chartRef.current = new Chart(ctx, {
-                    type: 'radar',
-                    data: {
-                        labels: CATEGORIES.map(c => c.split(',')[0]), // Shorten category labels
-                        datasets: [
-                            {
-                                label: myName || 'You',
-                                data: userScores,
-                                backgroundColor: 'rgba(162, 140, 129, 0.4)', // Clay Taupe translucent
-                                borderColor: '#A28C81',
-                                borderWidth: 3,
-                                pointBackgroundColor: '#A28C81',
-                                pointBorderColor: '#FAF8F5',
-                                pointHoverBackgroundColor: '#FAF8F5',
-                                pointHoverBorderColor: '#A28C81',
-                                fill: true,
-                            },
-                            {
-                                label: partnerName || 'Partner',
-                                data: partnerScores,
-                                backgroundColor: 'rgba(232, 197, 200, 0.5)', // Muted Blush translucent
-                                borderColor: '#E8C5C8',
-                                borderWidth: 3,
-                                pointBackgroundColor: '#E8C5C8',
-                                pointBorderColor: '#FAF8F5',
-                                pointHoverBackgroundColor: '#FAF8F5',
-                                pointHoverBorderColor: '#E8C5C8',
-                                fill: true,
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'top',
-                                labels: {
-                                    color: '#2F2E2C',
-                                    font: {
-                                        family: 'Nunito',
-                                        weight: 'bold',
-                                        size: 11
-                                    }
-                                }
-                            },
-                            tooltip: {
-                                backgroundColor: '#2F2E2C',
-                                titleFont: { family: 'Nunito', weight: 'bold' },
-                                bodyFont: { family: 'Nunito' }
-                            }
-                        },
-                        scales: {
-                            r: {
-                                circular: true, // Guarantees a perfect circle layout geometry
-                                suggestedMin: 0,
-                                suggestedMax: 10,
-                                ticks: {
-                                    display: false,
-                                    stepSize: 2
-                                },
-                                grid: {
-                                    color: 'rgba(162, 140, 129, 0.25)',
-                                    lineWidth: 1
-                                },
-                                angleLines: {
-                                    color: 'rgba(162, 140, 129, 0.25)'
-                                },
-                                pointLabels: {
-                                    color: '#2F2E2C',
-                                    font: {
-                                        family: 'Nunito',
-                                        weight: 'black',
-                                        size: 10
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-
-                return () => {
-                    if (chartRef.current) {
-                        chartRef.current.destroy();
-                    }
-                };
-            }, [userScores, partnerScores, myName, partnerName]);
-
-            return (
-                <div className="relative w-full aspect-square max-w-[340px] mx-auto p-4 bg-paper border-3 border-clay rounded-3xl shadow-brutal flex items-center justify-center">
-                    <canvas ref={canvasRef} />
+    return (
+        <aside className="w-full md:w-64 shrink-0 flex flex-col gap-6">
+            <div className="glass-panel p-6 flex flex-col h-full">
+                <div className="flex items-center gap-3 mb-10">
+                    <div className="w-10 h-10 rounded-full bg-brand-accent flex items-center justify-center shrink-0">
+                        <Orbit size={20} className="text-white" />
+                    </div>
+                    <div>
+                        <h2 className="font-bold text-sm tracking-widest uppercase opacity-90 leading-tight">Anti-Gravity</h2>
+                        <p className="text-xs opacity-60">Long Distance OS</p>
+                    </div>
                 </div>
-            );
-        };
 
-        const ConfettiOverlay = () => (
-            <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none z-50 flex items-end justify-center pb-10">
-                {Array.from({length: 15}).map((_, i) => (
-                    <div key={i} className="absolute w-4 h-4 confetti-particle border-2 border-clay" style={{ backgroundColor: i % 2 === 0 ? '#E8C5C8' : '#FAF8F5', left: '50%', bottom: '20px', animationDelay: `${Math.random() * 0.1}s`, '--tx': `${-100 + Math.random() * 200}px`, '--ty': `${-150 - Math.random() * 150}px`, borderRadius: Math.random() > 0.5 ? '50%' : '0' }}></div>
-                ))}
-            </div>
-        );
-
-        const GoalCard = ({ goal, onToggleMini, onAddMini }) => {
-            const [newMiniText, setNewMiniText] = useState("");
-            const [animatingMiniId, setAnimatingMiniId] = useState(null);
-            const [showConfetti, setShowConfetti] = useState(false);
-            const completedCount = goal.miniGoals.filter(m => m.completed).length;
-            const progress = goal.miniGoals.length === 0 ? 0 : (completedCount / goal.miniGoals.length) * 100;
-
-            const handleToggle = (miniId, wasCompleted) => {
-                onToggleMini(goal.id, miniId);
-                if (!wasCompleted) {
-                    setAnimatingMiniId(miniId); setTimeout(() => setAnimatingMiniId(null), 500);
-                    if (completedCount + 1 === goal.miniGoals.length && goal.miniGoals.length > 0) {
-                        setShowConfetti(true); setTimeout(() => setShowConfetti(false), 2000);
-                    }
-                }
-            };
-            return (
-                <div className="bg-paper border-3 border-clay p-5 rounded-3xl shadow-brutal relative flex flex-col gap-4">
-                    {showConfetti && <ConfettiOverlay />}
-                    <div className="flex justify-between items-start"><span className="text-xs font-black uppercase tracking-widest bg-blush border-2 border-clay px-3 py-1 rounded-full shadow-brutal-active text-charcoal">{goal.category.split(',')[0]}</span></div>
-                    <h3 className="text-xl font-extrabold text-charcoal">{goal.title}</h3>
-                    <div className="w-full h-4 rounded-full border-3 border-clay overflow-hidden bg-beige"><div className="h-full bg-clay transition-all duration-500 ease-out" style={{width: `${progress}%`}}></div></div>
-                    <div className="flex flex-col gap-3 mt-2">
-                        {goal.miniGoals.map(mini => (
-                            <div key={mini.id} className="flex items-center gap-3 relative">
-                                {animatingMiniId === mini.id && <div className="absolute -left-3 text-2xl burst-animation pointer-events-none z-10">âœ¨</div>}
-                                <button className={`monoline-checkbox shrink-0 ${mini.completed ? 'checked' : ''}`} onClick={() => handleToggle(mini.id, mini.completed)}></button>
-                                <span className={`font-bold leading-tight ${mini.completed ? 'line-through opacity-50 text-clay' : 'text-charcoal'}`}>{mini.text}</span>
-                            </div>
-                        ))}
-                    </div>
-                    <input type="text" placeholder="+ Add mini-goal (Press Enter)..." className="notebook-textarea min-h-0 h-10 mt-2 px-1 text-sm bg-transparent placeholder-clay" value={newMiniText} onChange={e => setNewMiniText(e.target.value)} onKeyDown={e => { if(e.key === 'Enter' && newMiniText.trim()){ onAddMini(goal.id, newMiniText); setNewMiniText(""); } }} />
-                </div>
-            );
-        };
-
-        const Sidebar = ({ activePage, setActivePage, isMobileMenuOpen, setIsMobileMenuOpen }) => {
-            const navItems = [
-                { id: 'dashboard', icon: 'ðŸ“Š', label: 'Dashboard' },
-                { id: 'wheel', icon: 'ðŸŽ¡', label: 'Life Balance' },
-                { id: 'mood', icon: 'ðŸ˜Š', label: 'Mood Space' },
-                { id: 'journal', icon: 'ðŸ“¸', label: 'Memory Journal' },
-                { id: 'goals', icon: 'âœ…', label: 'Goal Tracker' },
-                { id: 'soundtrack', icon: 'ðŸŽµ', label: 'Soundtrack' },
-                { id: 'wellness', icon: 'ðŸ’–', label: 'Cycle Tracker' },
-                { id: 'growth', icon: 'ðŸ“ˆ', label: 'Growth Arc' }
-            ];
-            return (
-                <aside className={`w-64 fixed top-0 left-0 h-screen bg-paper border-r-3 border-clay p-6 flex flex-col gap-4 z-50 overflow-y-auto transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-                    <div className="flex items-center gap-3 border-b-3 border-clay pb-6 mt-4 mb-4">
-                        <div className="w-10 h-10 bg-blush border-3 border-clay rounded-lg shadow-brutal-active flex items-center justify-center shrink-0 text-xl text-charcoal">â˜€ï¸</div>
-                        <h1 className="font-black text-2xl tracking-widest text-charcoal">LUMINA</h1>
-                    </div>
-                    <nav className="flex flex-col gap-3 flex-1">
-                        {navItems.map(item => (
-                            <button key={item.id} onClick={() => { setActivePage(item.id); setIsMobileMenuOpen(false); }} className={`brutal-btn flex items-center gap-3 p-3 rounded-xl border-3 border-clay font-bold transition-all text-left ${activePage === item.id ? 'bg-blush shadow-brutal-sm translate-x-1 text-charcoal' : 'bg-paper text-charcoal hover:bg-blush/20'}`}>
-                                <span className="w-5 h-5 flex items-center justify-center shrink-0 text-lg">{item.icon}</span>{item.label}
-                            </button>
-                        ))}
-                    </nav>
-                </aside>
-            );
-        };
-
-        // --- MAIN APP ---
-        const App = () => {
-            // Local View Toggle
-            const [currentView, setCurrentView] = useState('A'); // 'A' representing Partner A, 'B' representing Partner B
-            
-            const [activePage, setActivePage] = useState('dashboard');
-            const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-            const [isAnimating, setIsAnimating] = useState(false);
-
-            // Shared Relationship State held in Memory
-            const [relationship, setRelationship] = useState({
-                scores_a: [7, 6, 8, 5, 7, 9],
-                scores_b: [6, 8, 7, 4, 8, 9],
-                meals_a: { breakfast: true, lunch: false, dinner: false },
-                meals_b: { breakfast: false, lunch: true, dinner: false },
-                cycle_a: { day: 14, mood: 'Happy âœ¨', status: 'Send snacks ðŸ«' },
-                cycle_b: { day: 10, mood: 'Tired ðŸ¥±', status: 'Need space ðŸ¤' },
-                memories: [
-                    { id: 1, url: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', caption: 'Coffee in Montmartre.', date: 'Oct 12' }
-                ],
-                goals: [
-                    { id: 1, title: "Plan Anniversary Trip", category: "Romance, Intimacy & Relationships", miniGoals: [ {id: 101, text: "Book flights to Kyoto", completed: false}, {id: 102, text: "Reserve ryokan", completed: true} ] }
-                ],
-                spotify_url: "https://open.spotify.com/playlist/37i9dQZF1EJH75B3mnDgmp?si=31caa83610fa42a2"
-            });
-
-            // Local Toast Alert
-            const [localAlert, setLocalAlert] = useState("");
-
-            // Testing Cycle tracker role and partner meal nudge states
-            const [cycleRole, setCycleRole] = useState('her');
-            const [nudgeState, setNudgeState] = useState({ A: false, B: false });
-
-            // Auto-sync cycle tracker interface role based on profile view changes
-            useEffect(() => {
-                setCycleRole(currentView === 'A' ? 'her' : 'him');
-            }, [currentView]);
-
-            // Notify user if partner sent a meal reminder nudge when they switch view
-            useEffect(() => {
-                if (nudgeState[currentView]) {
-                    setLocalAlert(`ðŸ”” Hey ${currentView === 'A' ? 'Partner A' : 'Partner B'}, your partner is reminding you to eat! ðŸ³ðŸ¥ªðŸ›`);
-                    setNudgeState(prev => ({ ...prev, [currentView]: false }));
-                }
-            }, [currentView, nudgeState]);
-
-            // --- GOOGLE DRIVE SYNC STATES ---
-            const [accessToken, setAccessToken] = useState(() => localStorage.getItem('antigravity_access_token') || '');
-            const [googleUser, setGoogleUser] = useState(null);
-            const [syncFileId, setSyncFileId] = useState(() => localStorage.getItem('antigravity_file_id') || '');
-            const [syncStatus, setSyncStatus] = useState('offline'); // 'offline' | 'connecting' | 'synced' | 'error'
-            const [gapiLoading, setGapiLoading] = useState(false);
-            const [gapiStatus, setGapiStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
-
-            const tokenClientRef = React.useRef(null);
-
-            // Warm up GAPI library on mount to ensure gapi.client is pre-loaded and ready
-            useEffect(() => {
-                const warmUpGapi = async () => {
-                    try {
-                        await ensureGapiInitialized(accessToken);
-                        setGapiStatus('ready');
-                    } catch (err) {
-                        console.error("GAPI warmup failed:", err);
-                        setGapiStatus('error');
-                        setLocalAlert("⚠️ Google API library loading error. Please check your connection.");
-                    }
-                };
-                warmUpGapi();
-            }, []);
-
-            // Initialize Token Client and standard GIS authentication button when Google library is ready
-            useEffect(() => {
-                if (gapiStatus !== 'ready' || !window.google) return;
-
-                const initGis = () => {
-                    // 1. Initialize modern Sign-In with Google (Authentication)
-                    google.accounts.id.initialize({
-                        client_id: GOOGLE_CLIENT_ID,
-                        callback: async (credentialResponse) => {
-                            // Decode JWT to extract user profile details instantly
-                            try {
-                                const base64Url = credentialResponse.credential.split('.')[1];
-                                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                                const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
-                                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                                }).join(''));
-                                const decodedUser = JSON.parse(jsonPayload);
-                                setGoogleUser({
-                                    name: decodedUser.name,
-                                    email: decodedUser.email,
-                                    picture: decodedUser.picture
-                                });
-                            } catch (e) {
-                                console.error("Failed to decode JWT:", e);
-                            }
-
-                            // Trigger standard OAuth 2.0 Authorization for Drive API access token
-                            if (tokenClientRef.current) {
-                                setSyncStatus('connecting');
-                                setLocalAlert("ðŸ”Œ Connecting to Google Drive...");
-                                tokenClientRef.current.requestAccessToken();
-                            }
-                        }
-                    });
-
-                    // 2. Render the official native Sign-In button
-                    const btnParent = document.getElementById("gis-login-btn");
-                    if (btnParent) {
-                        google.accounts.id.renderButton(
-                            btnParent,
-                            { theme: "filled_blue", size: "large", width: btnParent.clientWidth || 320, shape: "rectangular" }
-                        );
-                    }
-
-                    // 3. Initialize standard OAuth 2.0 Token Client (Authorization)
-                    tokenClientRef.current = google.accounts.oauth2.initTokenClient({
-                        client_id: GOOGLE_CLIENT_ID,
-                        scope: 'https://www.googleapis.com/auth/drive.appdata',
-                        callback: async (tokenResponse) => {
-                            if (tokenResponse.error) {
-                                setSyncStatus('error');
-                                setLocalAlert(`âŒ Google Sync authorization failed: ${tokenResponse.error}`);
-                                return;
-                            }
-                            if (tokenResponse.access_token) {
-                                setAccessToken(tokenResponse.access_token);
-                                localStorage.setItem('antigravity_access_token', tokenResponse.access_token);
-                                setSyncStatus('connecting');
-                                setLocalAlert("ðŸ”Œ Synchronizing Google Drive...");
-                            }
-                        },
-                    });
-                };
-
-                // Initialize GIS
-                initGis();
-                
-                // Set up polling in case DOM elements were slow to render
-                const renderTimer = setInterval(() => {
-                    const btnParent = document.getElementById("gis-login-btn");
-                    if (btnParent && btnParent.innerHTML === "") {
-                        google.accounts.id.renderButton(
-                            btnParent,
-                            { theme: "filled_blue", size: "large", width: btnParent.clientWidth || 320, shape: "rectangular" }
-                        );
-                    } else if (btnParent) {
-                        clearInterval(renderTimer);
-                    }
-                }, 300);
-                
-                return () => clearInterval(renderTimer);
-            }, [gapiStatus]);
-
-            // Request active authorization token
-            const handleConnectDrive = () => {
-                if (tokenClientRef.current) {
-                    tokenClientRef.current.requestAccessToken({ prompt: 'consent' });
-                } else {
-                    setLocalAlert("âš ï¸ Google API library loading. Please wait a second and retry!");
-                }
-            };
-
-            // Revoke current session
-            const handleDisconnectDrive = () => {
-                if (accessToken) {
-                    google.accounts.oauth2.revoke(accessToken, () => {});
-                }
-                setAccessToken('');
-                setGoogleUser(null);
-                setSyncFileId('');
-                setSyncStatus('offline');
-                localStorage.removeItem('antigravity_access_token');
-                localStorage.removeItem('antigravity_file_id');
-                setLocalAlert("ðŸ”Œ Disconnected from Google Drive.");
-                setTimeout(() => setLocalAlert(""), 3000);
-            };
-
-            // Authenticated Setup Loop (Queries user, matches state file)
-            useEffect(() => {
-                if (!accessToken) {
-                    setSyncStatus('offline');
-                    return;
-                }
-
-                const setupSync = async () => {
-                    setGapiLoading(true);
-                    try {
-                        const userInfo = await fetchGoogleUserInfo(accessToken);
-                        setGoogleUser(userInfo);
-
-                        let fileId = await checkOrCreateSyncFile(accessToken, relationship);
-                        setSyncFileId(fileId);
-                        localStorage.setItem('antigravity_file_id', fileId);
-
-                        let driveState = await downloadSyncState(accessToken, fileId);
-                        if (driveState === null) {
-                            // Silently trigger file creation if the file doesn't exist or fileId was stale/deleted
-                            fileId = await createNewSyncFile(accessToken, relationship);
-                            setSyncFileId(fileId);
-                            localStorage.setItem('antigravity_file_id', fileId);
-                            driveState = relationship;
-                        }
-
-                        if (driveState && driveState.scores_a) {
-                            setRelationship(driveState);
-                        }
-                        
-                        setSyncStatus('synced');
-                        setLocalAlert("ðŸŸ¢ Synced with Google Drive appDataFolder successfully!");
-                        setTimeout(() => setLocalAlert(""), 3000);
-                    } catch (err) {
-                        console.error("Sync setup failed:", err);
-                        setSyncStatus('error');
-                        setLocalAlert("âŒ Google Drive connection error. Please reconnect.");
-                    } finally {
-                        setGapiLoading(false);
-                    }
-                };
-
-                setupSync();
-            }, [accessToken]);
-
-            // Background Polling loop (pulls partner updates every 8 seconds)
-            useEffect(() => {
-                if (syncStatus !== 'synced' || !accessToken || !syncFileId) return;
-
-                const interval = setInterval(async () => {
-                    try {
-                        const driveState = await downloadSyncState(accessToken, syncFileId);
-                        if (driveState && driveState.scores_a) {
-                            if (JSON.stringify(driveState) !== JSON.stringify(relationship)) {
-                                setRelationship(driveState);
-                            }
-                        }
-                    } catch (err) {
-                        console.error("Background pull failed:", err);
-                    }
-                }, 8000);
-
-                return () => clearInterval(interval);
-            }, [syncStatus, accessToken, syncFileId, relationship]);
-
-            // Push State Updates to Drive
-            const pushStateToDrive = async (updatedRelationship) => {
-                if (syncStatus !== 'synced' || !accessToken || !syncFileId) return;
-                try {
-                    await uploadSyncState(accessToken, syncFileId, updatedRelationship);
-                } catch (err) {
-                    console.error("State push failed:", err);
-                }
-            };
-
-            // Derived States based on Active View
-            const userScores = currentView === 'A' ? relationship.scores_a : relationship.scores_b;
-            const partnerScores = currentView === 'A' ? relationship.scores_b : relationship.scores_a;
-            
-            const myMeals = currentView === 'A' ? relationship.meals_a : relationship.meals_b;
-            const partnerMeals = currentView === 'A' ? relationship.meals_b : relationship.meals_a;
-            
-            const myCycle = currentView === 'A' ? relationship.cycle_a : relationship.cycle_b;
-            const partnerCycle = currentView === 'A' ? relationship.cycle_b : relationship.cycle_a;
-
-            const memories = relationship.memories;
-            const macroGoals = relationship.goals;
-            const spotifyUrl = relationship.spotify_url;
-
-            const [newMemoryUrl, setNewMemoryUrl] = useState('');
-            const [newMemoryCap, setNewMemoryCap] = useState('');
-            const [selectedMemory, setSelectedMemory] = useState(null);
-
-            // Dashboard Sync Info
-            const partnerName = currentView === 'A' ? 'Partner B' : 'Partner A';
-            const myName = currentView === 'A' ? 'Partner A' : 'Partner B';
-
-            // State Mutations
-            const updateMyScores = (index, value) => {
-                const newScores = [...userScores];
-                newScores[index] = value;
-                const next = {
-                    ...relationship,
-                    [currentView === 'A' ? 'scores_a' : 'scores_b']: newScores
-                };
-                setRelationship(next);
-                pushStateToDrive(next);
-            };
-
-            const toggleMeal = (mealKey) => {
-                const currentMeals = { ...myMeals };
-                currentMeals[mealKey] = !currentMeals[mealKey];
-                const next = {
-                    ...relationship,
-                    [currentView === 'A' ? 'meals_a' : 'meals_b']: currentMeals
-                };
-                setRelationship(next);
-                pushStateToDrive(next);
-            };
-
-            const triggerNudge = () => {
-                const target = currentView === 'A' ? 'B' : 'A';
-                setNudgeState(prev => ({ ...prev, [target]: true }));
-                setLocalAlert(`ðŸ”” Local Nudge sent! Switching to ${partnerName}'s view will simulate receiving this reminder.`);
-                setTimeout(() => setLocalAlert(""), 4000);
-            };
-
-            const updateCycle = (updates) => {
-                const currentCycle = { ...myCycle };
-                const newCycle = { ...currentCycle, ...updates };
-                const next = {
-                    ...relationship,
-                    [currentView === 'A' ? 'cycle_a' : 'cycle_b']: newCycle
-                };
-                setRelationship(next);
-                pushStateToDrive(next);
-            };
-
-            const addMemory = () => {
-                if (!newMemoryUrl) return;
-                const parsed = parseImageUrl(newMemoryUrl);
-                const newMem = {
-                    id: Date.now(),
-                    url: parsed,
-                    caption: newMemoryCap || 'A sweet memory',
-                    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                };
-                const next = {
-                    ...relationship,
-                    memories: [newMem, ...relationship.memories]
-                };
-                setRelationship(next);
-                pushStateToDrive(next);
-                setNewMemoryUrl(''); setNewMemoryCap('');
-            };
-
-            const toggleMiniGoal = (mId, miId) => {
-                const next = {
-                    ...relationship,
-                    goals: relationship.goals.map(g => {
-                        if (g.id === mId) {
-                            return {
-                                ...g,
-                                miniGoals: g.miniGoals.map(m => m.id === miId ? { ...m, completed: !m.completed } : m)
-                            };
-                        }
-                        return g;
-                    })
-                };
-                setRelationship(next);
-                pushStateToDrive(next);
-            };
-
-            const addMiniGoal = (mId, text) => {
-                const next = {
-                    ...relationship,
-                    goals: relationship.goals.map(g => {
-                        if (g.id === mId) {
-                            return {
-                                ...g,
-                                miniGoals: [...g.miniGoals, { id: Date.now(), text, completed: false }]
-                            };
-                        }
-                        return g;
-                    })
-                };
-                setRelationship(next);
-                pushStateToDrive(next);
-            };
-
-            const addMacroGoal = () => {
-                const title = prompt("Enter Macro Goal Title:");
-                if (!title) return;
-                const newGoal = {
-                    id: Date.now(),
-                    title,
-                    category: "Romance, Intimacy & Relationships",
-                    miniGoals: []
-                };
-                const next = {
-                    ...relationship,
-                    goals: [...relationship.goals, newGoal]
-                };
-                setRelationship(next);
-                pushStateToDrive(next);
-            };
-
-            const saveSpotifyPlaylist = (url) => {
-                const next = {
-                    ...relationship,
-                    spotify_url: url
-                };
-                setRelationship(next);
-                pushStateToDrive(next);
-            };
-
-            // Radar computations
-            const combinedScores = userScores.map((s, i) => s + partnerScores[i]);
-            const focusCategory = CATEGORIES[combinedScores.indexOf(Math.min(...combinedScores))];
-
-            if (!accessToken) {
-                return (
-                    <div className="min-h-screen bg-beige flex items-center justify-center p-4 relative overflow-hidden">
-                        {/* Dot Grid Background */}
-                        <div className="dot-grid"></div>
-                        
-                        {/* Cozy Notification Toast */}
-                        {localAlert && (
-                            <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-blush border-3 border-clay p-4 rounded-2xl shadow-brutal z-[200] flex items-center gap-3 max-w-sm animate-bounce">
-                                <span className="text-2xl">âš¡</span>
-                                <p className="text-xs font-black text-charcoal">{localAlert}</p>
-                                <button onClick={() => setLocalAlert("")} className="text-charcoal font-black text-sm ml-2">âœ•</button>
-                            </div>
-                        )}
-
-                        {/* Sign-In Cozy Card */}
-                        <div className="bg-paper border-3 border-clay p-8 md:p-12 rounded-3xl shadow-brutal max-w-md w-full text-center flex flex-col items-center gap-6 relative overflow-hidden animate-fade-in">
-                            {/* Logo */}
-                            <div className="w-16 h-16 bg-blush border-3 border-clay rounded-2xl shadow-brutal-sm flex items-center justify-center text-charcoal text-3xl">ðŸª</div>
-                            
-                            <div>
-                                <h1 className="font-black text-3xl tracking-widest text-charcoal mb-2">ANTI-GRAVITY</h1>
-                                <p className="text-xs font-black text-clay uppercase tracking-widest">Orbital Sync Portal</p>
-                            </div>
-                            
-                            <p className="text-sm font-bold text-charcoal/80 leading-relaxed bg-beige/50 p-4 border-3 border-clay border-dashed rounded-2xl">
-                                Welcome to your private, cozy space. Please sign in with Google to align your orbits and synchronize your wellness data, memories, and soundtrack in real-time with your partner.
-                            </p>
-                            
-                            {gapiStatus === 'loading' ? (
-                                <div className="w-full flex flex-col items-center gap-2">
-                                    <button 
-                                        disabled
-                                        className="w-full bg-beige border-3 border-clay border-dashed rounded-2xl font-black p-4 text-center text-clay text-base flex items-center justify-center gap-3 opacity-60 cursor-not-allowed"
-                                    >
-                                        â³ Loading Google API...
-                                    </button>
-                                    <span className="text-[10px] font-black text-clay uppercase tracking-widest animate-pulse">Establishing orbital link...</span>
-                                </div>
-                            ) : gapiStatus === 'error' ? (
-                                <div className="w-full flex flex-col items-center gap-2">
-                                    <button 
-                                        onClick={() => window.location.reload()}
-                                        className="w-full bg-red-100 border-3 border-red-400 rounded-2xl font-black p-4 text-center text-red-800 text-base flex items-center justify-center gap-3 hover:bg-red-200 transition-all brutal-btn"
-                                    >
-                                        âš ï¸ Connection Failed (Tap to Retry)
-                                    </button>
-                                    <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Check network or adblockers</span>
-                                </div>
-                            ) : (
-                                <div className="w-full flex flex-col items-center gap-3 bg-beige/40 p-4 border-3 border-clay border-dashed rounded-2xl">
-                                    <div id="gis-login-btn" className="w-full min-h-[44px] flex justify-center"></div>
-                                    <p className="text-[10px] font-bold text-clay uppercase tracking-widest mt-1">Safe single-tap secure sign-in</p>
-                                </div>
-                            )}
-                            
-                            <div className="text-[10px] font-black text-clay uppercase tracking-widest mt-2">
-                                Protected Client-Side Encryption
-                            </div>
-                        </div>
-                    </div>
-                );
-            }
-
-            if (gapiLoading) {
-                return (
-                    <div className="min-h-screen bg-beige flex items-center justify-center p-4 relative overflow-hidden">
-                        {/* Dot Grid Background */}
-                        <div className="dot-grid"></div>
-                        
-                        {/* Cozy Spinner */}
-                        <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal max-w-sm w-full text-center flex flex-col items-center gap-6 relative overflow-hidden animate-pulse">
-                            <div className="w-12 h-12 bg-blush border-3 border-clay rounded-xl shadow-brutal-sm flex items-center justify-center text-charcoal text-xl relative">
-                                ðŸ”„
-                            </div>
-                            <div>
-                                <h2 className="font-black text-2xl tracking-wide text-charcoal mb-2">Aligning Orbits...</h2>
-                                <p className="text-xs font-black text-clay uppercase tracking-widest">Connecting to Google Drive</p>
-                            </div>
-                            <p className="text-sm font-bold text-charcoal/70 leading-relaxed bg-beige/50 p-4 border-3 border-clay border-dashed rounded-2xl">
-                                Silent GAPI initialization is active in the background. Please wait a brief moment while we establish your private secure sync.
-                            </p>
-                        </div>
-                    </div>
-                );
-            }
-
-            return (
-                <div className="min-h-screen md:pl-64 relative pb-24 pt-20 md:pt-0">
-                    
-                    {/* Custom Local Alert Notification Popup */}
-                    {localAlert && (
-                        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-blush border-3 border-clay p-4 rounded-2xl shadow-brutal z-[200] flex items-center gap-3 max-w-sm animate-bounce">
-                            <span className="text-2xl">âš¡</span>
-                            <p className="text-xs font-black text-charcoal">{localAlert}</p>
-                            <button onClick={() => setLocalAlert("")} className="text-charcoal font-black text-sm ml-2">âœ•</button>
-                        </div>
-                    )}
-
-                    {/* Mobile Header */}
-                    <div className="md:hidden fixed top-0 left-0 w-full bg-paper border-b-3 border-clay p-4 z-40 flex justify-between items-center shadow-brutal-sm">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-blush border-2 border-clay rounded flex items-center justify-center shrink-0 text-lg text-charcoal">â˜€ï¸</div>
-                            <h1 className="font-black text-xl tracking-widest text-charcoal">LUMINA</h1>
-                        </div>
-                        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="brutal-btn p-2 border-2 border-clay bg-paper rounded-lg w-10 h-10 flex items-center justify-center text-xl text-charcoal">
-                            {isMobileMenuOpen ? "âŒ" : "â˜°"}
+                <nav className="flex flex-col gap-2 flex-1">
+                    {navItems.map(item => (
+                        <button 
+                            key={item.id}
+                            onClick={() => setActivePage(item.id)}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition font-medium text-sm text-left
+                                ${activePage === item.id ? 'bg-white/10 text-white border border-white/20' : 'text-white/60 hover:bg-white/5 hover:text-white'}
+                            `}
+                        >
+                            {item.icon} {item.label}
                         </button>
+                    ))}
+                </nav>
+
+                <button className="flex items-center justify-center gap-2 mt-auto py-3 px-4 rounded-xl glass-button text-sm font-medium text-white/70">
+                    Collapse
+                </button>
+            </div>
+        </aside>
+    );
+};
+
+const Header = ({ view, setView, distance, coreg }) => (
+    <header className="glass-panel px-6 py-4 flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+        <div className="flex items-center gap-4">
+            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
+                <Orbit size={16} className="text-brand-accent" />
+            </div>
+            <div>
+                <p className="text-[10px] uppercase tracking-widest font-bold opacity-60">Local Syncing Simulator</p>
+                <p className="text-sm font-medium">Viewing as <span className="text-brand-accent font-semibold">Partner {view}</span></p>
+            </div>
+        </div>
+        
+        <div className="flex bg-white/5 rounded-full p-1 border border-white/10">
+            <button onClick={() => setView('A')} className={`px-6 py-1.5 rounded-full text-xs font-bold transition ${view === 'A' ? 'bg-brand-accent text-white' : 'text-white/60 hover:text-white'}`}>
+                Partner A View
+            </button>
+            <button onClick={() => setView('B')} className={`px-6 py-1.5 rounded-full text-xs font-bold transition ${view === 'B' ? 'bg-brand-accent text-white' : 'text-white/60 hover:text-white'}`}>
+                Partner B View
+            </button>
+        </div>
+
+        <div className="flex gap-6 text-xs font-bold tracking-wider opacity-80">
+            <span className="flex items-center gap-2"><Activity size={14} className="text-brand-accent"/> CO-REG {(coreg/100).toFixed(2)}</span>
+            <span>DIST {distance.toLocaleString()} km</span>
+        </div>
+    </header>
+);
+
+// --- TAB PAGES ---
+
+const OrbitalOverview = ({ distance, setDistance, coreg, setCoreg, view, relationship, updateData }) => {
+    const [isSyncing, setIsSyncing] = useState(false);
+    const syncInterval = useRef(null);
+    const drainInterval = useRef(null);
+
+    useEffect(() => {
+        if (isSyncing) {
+            clearInterval(drainInterval.current);
+            syncInterval.current = setInterval(() => {
+                setCoreg(prev => Math.min(100, prev + 1));
+                setDistance(prev => Math.max(0, prev - 10));
+            }, 50);
+        } else {
+            clearInterval(syncInterval.current);
+            drainInterval.current = setInterval(() => {
+                setCoreg(prev => Math.max(0, prev - 0.2));
+                setDistance(prev => Math.min(6400, prev + 1));
+            }, 200);
+        }
+        return () => { clearInterval(syncInterval.current); clearInterval(drainInterval.current); };
+    }, [isSyncing]);
+
+    const meals = view === 'A' ? relationship.meals_a : relationship.meals_b;
+    const toggleMeal = (meal) => {
+        updateData({ [view === 'A' ? 'meals_a' : 'meals_b']: { ...meals, [meal]: !meals[meal] } });
+    };
+
+    const fogDensity = Math.max(0, 10 - (coreg / 10));
+    const sphereDist = 40 - (coreg * 0.35);
+
+    return (
+        <div className="flex flex-col lg:flex-row gap-6">
+            {/* Left: Canvas */}
+            <div className="flex-1 glass-panel p-6 flex flex-col">
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-1">Orbital Canvas / Zero-G Sandbox</h3>
+                        <h2 className="text-2xl font-serif text-brand-accent">Two bodies, one orbit</h2>
                     </div>
-
-                    {/* Mobile Menu Overlay */}
-                    {isMobileMenuOpen && <div className="fixed inset-0 bg-[#A28C81]/30 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>}
-
-                    <Sidebar activePage={activePage} setActivePage={setActivePage} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
-                    
-                    {/* Memory Detail Modal Overlay */}
-                    {selectedMemory && (
-                        <div className="fixed inset-0 bg-[#2F2E2C]/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setSelectedMemory(null)}>
-                            <div className="bg-paper border-3 border-clay p-6 rounded-3xl shadow-brutal max-w-2xl w-full" onClick={e => e.stopPropagation()}>
-                                <img src={selectedMemory.url} className="w-full h-[400px] object-cover border-3 border-clay rounded-xl mb-6"/>
-                                <h3 className="font-black text-3xl mb-2 text-charcoal">{selectedMemory.caption}</h3>
-                                <p className="font-bold opacity-50 uppercase tracking-widest text-clay">{selectedMemory.date}</p>
-                                <button className="brutal-btn bg-blush border-3 border-clay p-4 mt-8 rounded-xl w-full font-black text-lg text-paper" onClick={() => setSelectedMemory(null)}>Close Memory</button>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="max-w-6xl mx-auto p-4 md:p-8">
-                        {/* Header */}
-                        <header className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8 bg-paper border-3 border-clay p-4 rounded-2xl shadow-brutal">
-                            <div className="flex items-center gap-3 w-full md:w-auto">
-                                <div className="w-12 h-12 rounded-full bg-blush border-3 border-clay flex items-center justify-center shadow-brutal-sm text-2xl text-charcoal">ðŸŒ»</div>
-                                <div>
-                                    <h2 className="font-extrabold text-xl leading-tight text-charcoal">Your Journey</h2>
-                                    <p className="text-xs font-bold opacity-70 text-clay">Active: {myName} View</p>
-                                </div>
-                            </div>
-                            <h1 className="font-black text-2xl tracking-widest uppercase hidden md:block text-charcoal">
-                                {activePage === 'wheel' ? 'Life Balance' : activePage.replace('-', ' ')}
-                            </h1>
-                            <div className="flex items-center gap-3 text-right w-full md:w-auto justify-end">
-                                <div>
-                                    <h2 className="font-extrabold text-xl leading-tight text-charcoal">{partnerName} Sync</h2>
-                                    <p className="text-xs font-bold opacity-70 text-clay">Offline Local Sync</p>
-                                </div>
-                                <div className="w-12 h-12 rounded-full bg-blush border-3 border-clay flex items-center justify-center shadow-brutal-sm text-2xl relative text-charcoal">
-                                    ðŸŽ§{isAnimating && <div className="absolute -top-4 -right-2 text-xl sweat-animation">ðŸ’¦</div>}
-                                </div>
-                            </div>
-                        </header>
-
-                        {/* PAGE: DASHBOARD */}
-                        {activePage === 'dashboard' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-                                
-                                {/* 1. Today's Summary & Cycle Status */}
-                                <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
-                                    <h2 className="font-black text-2xl border-b-3 border-clay pb-4 text-charcoal">Today's Summary</h2>
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-16 h-16 rounded-full bg-blush border-3 border-clay flex items-center justify-center text-3xl text-charcoal">âœ¨</div>
-                                        <div>
-                                            <h3 className="font-bold text-lg text-charcoal">Active Session: {myName}</h3>
-                                            <p className="opacity-70 font-bold text-clay text-sm">Testing dashboard state seamlessly offline.</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-4 mt-4 border-t-2 border-clay/20 pt-4">
-                                        <div className="w-16 h-16 rounded-full bg-blush border-3 border-clay flex items-center justify-center text-3xl text-charcoal">â¤ï¸</div>
-                                        <div>
-                                            <h3 className="font-bold text-lg text-charcoal">{partnerName}'s Cycle</h3>
-                                            <p className="opacity-70 font-bold text-clay text-sm">
-                                                Day {partnerCycle.day} ({partnerCycle.mood}) â€” {partnerCycle.status}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* 2. Daily Food Tracker widget */}
-                                <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
-                                    <div className="border-b-3 border-clay pb-4 flex justify-between items-center">
-                                        <h2 className="font-black text-2xl text-charcoal">Daily Wellness Check</h2>
-                                        <span className="text-xs uppercase font-extrabold bg-blush border-2 border-clay px-2 py-0.5 rounded-full text-charcoal">Meal Logger</span>
-                                    </div>
-                                    
-                                    <p className="text-sm font-bold text-clay">Did your partner eat today?</p>
-                                    
-                                    <div className="grid grid-cols-2 gap-6">
-                                        {/* My meal trackers */}
-                                        <div className="flex flex-col gap-3">
-                                            <h3 className="font-black text-xs text-clay uppercase tracking-wider">Your Meals ({myName})</h3>
-                                            {['breakfast', 'lunch', 'dinner'].map((mealKey) => (
-                                                <div key={mealKey} className="flex items-center gap-3">
-                                                    <button className={`monoline-checkbox shrink-0 ${myMeals[mealKey] ? 'checked' : ''}`} onClick={() => toggleMeal(mealKey)}></button>
-                                                    <span className="font-bold capitalize text-charcoal text-sm">
-                                                        {mealKey === 'breakfast' ? 'Breakfast ðŸ³' : mealKey === 'lunch' ? 'Lunch ðŸ¥ª' : 'Dinner ðŸ›'}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-
-                                        {/* Partner meal trackers */}
-                                        <div className="flex flex-col gap-3 border-l-2 border-clay/20 pl-6">
-                                            <h3 className="font-black text-xs text-clay uppercase tracking-wider">{partnerName}'s Meals</h3>
-                                            {['breakfast', 'lunch', 'dinner'].map((mealKey) => (
-                                                <div key={mealKey} className="flex items-center gap-3">
-                                                    <div className={`monoline-checkbox shrink-0 pointer-events-none ${partnerMeals[mealKey] ? 'checked' : 'opacity-40'}`}></div>
-                                                    <span className="font-bold capitalize text-charcoal text-sm">
-                                                        {mealKey === 'breakfast' ? 'Breakfast ðŸ³' : mealKey === 'lunch' ? 'Lunch ðŸ¥ª' : 'Dinner ðŸ›'}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <button onClick={triggerNudge} className="brutal-btn bg-blush border-3 border-clay rounded-xl font-bold p-3 mt-2 text-center text-charcoal shadow-brutal-sm text-sm">
-                                        ðŸ”” Remind Partner to Eat
-                                    </button>
-                                </div>
-
-                                {/* 3. Memory Polaroid Widget */}
-                                <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col items-center gap-6">
-                                    <div className="border-b-3 border-clay pb-4 w-full flex justify-between items-center">
-                                        <h2 className="font-black text-2xl text-charcoal text-left">Memory Polaroid</h2>
-                                        <span className="text-xs uppercase font-extrabold bg-blush border-2 border-clay px-2 py-0.5 rounded-full text-charcoal">Synced Photo</span>
-                                    </div>
-                                    {memories.length > 0 ? (
-                                        <div className="polaroid w-full max-w-[240px] my-2" style={{ '--rand': 0.03 }} onClick={() => setSelectedMemory(memories[0])}>
-                                            <img src={memories[0].url} alt="Latest Memory" />
-                                            <p className="mt-4 font-black text-base text-center tracking-wide text-charcoal">{memories[0].caption}</p>
-                                            <p className="text-center text-xs font-bold opacity-50 mt-1 text-clay">Updated: {memories[0].date}</p>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col items-center justify-center p-8 border-3 border-dashed border-clay rounded-2xl w-full text-center">
-                                            <span className="text-4xl mb-2">ðŸ“¸</span>
-                                            <p className="font-bold text-sm text-clay">No memories synced yet.</p>
-                                            <button onClick={() => setActivePage('journal')} className="brutal-btn bg-blush border-3 border-clay rounded-xl font-bold p-2 mt-4 text-xs text-charcoal">
-                                                Add First Photo
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* 4. Google Drive Sync Settings Widget */}
-                                <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
-                                    <div className="border-b-3 border-clay pb-4 w-full flex justify-between items-center">
-                                        <h2 className="font-black text-2xl text-charcoal text-left">Google Sync</h2>
-                                        <span className={`text-xs uppercase font-extrabold border-2 border-clay px-2.5 py-0.5 rounded-full ${syncStatus === 'synced' ? 'bg-green-200 text-green-800' : 'bg-blush text-charcoal'}`}>
-                                            {syncStatus}
-                                        </span>
-                                    </div>
-                                    
-                                    <div className="flex flex-col gap-4">
-                                        {googleUser && (
-                                            <div className="flex items-center gap-3 bg-beige border-3 border-clay p-3 rounded-2xl">
-                                                {googleUser.picture ? (
-                                                    <img src={googleUser.picture} className="w-10 h-10 rounded-full border-2 border-clay shrink-0" alt="Profile" />
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-full bg-blush border-2 border-clay flex items-center justify-center shrink-0 text-lg">ðŸ‘¤</div>
-                                                )}
-                                                <div className="overflow-hidden">
-                                                    <h4 className="font-extrabold text-sm text-charcoal leading-tight truncate">{googleUser.name}</h4>
-                                                    <p className="text-xs font-bold text-clay truncate">{googleUser.email}</p>
-                                                </div>
-                                            </div>
-                                        )}
-                                        
-                                        <div className="text-[11px] font-bold text-clay leading-snug">
-                                            <p>ðŸ”„ Auto-syncing anti_gravity_sync.json in your Google Drive AppData Folder every 8 seconds.</p>
-                                            <p className="mt-1 font-mono text-[9px] truncate">File ID: {syncFileId}</p>
-                                        </div>
-                                        
-                                        <button 
-                                            onClick={handleDisconnectDrive} 
-                                            className="brutal-btn bg-paper border-3 border-clay rounded-xl font-bold p-2 text-center text-charcoal shadow-brutal-sm text-xs hover:bg-blush/20"
-                                        >
-                                            ðŸ”Œ Disconnect Account
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* 5. Quick Spaces */}
-                                <div className="md:col-span-2 lg:col-span-2 bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
-                                    <h2 className="font-black text-2xl border-b-3 border-clay pb-4 text-charcoal">Quick Spaces</h2>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <button className="brutal-btn bg-blush border-3 border-clay rounded-xl font-bold flex flex-col items-center justify-center p-4 text-charcoal" onClick={() => setActivePage('mood')}><span className="text-3xl mb-2">ðŸ˜Š</span> Log Mood</button>
-                                        <button className="brutal-btn bg-blush border-3 border-clay rounded-xl font-bold flex flex-col items-center justify-center p-4 text-charcoal" onClick={() => setActivePage('journal')}><span className="text-3xl mb-2">ðŸ“¸</span> Add Memory</button>
-                                        <button className="brutal-btn bg-paper border-3 border-clay rounded-xl font-bold flex flex-col items-center justify-center p-4 text-charcoal hover:bg-blush/20" onClick={() => setActivePage('goals')}><span className="text-3xl mb-2">âœ…</span> View Goals</button>
-                                        <button className="brutal-btn bg-paper border-3 border-clay rounded-xl font-bold flex flex-col items-center justify-center p-4 text-charcoal hover:bg-blush/20" onClick={() => { setIsAnimating(true); setTimeout(() => setIsAnimating(false), 1500); }}><span className="text-3xl mb-2">âš¡</span> Send Ping</button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* PAGE: LIFE BALANCE WHEEL */}
-                        {activePage === 'wheel' && (
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-16">
-                                <div className="lg:col-span-5 bg-card border-3 border-clay p-6 rounded-3xl shadow-brutal flex flex-col gap-6">
-                                    <div className="flex items-center gap-2 mb-2 text-charcoal"><span className="text-xl">ðŸŽšï¸</span><h2 className="font-extrabold text-xl">Adjust Balance</h2></div>
-                                    <div className="overflow-y-auto pr-2" style={{maxHeight: '520px'}}>
-                                        {CATEGORIES.map((cat, i) => (
-                                            <div key={i} className="mb-6 pb-6 border-b-2 border-clay border-dashed last:border-0 last:pb-0">
-                                                <h3 className="font-bold text-sm mb-3 text-charcoal">{cat}</h3>
-                                                <div className="flex items-center gap-4 mb-3">
-                                                    <div className="w-8 h-8 rounded-full bg-blush border-2 border-clay flex items-center justify-center font-bold text-xs shadow-brutal-active shrink-0 text-charcoal">{userScores[i]}</div>
-                                                    <input type="range" min="1" max="10" value={userScores[i]} onChange={e => updateMyScores(i, parseInt(e.target.value))} />
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="lg:col-span-7 flex flex-col gap-8">
-                                    <RadarChart userScores={userScores} partnerScores={partnerScores} myName={myName} partnerName={partnerName} />
-                                    <div className="relative">
-                                        {isAnimating && <div className="absolute top-1/2 left-1/2 z-50 text-4xl fly-animation pointer-events-none">âœˆï¸</div>}
-                                        <button onClick={() => { setIsAnimating(true); setTimeout(() => setIsAnimating(false), 1500); }} className="brutal-btn w-full bg-blush border-3 border-clay rounded-2xl shadow-brutal p-6 flex flex-col items-center justify-center text-center relative overflow-hidden text-paper">
-                                            <span className="text-sm font-extrabold uppercase tracking-widest opacity-80 mb-1">Recommended Action</span>
-                                            <h3 className="text-2xl font-black">Plan a {focusCategory.split(',')[0]} Activity</h3>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* PAGE: GOALS */}
-                        {activePage === 'goals' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                {macroGoals.map(goal => (
-                                    <GoalCard key={goal.id} goal={goal} 
-                                        onToggleMini={toggleMiniGoal} 
-                                        onAddMini={addMiniGoal} 
-                                    />
-                                ))}
-                                <button className="brutal-btn bg-paper border-3 border-clay border-dashed p-5 rounded-3xl shadow-brutal flex flex-col items-center justify-center min-h-[200px]" onClick={addMacroGoal}>
-                                    <div className="w-12 h-12 rounded-full border-3 border-clay flex items-center justify-center text-2xl font-black bg-card mb-3 text-charcoal">+</div>
-                                    <h3 className="font-extrabold text-lg text-charcoal">New Macro Goal</h3>
-                                </button>
-                            </div>
-                        )}
-
-                        {/* PAGE: MOOD SPACE */}
-                        {activePage === 'mood' && (
-                            <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-                                <div className="md:col-span-5 bg-card border-3 border-clay p-6 rounded-3xl shadow-brutal">
-                                    <h2 className="font-black text-2xl mb-6 text-charcoal">Log Your Mood</h2>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-                                        {[['Happy','ðŸ˜Š'],['Calm','ðŸ˜Œ'],['Stressed','ðŸ˜«'],['Sad','ðŸ¥º'],['Excited','ðŸ¤©'],['Tired','ðŸ˜´']].map(([m, e]) => (
-                                            <button key={m} onClick={() => alert("Logged Mood: " + m)} className="brutal-btn bg-paper border-3 border-clay rounded-xl p-4 flex flex-col items-center hover:bg-blush/30 text-charcoal">
-                                                <span className="text-3xl mb-2">{e}</span><span className="font-bold text-xs">{m}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <textarea className="notebook-textarea border-3 border-clay bg-paper rounded-xl p-4 w-full text-charcoal" placeholder="Add a note to your mood..."></textarea>
-                                </div>
-                                <div className="md:col-span-7 flex flex-col gap-4">
-                                    <h2 className="font-black text-2xl mb-2 text-charcoal">Mood History</h2>
-                                    <div className="bg-card border-3 border-clay p-4 rounded-2xl shadow-brutal-sm flex gap-4 items-center">
-                                        <div className="w-16 h-16 shrink-0 bg-blush border-3 border-clay rounded-full flex items-center justify-center text-3xl text-charcoal">âœ¨</div>
-                                        <div>
-                                            <h3 className="font-extrabold text-lg text-charcoal">Connected</h3>
-                                            <p className="font-bold opacity-80 text-sm mt-1 text-clay">"Testing mood parameters."</p>
-                                            <p className="text-xs font-black opacity-50 mt-2 text-clay">Just now</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* PAGE: MEMORY JOURNAL */}
-                        {activePage === 'journal' && (
-                            <div>
-                                <div className="bg-card border-3 border-clay p-6 rounded-3xl shadow-brutal mb-8 flex flex-col md:flex-row gap-4 md:items-center">
-                                    <div className="flex-1 flex flex-col gap-1">
-                                        <label className="text-xs font-black text-clay uppercase tracking-widest pl-1">Google Photos / Direct Image URL</label>
-                                        <input type="text" placeholder="Image URL..." className="border-3 border-clay bg-paper p-3 rounded-xl font-bold outline-none text-charcoal placeholder-clay text-sm w-full" value={newMemoryUrl} onChange={e => setNewMemoryUrl(e.target.value)} />
-                                    </div>
-                                    <div className="flex-1 flex flex-col gap-1">
-                                        <label className="text-xs font-black text-clay uppercase tracking-widest pl-1">Caption</label>
-                                        <input type="text" placeholder="Caption..." className="border-3 border-clay bg-paper p-3 rounded-xl font-bold outline-none text-charcoal placeholder-clay text-sm w-full" value={newMemoryCap} onChange={e => setNewMemoryCap(e.target.value)} />
-                                    </div>
-                                    <button onClick={addMemory} className="brutal-btn bg-blush border-3 border-clay p-3 px-6 rounded-xl font-black text-charcoal self-end mb-1">Add Memory</button>
-                                </div>
-                                <div className="flex flex-wrap gap-6 md:gap-12 justify-center pt-8">
-                                    {memories.map((mem, i) => (
-                                        <div key={mem.id} className="polaroid w-full max-w-[250px]" style={{'--rand': 0.1}} onClick={() => setSelectedMemory(mem)}>
-                                            <img src={mem.url} alt="Memory" />
-                                            <p className="mt-4 font-black text-lg text-center tracking-wide text-charcoal">{mem.caption}</p>
-                                            <p className="text-center text-xs font-bold opacity-50 mt-1 text-clay">{mem.date || 'Just now'}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* PAGE: SOUNDTRACK */}
-                        {activePage === 'soundtrack' && (
-                            <div>
-                                <div className="bg-card border-3 border-clay p-6 rounded-3xl shadow-brutal mb-8 flex flex-col gap-4">
-                                    <h2 className="font-black text-2xl text-charcoal">Update Playlist Link</h2>
-                                    <p className="text-xs font-bold text-clay">Paste a standard Spotify playlist or track URL here to parse and embed dynamically:</p>
-                                    <div className="flex flex-col md:flex-row gap-4 items-center">
-                                        <input type="text" placeholder="https://open.spotify.com/playlist/..." className="border-3 border-clay bg-paper p-3 rounded-xl flex-1 font-bold outline-none text-charcoal placeholder-clay text-sm w-full" value={spotifyUrl} onChange={e => saveSpotifyPlaylist(e.target.value)} />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-8">
-                                    {spotifyUrl ? (
-                                        <div className="bg-card border-3 border-clay p-6 rounded-3xl shadow-brutal text-center flex flex-col items-center">
-                                            <h3 className="font-extrabold text-2xl text-charcoal mb-4">Your Synced Playlist</h3>
-                                            <div className="w-full max-w-2xl mx-auto rounded-2xl overflow-hidden border-3 border-clay">
-                                                <iframe src={parseSpotifyUrl(spotifyUrl)} width="100%" height="360" frameBorder="0" allowFullScreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" style={{ borderRadius: '12px' }}></iframe>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="bg-card border-3 border-clay p-12 rounded-3xl shadow-brutal text-center flex flex-col items-center max-w-xl mx-auto">
-                                            <span className="text-6xl mb-4">ðŸŽµ</span>
-                                            <h2 className="font-black text-2xl mb-4 text-charcoal">No Soundtrack Connected</h2>
-                                            <p className="font-bold opacity-70 mb-8 text-clay">Paste a standard Spotify URL in the container above to activate it!</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* PAGE: WELLNESS CYCLE (FLO TRACKER ALTERNATIVE WIDGET) */}
-                        {activePage === 'wellness' && (
-                            <div className="flex flex-col gap-6 max-w-2xl mx-auto">
-                                
-                                {/* 1. Active Role view toggler for testing */}
-                                <div className="bg-card border-3 border-clay p-4 rounded-2xl shadow-brutal flex justify-between items-center">
-                                    <h3 className="font-black text-charcoal">View Cycle Tracker As</h3>
-                                    <div className="flex bg-beige border-2 border-clay rounded-xl overflow-hidden">
-                                        <button onClick={() => setCycleRole('her')} className={`p-2 px-4 font-black text-sm transition-all ${cycleRole === 'her' ? 'bg-blush text-charcoal' : 'text-clay'}`}>Her Interface</button>
-                                        <button onClick={() => setCycleRole('him')} className={`p-2 px-4 font-black text-sm transition-all ${cycleRole === 'him' ? 'bg-blush text-charcoal' : 'text-clay'}`}>His Interface</button>
-                                    </div>
-                                </div>
-
-                                {/* 2. Render selected view */}
-                                {cycleRole === 'her' ? (
-                                    /* HER CYCLE LOGGER VIEW */
-                                    <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6">
-                                        <div className="border-b-3 border-clay pb-4">
-                                            <h2 className="font-black text-3xl text-charcoal">My Wellness Cycle Logger</h2>
-                                            <p className="text-xs font-bold text-clay">A completely private manual logger of your daily energy parameters.</p>
-                                        </div>
-
-                                        {/* Slider day counter */}
-                                        <div className="flex flex-col gap-2">
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-xs uppercase font-extrabold text-clay">Cycle Day Counter</span>
-                                                <span className="text-sm font-black bg-blush px-3 py-0.5 border-2 border-clay rounded-full text-charcoal">Day {myCycle.day}</span>
-                                            </div>
-                                            <input type="range" min="1" max="28" value={myCycle.day} onChange={e => updateCycle({ day: parseInt(e.target.value) })} />
-                                        </div>
-
-                                        {/* Mood selector icons */}
-                                        <div className="flex flex-col gap-2">
-                                            <span className="text-xs uppercase font-extrabold text-clay">Quick Mood Status</span>
-                                            <div className="grid grid-cols-3 gap-3">
-                                                {['Tired ðŸ¥±', 'Cramps âš¡', 'Happy âœ¨'].map((m) => (
-                                                    <button key={m} onClick={() => updateCycle({ mood: m })} className={`p-3 rounded-xl border-3 border-clay font-bold text-sm text-center brutal-btn ${myCycle.mood === m ? 'bg-blush shadow-brutal-sm translate-x-1' : 'bg-paper'}`}>
-                                                        {m}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        {/* Status boundary toggler flags */}
-                                        <div className="flex flex-col gap-2">
-                                            <span className="text-xs uppercase font-extrabold text-clay">Send Notification Indicator Status</span>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                {['Need space ðŸ¤', 'Send snacks ðŸ«'].map((s) => (
-                                                    <button key={s} onClick={() => updateCycle({ status: s })} className={`p-3 rounded-xl border-3 border-clay font-bold text-sm text-center brutal-btn ${myCycle.status === s ? 'bg-blush shadow-brutal-sm translate-x-1' : 'bg-paper'}`}>
-                                                        {s}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    /* HIS SUPPORTIVE VIEW CARD */
-                                    <div className="bg-paper border-3 border-clay p-8 rounded-3xl shadow-brutal flex flex-col gap-6 text-center">
-                                        <div className="w-16 h-16 bg-blush border-3 border-clay rounded-full flex items-center justify-center text-3xl mx-auto shadow-brutal-sm">ðŸ¤</div>
-                                        <div>
-                                            <h3 className="text-2xl font-black text-charcoal">Partner Cycle Sync</h3>
-                                            <p className="text-xs font-bold text-clay uppercase tracking-widest mt-1">Glanceable Cycle Summary</p>
-                                        </div>
-
-                                        <div className="bg-beige border-3 border-clay p-6 rounded-2xl flex flex-col gap-3">
-                                            <div className="flex justify-around items-center divide-x-2 divide-clay/20">
-                                                <div>
-                                                    <span className="text-xs uppercase font-extrabold text-clay block">Cycle Status</span>
-                                                    <span className="text-lg font-black text-charcoal block mt-1">Day {partnerCycle.day}</span>
-                                                </div>
-                                                <div className="pl-6">
-                                                    <span className="text-xs uppercase font-extrabold text-clay block">Energy Level</span>
-                                                    <span className="text-lg font-black text-charcoal block mt-1">{partnerCycle.mood}</span>
-                                                </div>
-                                                <div className="pl-6">
-                                                    <span className="text-xs uppercase font-extrabold text-clay block">Status Message</span>
-                                                    <span className="text-lg font-black text-charcoal block mt-1">{partnerCycle.status}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="p-4 bg-blush/30 border-3 border-dashed border-clay rounded-xl text-sm font-black text-charcoal leading-relaxed">
-                                            ðŸ“¢ Partner Cycle Sync: Day {partnerCycle.day} (Energy: {partnerCycle.mood.includes('Tired') || partnerCycle.mood.includes('Cramps') ? 'Low' : 'High'}) ðŸ¤. Sending extra love today might be nice!
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* PAGE: GROWTH ARC */}
-                        {activePage === 'growth' && (
-                            <div className="bg-card border-3 border-clay p-8 rounded-3xl shadow-brutal max-w-3xl mx-auto">
-                                <h2 className="font-black text-3xl mb-8 border-b-3 border-clay pb-4 text-charcoal">Our Journey</h2>
-                                <div className="border-l-3 border-clay ml-4 pl-10 flex flex-col gap-10">
-                                    <div className="relative">
-                                        <div className="absolute -left-[43.5px] top-0 w-8 h-8 bg-blush border-3 border-clay rounded-full shadow-brutal-sm"></div>
-                                        <h3 className="font-black text-2xl text-charcoal">Chapter 1: The Meeting</h3>
-                                        <p className="opacity-70 font-bold uppercase tracking-widest text-sm mb-2 text-clay">August 2024</p>
-                                        <p className="font-bold text-charcoal/80">The day we first met at the coffee shop in downtown.</p>
-                                    </div>
-                                    <div className="relative">
-                                        <div className="absolute -left-[43.5px] top-0 w-8 h-8 bg-blush border-3 border-clay rounded-full shadow-brutal-sm"></div>
-                                        <h3 className="font-black text-2xl text-charcoal">Chapter 2: The Distance</h3>
-                                        <p className="opacity-70 font-bold uppercase tracking-widest text-sm mb-2 text-clay">December 2024</p>
-                                        <p className="font-bold text-charcoal/80">Moving apart for the new job opportunity. Hard, but worth it.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
+                    <div className="flex gap-2">
+                        <button 
+                            className={`glass-button px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 ${isSyncing ? 'accent scale-105' : ''}`}
+                            onMouseDown={() => setIsSyncing(true)} onMouseUp={() => setIsSyncing(false)} onMouseLeave={() => setIsSyncing(false)}
+                            onTouchStart={() => setIsSyncing(true)} onTouchEnd={() => setIsSyncing(false)}
+                        >
+                            <Orbit size={14} /> Sync Hold
+                        </button>
+                        <button className="glass-button px-4 py-2 rounded-full text-xs font-bold">Drift</button>
                     </div>
-
-                    {/* --- 1. PERSISTENT LOCAL NO-AUTH PROFILE SWITCHER UTILITY BAR --- */}
-                    <div className="fixed bottom-0 left-0 w-full bg-paper border-t-3 border-clay p-4 z-[100] flex justify-between items-center shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
-                        <div className="flex items-center gap-2">
-                            <span className="text-xl">ðŸª</span>
-                            <span className="font-black text-sm text-charcoal tracking-wide hidden sm:inline">Anti-Gravity Local Switcher:</span>
-                        </div>
-                        
-                        <div className="flex bg-beige border-2 border-clay rounded-xl overflow-hidden shadow-brutal-active">
-                            <button onClick={() => setCurrentView('A')} className={`p-2 px-6 font-black text-xs uppercase tracking-wider transition-all brutal-btn ${currentView === 'A' ? 'bg-blush text-charcoal font-black' : 'text-clay font-bold'}`}>
-                                Partner A View {currentView === 'A' && 'ðŸ‘¤'}
-                            </button>
-                            <button onClick={() => setCurrentView('B')} className={`p-2 px-6 font-black text-xs uppercase tracking-wider transition-all brutal-btn ${currentView === 'B' ? 'bg-blush text-charcoal font-black' : 'text-clay font-bold'}`}>
-                                Partner B View {currentView === 'B' && 'ðŸ‘¤'}
-                            </button>
-                        </div>
-
-                        <div className="text-xs font-black text-clay uppercase tracking-widest hidden md:inline-block">
-                            Local Syncing Simulator
-                        </div>
-                    </div>
-
                 </div>
-            );
-        };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+                <div className="relative w-full h-80 rounded-2xl overflow-hidden border border-white/20 canvas-grid mb-6 flex items-center justify-center">
+                    <div className="ambient-fog" style={{ '--fog-density': `${fogDensity}px` }}></div>
+                    <div className="absolute top-4 left-4 text-xs font-bold opacity-60 z-30">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • {Math.floor(distance).toLocaleString()} KM</div>
+                    <div className="absolute top-4 right-4 text-xs font-bold opacity-60 z-30 flex items-center gap-1"><Orbit size={12}/> {isSyncing ? 'SYNCING' : 'DRIFTING'}</div>
+
+                    {/* Connecting Line */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-0.5 bg-brand-accent/50 z-10" style={{ width: `calc(${sphereDist * 2}% + 3rem)` }}></div>
+
+                    {/* Spheres */}
+                    <div className="partner-sphere sphere-a w-16 h-16 flex items-center justify-center font-bold text-lg" style={{ left: `calc(50% - 2rem - ${sphereDist}%)` }}>A</div>
+                    <div className="partner-sphere sphere-b w-16 h-16 flex items-center justify-center font-bold text-lg" style={{ right: `calc(50% - 2rem - ${sphereDist}%)` }}>B</div>
+                </div>
+
+                <div className="flex gap-4">
+                    <div className="flex-1 glass-card p-4 flex flex-col justify-between h-20">
+                        <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Co-Regulation</span>
+                        <div className="flex justify-between items-end">
+                            <div className="w-3/4 h-1 bg-white/20 rounded-full overflow-hidden"><div className="h-full bg-brand-accent" style={{width: `${coreg}%`}}></div></div>
+                            <span className="text-sm font-medium">{(coreg/100).toFixed(2)}</span>
+                        </div>
+                    </div>
+                    <div className="flex-1 glass-card p-4 flex flex-col justify-between h-20">
+                        <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Future Fog Density</span>
+                        <div className="flex justify-between items-end">
+                            <div className="w-3/4 h-1 bg-white/20 rounded-full overflow-hidden"><div className="h-full bg-brand-accent" style={{width: `${(fogDensity/10)*100}%`}}></div></div>
+                            <span className="text-sm font-medium">{fogDensity.toFixed(2)}</span>
+                        </div>
+                    </div>
+                    <div className="flex-1 glass-card p-4 flex flex-col justify-between h-20">
+                        <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Distance (KM)</span>
+                        <div className="flex justify-end items-end">
+                            <span className="text-sm font-medium">{Math.floor(distance).toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Right: Wellness & Polaroid */}
+            <div className="w-full lg:w-80 shrink-0 flex flex-col gap-6">
+                <div className="glass-panel p-6 flex flex-col gap-4">
+                    <div className="flex justify-between items-start mb-2">
+                        <div>
+                            <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-1">Daily Wellness Check</h3>
+                            <h2 className="text-lg font-serif">Have you eaten, Partner {view}?</h2>
+                        </div>
+                        <button className="text-[10px] uppercase font-bold tracking-widest border border-white/20 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-white/10 transition"><Bell size={12}/> Remind</button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                        {['breakfast', 'lunch', 'dinner'].map(m => (
+                            <button key={m} onClick={() => toggleMeal(m)} className={`glass-card p-3 flex flex-col items-center justify-center gap-2 transition ${meals[m] ? 'bg-white/20' : 'hover:bg-white/10'}`}>
+                                <Activity size={16} className={meals[m] ? 'text-brand-accent' : 'opacity-50'}/>
+                                <span className="text-[10px] font-bold capitalize">{m}</span>
+                            </button>
+                        ))}
+                    </div>
+                    <p className="text-[10px] opacity-50 text-center mt-2">Partner {view === 'A' ? 'B' : 'A'} today: {Object.values(view === 'A' ? relationship.meals_b : relationship.meals_a).filter(Boolean).length}/3 meals logged</p>
+                </div>
+
+                <div className="glass-panel p-6 flex-1 flex flex-col">
+                    <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-4">Memory Polaroid</h3>
+                    <div className="bg-[#FAF8F5] p-3 pb-12 rounded-lg flex-1 relative transform rotate-1 shadow-2xl flex flex-col items-center justify-center border border-white/10">
+                        {relationship.memories.length > 0 ? (
+                            <img src={relationship.memories[relationship.memories.length-1].url} className="w-full h-48 object-cover rounded shadow-inner" />
+                        ) : (
+                            <div className="w-full h-48 bg-black/10 rounded flex items-center justify-center"><ImageIcon className="opacity-20" size={48}/></div>
+                        )}
+                        <p className="absolute bottom-4 font-serif text-[#2F2E2C] text-sm text-center w-full">{relationship.memories[relationship.memories.length-1]?.caption || 'Suspended in time'}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const LifeBalance = ({ view, relationship, updateData }) => {
+    const canvasRef = useRef(null);
+    const chartRef = useRef(null);
+    const scores = view === 'A' ? relationship.scores_a : relationship.scores_b;
+    const partnerScores = view === 'A' ? relationship.scores_b : relationship.scores_a;
+
+    useEffect(() => {
+        if (!canvasRef.current) return;
+        if (chartRef.current) chartRef.current.destroy();
+
+        chartRef.current = new window.Chart(canvasRef.current.getContext('2d'), {
+            type: 'radar',
+            data: {
+                labels: CATEGORIES,
+                datasets: [
+                    { label: `Partner ${view}`, data: scores, backgroundColor: 'rgba(234, 88, 12, 0.4)', borderColor: 'rgba(234, 88, 12, 1)', borderWidth: 2 },
+                    { label: `Partner ${view === 'A'?'B':'A'}`, data: partnerScores, backgroundColor: 'transparent', borderColor: 'rgba(255, 255, 255, 0.3)', borderDash: [5,5], borderWidth: 1 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { r: { min: 0, max: 10, ticks: { display: false }, grid: { color: 'rgba(255,255,255,0.1)' }, angleLines: { color: 'rgba(255,255,255,0.1)' }, pointLabels: { color: 'rgba(255,255,255,0.7)', font: { family: 'Inter', size: 10 } } } },
+                plugins: { legend: { position: 'bottom', labels: { color: 'white', boxWidth: 10 } } }
+            }
+        });
+    }, [scores, partnerScores, view]);
+
+    return (
+        <div className="flex flex-col lg:flex-row gap-6 h-full">
+            <div className="flex-1 glass-panel p-8">
+                <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Telemetry Sliders</h3>
+                <h2 className="text-2xl font-serif text-brand-accent mb-10">Calibrate Partner {view}</h2>
+                <div className="flex flex-col gap-8">
+                    {CATEGORIES.map((cat, i) => (
+                        <div key={i}>
+                            <div className="flex justify-between text-xs font-bold uppercase tracking-wider opacity-80 mb-3"><span>{cat}</span><span>{scores[i].toFixed(1)} / 10</span></div>
+                            <input type="range" min="0" max="10" step="0.5" value={scores[i]} onChange={(e) => {
+                                const newS = [...scores]; newS[i] = parseFloat(e.target.value);
+                                updateData({ [view==='A'?'scores_a':'scores_b']: newS });
+                            }} />
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div className="flex-1 glass-panel p-8 flex flex-col">
+                <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-4">Life Balance Radar</h3>
+                <div className="flex-1 relative min-h-[300px]">
+                    <canvas ref={canvasRef}></canvas>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const MoodSpace = ({ view, relationship, updateData }) => {
+    const [note, setNote] = useState('');
+    const moods = [
+        { label: 'Happy', icon: <Smile size={24}/> }, { label: 'Calm', icon: <Activity size={24}/> }, { label: 'Stressed', icon: <Activity size={24}/> },
+        { label: 'Sad', icon: <Smile size={24}/> }, { label: 'Excited', icon: <Orbit size={24}/> }, { label: 'Tired', icon: <Moon size={24}/> }
+    ];
+    const [selectedMood, setSelectedMood] = useState(null);
+
+    const transmit = () => {
+        if (!selectedMood && !note) return;
+        const newLog = { id: Date.now(), partner: view, mood: selectedMood, note, time: new Date().toLocaleString() };
+        updateData({ moods: [newLog, ...(relationship.moods || [])] });
+        setNote(''); setSelectedMood(null);
+    };
+
+    return (
+        <div className="flex flex-col lg:flex-row gap-6 h-full">
+            <div className="flex-1 glass-panel p-8">
+                <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Emotional Telemetry</h3>
+                <h2 className="text-2xl font-serif text-brand-accent mb-8">How does your gravity feel?</h2>
+                
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+                    {moods.map(m => (
+                        <button key={m.label} onClick={() => setSelectedMood(m.label)} className={`glass-card p-6 flex flex-col items-center justify-center gap-3 transition ${selectedMood === m.label ? 'border-brand-accent text-brand-accent bg-brand-accent/10' : 'hover:bg-white/10'}`}>
+                            {m.icon} <span className="text-sm font-bold">{m.label}</span>
+                        </button>
+                    ))}
+                </div>
+                
+                <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="a fleeting note for the shared ledger..." className="glass-input min-h-[100px] mb-4"></textarea>
+                <button onClick={transmit} className="glass-button accent px-8 py-3 rounded-xl font-bold text-sm w-full md:w-auto">Transmit</button>
+            </div>
+            <div className="flex-1 glass-panel p-8 overflow-y-auto max-h-[70vh]">
+                <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Shared Ledger</h3>
+                <h2 className="text-2xl font-serif mb-8">Recent transmissions</h2>
+                <div className="flex flex-col gap-4">
+                    {(relationship.moods || []).length === 0 ? (
+                        <p className="text-sm opacity-50">Nothing logged yet. Be the first signal.</p>
+                    ) : (relationship.moods || []).map(l => (
+                        <div key={l.id} className="glass-card p-4">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-[10px] uppercase font-bold opacity-60">Partner {l.partner}</span>
+                                <span className="text-[10px] opacity-40">{l.time}</span>
+                            </div>
+                            {l.mood && <div className="text-brand-accent font-bold mb-2">{l.mood}</div>}
+                            {l.note && <p className="text-sm opacity-90">{l.note}</p>}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const MemoryJournal = ({ relationship, updateData }) => {
+    const [form, setForm] = useState({ chapter: '', title: '', date: '', url: '', caption: '' });
+
+    const addMemory = () => {
+        if (!form.title) return;
+        const newMem = { id: Date.now(), ...form };
+        updateData({ memories: [...relationship.memories, newMem] });
+        setForm({ chapter: '', title: '', date: '', url: '', caption: '' });
+    };
+
+    return (
+        <div className="flex flex-col lg:flex-row gap-6 h-full">
+            <div className="flex-1 glass-panel p-8 relative overflow-y-auto max-h-[75vh]">
+                <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Growth Arc</h3>
+                <h2 className="text-2xl font-serif text-brand-accent mb-10">The timeline of two orbits</h2>
+                
+                <div className="relative pl-12">
+                    <div className="timeline-line"></div>
+                    {relationship.memories.map(mem => (
+                        <div key={mem.id} className="relative mb-12">
+                            <div className="absolute -left-12 top-2 w-4 h-4 rounded-full border-2 border-brand-accent bg-sunset-indigo z-10 flex items-center justify-center"><div className="w-1.5 h-1.5 bg-brand-accent rounded-full"></div></div>
+                            <h4 className="text-[10px] uppercase font-bold opacity-60 mb-1">{mem.chapter || 'Chapter'} • {mem.date}</h4>
+                            <h3 className="text-xl font-serif mb-4">{mem.title}</h3>
+                            <div className="glass-card p-2 rounded-xl">
+                                {mem.url && <img src={mem.url} className="w-full h-64 object-cover rounded-lg mb-4" />}
+                                <p className="text-sm opacity-80 px-2 pb-2">{mem.caption}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div className="w-full lg:w-96 shrink-0 glass-panel p-8">
+                <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">New Chapter</h3>
+                <h2 className="text-xl font-serif mb-8">Inscribe a milestone</h2>
+                <div className="flex flex-col gap-4">
+                    <input type="text" placeholder="Chapter 3..." className="glass-input" value={form.chapter} onChange={e => setForm({...form, chapter: e.target.value})} />
+                    <input type="text" placeholder="Title" className="glass-input" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
+                    <input type="text" placeholder="YYYY-MM-DD" className="glass-input" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+                    <input type="text" placeholder="Image URL" className="glass-input" value={form.url} onChange={e => setForm({...form, url: e.target.value})} />
+                    <textarea placeholder="Caption..." className="glass-input min-h-[100px]" value={form.caption} onChange={e => setForm({...form, caption: e.target.value})}></textarea>
+                    <button onClick={addMemory} className="glass-button accent py-3 rounded-xl font-bold flex items-center justify-center gap-2"><Plus size={16}/> Add to arc</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const Soundtrack = ({ relationship, updateData }) => {
+    const [url, setUrl] = useState('');
+    
+    const parseSpotifyUrl = (u) => {
+        if (!u) return '';
+        const regex = /(?:https?:\/\/)?(?:open\.)?spotify\.com\/(playlist|track|album)\/([a-zA-Z0-9]{22})/;
+        const match = u.match(regex);
+        return match ? `https://open.spotify.com/embed/${match[1]}/${match[2]}?theme=0` : '';
+    };
+
+    return (
+        <div className="flex flex-col lg:flex-row gap-6 h-full">
+            <div className="flex-1 glass-panel p-8">
+                <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Synced Soundtrack</h3>
+                <h2 className="text-2xl font-serif text-brand-accent mb-4">The frequency between us</h2>
+                <p className="text-sm opacity-70 mb-8">Paste any Spotify playlist, album, or track URL. We parse and embed it cleanly.</p>
+                <input type="text" placeholder="https://open.spotify.com/playlist/..." className="glass-input mb-4" value={url} onChange={e => setUrl(e.target.value)} />
+                <button onClick={() => { if(url) updateData({ spotify_url: url }); setUrl(''); }} className="glass-button accent px-8 py-3 rounded-xl font-bold w-full md:w-auto flex items-center justify-center gap-2"><Music size={16}/> Tune in</button>
+            </div>
+            <div className="flex-1 glass-panel p-6 flex flex-col justify-center">
+                {parseSpotifyUrl(relationship.spotify_url) ? (
+                    <iframe className="w-full h-[352px] rounded-2xl border-none shadow-2xl" src={parseSpotifyUrl(relationship.spotify_url)} allow="encrypted-media"></iframe>
+                ) : (
+                    <div className="text-center opacity-50 text-sm">No active transmission.</div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const CycleLogger = ({ view, relationship, updateData }) => {
+    // Generate a simple dummy calendar array for visual representation
+    const days = Array.from({length: 30}, (_, i) => i + 1);
+    const [selectedDay, setSelectedDay] = useState(20);
+
+    const logKey = view === 'A' ? 'cycle_logs_a' : 'cycle_logs_b';
+    const logs = relationship[logKey] || {};
+    const currentLog = logs[selectedDay] || { flow: 'None', energy: 5, notes: '' };
+
+    const updateLog = (updates) => {
+        const newLogs = { ...logs, [selectedDay]: { ...currentLog, ...updates } };
+        updateData({ [logKey]: newLogs });
+    };
+
+    return (
+        <div className="flex flex-col lg:flex-row gap-6 h-full">
+            {/* Left: Calendar */}
+            <div className="flex-[3] glass-panel p-8">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 flex items-center gap-2"><Calendar size={12}/> PRIVATE • STORED LOCALLY • PARTNER {view}</h3>
+                    <div className="flex gap-2">
+                        <button className="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center hover:bg-white/10 transition"><ChevronLeft size={16}/></button>
+                        <button className="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center hover:bg-white/10 transition"><ChevronRight size={16}/></button>
+                    </div>
+                </div>
+                <h2 className="text-3xl font-serif text-brand-accent mb-8">June 2026</h2>
+                
+                <div className="grid grid-cols-7 gap-4 text-center">
+                    {['MO','TU','WE','TH','FR','SA','SU'].map(d => <div key={d} className="text-[10px] uppercase font-bold opacity-50 mb-2">{d}</div>)}
+                    {days.map(d => (
+                        <button key={d} onClick={() => setSelectedDay(d)} className={`aspect-square rounded-2xl flex items-center justify-center transition ${selectedDay === d ? 'border-2 border-brand-accent text-brand-accent bg-brand-accent/5' : 'glass-card hover:bg-white/10'}`}>
+                            {d}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Right: Day Log */}
+            <div className="flex-[2] glass-panel p-8">
+                <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Day Log</h3>
+                <h2 className="text-2xl font-serif mb-8">Fri Jun {selectedDay} 2026</h2>
+
+                <div className="mb-8">
+                    <h4 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-4">Flow</h4>
+                    <div className="flex gap-2">
+                        {['None', 'Light', 'Medium', 'Heavy'].map(f => (
+                            <button key={f} onClick={() => updateLog({ flow: f })} className={`flex-1 py-2 rounded-full text-[10px] font-bold uppercase tracking-wider transition border ${currentLog.flow === f ? 'bg-brand-accent/20 border-brand-accent text-brand-accent' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}>
+                                {f}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="mb-8">
+                    <div className="flex justify-between items-center mb-4">
+                        <h4 className="text-[10px] uppercase tracking-widest font-bold opacity-60">Energy</h4>
+                        <span className="text-[10px] uppercase tracking-widest font-bold opacity-60">{currentLog.energy} / 10</span>
+                    </div>
+                    <input type="range" min="0" max="10" value={currentLog.energy} onChange={e => updateLog({ energy: parseInt(e.target.value) })} className="glass-slider" />
+                </div>
+
+                <textarea value={currentLog.notes} onChange={e => updateLog({ notes: e.target.value })} placeholder="Notes for this day..." className="glass-input h-32"></textarea>
+            </div>
+        </div>
+    );
+};
+
+// --- APP ROOT ---
+const App = () => {
+    const [activePage, setActivePage] = useState('orbital');
+    const [view, setView] = useState('A');
+    
+    const [relationship, setRelationship] = useState(() => loadState({
+        scores_a: [7, 6, 8, 5, 7, 9], scores_b: [6, 8, 7, 4, 8, 9],
+        meals_a: { breakfast: true, lunch: false, dinner: false }, meals_b: { breakfast: false, lunch: true, dinner: false },
+        memories: [{ id: 1, title: 'The Meeting', chapter: 'Chapter 1', date: '2023-04-12', caption: 'The first orbit aligned.', url: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=800&q=80' }],
+        moods: [], spotify_url: "https://open.spotify.com/playlist/37i9dQZF1EJH75B3mnDgmp",
+        distance: 6400, coRegulation: 62
+    }));
+
+    const [distance, setDistance] = useState(relationship.distance);
+    const [coRegulation, setCoRegulation] = useState(relationship.coRegulation);
+
+    const updateData = (updates) => {
+        const next = { ...relationship, ...updates };
+        setRelationship(next); saveState(next);
+    };
+
+    useEffect(() => {
+        const t = setTimeout(() => updateData({ distance, coRegulation }), 1000);
+        return () => clearTimeout(t);
+    }, [distance, coRegulation]);
+
+    const renderPage = () => {
+        switch(activePage) {
+            case 'orbital': return <OrbitalOverview distance={distance} setDistance={setDistance} coreg={coRegulation} setCoreg={setCoRegulation} view={view} relationship={relationship} updateData={updateData} />;
+            case 'balance': return <LifeBalance view={view} relationship={relationship} updateData={updateData} />;
+            case 'mood': return <MoodSpace view={view} relationship={relationship} updateData={updateData} />;
+            case 'journal': return <MemoryJournal relationship={relationship} updateData={updateData} />;
+            case 'soundtrack': return <Soundtrack relationship={relationship} updateData={updateData} />;
+            case 'cycle': return <CycleLogger view={view} relationship={relationship} updateData={updateData} />;
+            default: return null;
+        }
+    };
+
+    return (
+        <div className="min-h-screen flex flex-col md:flex-row p-4 md:p-6 gap-6 relative">
+            <Sidebar activePage={activePage} setActivePage={setActivePage} />
+            <main className="flex-1 flex flex-col min-w-0">
+                <Header view={view} setView={setView} distance={distance} coreg={coRegulation} />
+                <div className="flex-1 overflow-y-auto">
+                    {renderPage()}
+                </div>
+            </main>
+        </div>
+    );
+};
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
