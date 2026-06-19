@@ -2,11 +2,24 @@ import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import { 
     Orbit, Activity, Smile, BookOpen, Music, Calendar, 
-    Bell, Image as ImageIcon, ChevronLeft, ChevronRight, Plus, Moon
+    Bell, Image as ImageIcon, ChevronLeft, ChevronRight, Plus, Moon,
+    User, Heart, Sparkles
 } from 'lucide-react';
 
 // --- STORAGE ---
-const STORAGE_KEY = 'lumina_v3_state';
+const STORAGE_KEY = 'lumina_v4_state';
+const defaultState = {
+    isRoleSelected: false,
+    activeView: 'A', // 'A' or 'B'
+    scores_a: [7, 6, 8, 5, 7, 9], scores_b: [6, 8, 7, 4, 8, 9],
+    meals_a: { breakfast: true, lunch: false, dinner: false }, 
+    meals_b: { breakfast: false, lunch: true, dinner: false },
+    memories: [{ id: 1, title: 'The Meeting', chapter: 'Chapter 1', date: '2023-04-12', caption: 'The first orbit aligned.', url: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=800&q=80' }],
+    moods: [], spotify_url: "https://open.spotify.com/playlist/37i9dQZF1EJH75B3mnDgmp",
+    distance: 6400, coRegulation: 62,
+    partnerA_cycleData: { day: 14, symptoms: [], needSpace: false, sendSnacks: false }
+};
+
 const loadState = (def) => {
     try {
         const stored = localStorage.getItem(STORAGE_KEY);
@@ -26,21 +39,70 @@ const CATEGORIES = [
 
 // --- COMPONENTS ---
 
-const Sidebar = ({ activePage, setActivePage }) => {
-    const navItems = [
+const OnboardingScreen = ({ selectRole }) => {
+    const [fadeOut, setFadeOut] = useState(false);
+
+    const handleSelect = (role) => {
+        setFadeOut(true);
+        setTimeout(() => selectRole(role), 500);
+    };
+
+    return (
+        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-[#070b14]/80 backdrop-blur-3xl transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}>
+            <div className="glass-panel p-12 max-w-4xl w-full text-center flex flex-col items-center">
+                <div className="w-16 h-16 rounded-full bg-brand-accent/20 flex items-center justify-center border border-brand-accent/50 mb-8 shadow-[0_0_30px_rgba(249,115,22,0.3)]">
+                    <Orbit size={32} className="text-brand-accent" />
+                </div>
+                <h1 className="text-4xl font-serif mb-4">Welcome to your shared orbit.</h1>
+                <p className="text-lg opacity-70 mb-12">Who is entering the space today?</p>
+
+                <div className="flex flex-col md:flex-row gap-6 w-full justify-center">
+                    <button 
+                        onClick={() => handleSelect('A')}
+                        className="glass-card flex-1 p-8 hover:bg-white/10 transition group flex flex-col items-center border border-white/10 hover:border-brand-accent/50"
+                    >
+                        <div className="w-16 h-16 rounded-full bg-[#facc15]/20 flex items-center justify-center mb-6 group-hover:scale-110 transition shadow-[0_0_20px_rgba(250,204,21,0.3)]">
+                            <User size={32} className="text-[#facc15]" />
+                        </div>
+                        <h2 className="text-xl font-bold mb-2">Partner A</h2>
+                        <p className="text-sm opacity-60">Female Interface</p>
+                    </button>
+
+                    <button 
+                        onClick={() => handleSelect('B')}
+                        className="glass-card flex-1 p-8 hover:bg-white/10 transition group flex flex-col items-center border border-white/10 hover:border-[#38bdf8]/50"
+                    >
+                        <div className="w-16 h-16 rounded-full bg-[#38bdf8]/20 flex items-center justify-center mb-6 group-hover:scale-110 transition shadow-[0_0_20px_rgba(56,189,248,0.3)]">
+                            <User size={32} className="text-[#38bdf8]" />
+                        </div>
+                        <h2 className="text-xl font-bold mb-2">Partner B</h2>
+                        <p className="text-sm opacity-60">Male Interface</p>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const Sidebar = ({ activePage, setActivePage, view, resetRole }) => {
+    let navItems = [
         { id: 'orbital', label: 'Orbital Overview', icon: <Orbit size={18} /> },
         { id: 'balance', label: 'Life Balance', icon: <Activity size={18} /> },
         { id: 'mood', label: 'Mood Space', icon: <Smile size={18} /> },
         { id: 'journal', label: 'Memory Journal', icon: <BookOpen size={18} /> },
         { id: 'soundtrack', label: 'Synced Soundtrack', icon: <Music size={18} /> },
-        { id: 'cycle', label: 'Cycle Logger', icon: <Calendar size={18} /> },
     ];
+
+    // Asymmetric UI: Only show Cycle Logger for Partner A (Female)
+    if (view === 'A') {
+        navItems.push({ id: 'cycle', label: 'Cycle Logger', icon: <Calendar size={18} /> });
+    }
 
     return (
         <aside className="w-full md:w-64 shrink-0 flex flex-col gap-6">
-            <div className="glass-panel p-6 flex flex-col h-full">
+            <div className="glass-panel p-6 flex flex-col h-full relative">
                 <div className="flex items-center gap-3 mb-10">
-                    <div className="w-10 h-10 rounded-full bg-brand-accent flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-brand-accent flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(249,115,22,0.4)]">
                         <Orbit size={20} className="text-white" />
                     </div>
                     <div>
@@ -63,9 +125,14 @@ const Sidebar = ({ activePage, setActivePage }) => {
                     ))}
                 </nav>
 
-                <button className="flex items-center justify-center gap-2 mt-auto py-3 px-4 rounded-xl glass-button text-sm font-medium text-white/70">
-                    Collapse
-                </button>
+                <div className="mt-auto flex flex-col gap-2">
+                    <button className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl glass-button text-sm font-medium text-white/70">
+                        Collapse
+                    </button>
+                    <button onClick={resetRole} className="text-[10px] text-center opacity-40 hover:opacity-100 transition uppercase tracking-widest">
+                        Change Role
+                    </button>
+                </div>
             </div>
         </aside>
     );
@@ -83,11 +150,12 @@ const Header = ({ view, setView, distance, coreg }) => (
             </div>
         </div>
         
+        {/* Persistent Override Toggle */}
         <div className="flex bg-white/5 rounded-full p-1 border border-white/10">
             <button onClick={() => setView('A')} className={`px-6 py-1.5 rounded-full text-xs font-bold transition ${view === 'A' ? 'bg-brand-accent text-white' : 'text-white/60 hover:text-white'}`}>
                 Partner A View
             </button>
-            <button onClick={() => setView('B')} className={`px-6 py-1.5 rounded-full text-xs font-bold transition ${view === 'B' ? 'bg-brand-accent text-white' : 'text-white/60 hover:text-white'}`}>
+            <button onClick={() => setView('B')} className={`px-6 py-1.5 rounded-full text-xs font-bold transition ${view === 'B' ? 'bg-[#38bdf8] text-white' : 'text-white/60 hover:text-white'}`}>
                 Partner B View
             </button>
         </div>
@@ -130,6 +198,8 @@ const OrbitalOverview = ({ distance, setDistance, coreg, setCoreg, view, relatio
 
     const fogDensity = Math.max(0, 10 - (coreg / 10));
     const sphereDist = 40 - (coreg * 0.35);
+    
+    const partnerAData = relationship.partnerA_cycleData || defaultState.partnerA_cycleData;
 
     return (
         <div className="flex flex-col lg:flex-row gap-6">
@@ -189,26 +259,49 @@ const OrbitalOverview = ({ distance, setDistance, coreg, setCoreg, view, relatio
                 </div>
             </div>
 
-            {/* Right: Wellness & Polaroid */}
+            {/* Right: Asymmetric Widgets */}
             <div className="w-full lg:w-80 shrink-0 flex flex-col gap-6">
-                <div className="glass-panel p-6 flex flex-col gap-4">
-                    <div className="flex justify-between items-start mb-2">
-                        <div>
-                            <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-1">Daily Wellness Check</h3>
-                            <h2 className="text-lg font-serif">Have you eaten, Partner {view}?</h2>
+                
+                {/* Asymmetric UI: Wellness Sync Card exclusively for Partner B */}
+                {view === 'B' ? (
+                    <div className="glass-panel p-6 flex flex-col border border-[#38bdf8]/30 relative overflow-hidden">
+                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#38bdf8]/10 rounded-full blur-2xl pointer-events-none"></div>
+                        <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 flex items-center gap-2"><Heart size={12} className="text-[#38bdf8]"/> Wellness Sync</h3>
+                        <h2 className="text-lg font-serif mb-4">Partner A is on Day {partnerAData.day}</h2>
+                        
+                        <div className="flex flex-col gap-2 mb-6">
+                            {partnerAData.sendSnacks && <div className="text-xs bg-[#facc15]/20 text-[#facc15] px-3 py-1.5 rounded-md font-medium flex items-center gap-2"><Sparkles size={12}/> She requested snacks.</div>}
+                            {partnerAData.needSpace && <div className="text-xs bg-white/10 px-3 py-1.5 rounded-md font-medium">She needs some quiet space today.</div>}
+                            {!partnerAData.sendSnacks && !partnerAData.needSpace && partnerAData.symptoms.length > 0 && (
+                                <div className="text-xs bg-white/10 px-3 py-1.5 rounded-md font-medium opacity-80">Experiencing: {partnerAData.symptoms.join(', ')}</div>
+                            )}
+                            {!partnerAData.sendSnacks && !partnerAData.needSpace && partnerAData.symptoms.length === 0 && (
+                                <div className="text-xs opacity-60 italic">Everything seems calm today.</div>
+                            )}
                         </div>
-                        <button className="text-[10px] uppercase font-bold tracking-widest border border-white/20 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-white/10 transition"><Bell size={12}/> Remind</button>
+                        
+                        <button className="glass-button w-full py-2 flex justify-center items-center gap-2 text-xs font-bold tracking-wider hover:border-[#38bdf8]/50 transition"><Heart size={14}/> Send supportive ping</button>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
-                        {['breakfast', 'lunch', 'dinner'].map(m => (
-                            <button key={m} onClick={() => toggleMeal(m)} className={`glass-card p-3 flex flex-col items-center justify-center gap-2 transition ${meals[m] ? 'bg-white/20' : 'hover:bg-white/10'}`}>
-                                <Activity size={16} className={meals[m] ? 'text-brand-accent' : 'opacity-50'}/>
-                                <span className="text-[10px] font-bold capitalize">{m}</span>
-                            </button>
-                        ))}
+                ) : (
+                    <div className="glass-panel p-6 flex flex-col gap-4">
+                        <div className="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-1">Daily Wellness Check</h3>
+                                <h2 className="text-lg font-serif">Have you eaten, Partner A?</h2>
+                            </div>
+                            <button className="text-[10px] uppercase font-bold tracking-widest border border-white/20 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-white/10 transition"><Bell size={12}/> Remind</button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                            {['breakfast', 'lunch', 'dinner'].map(m => (
+                                <button key={m} onClick={() => toggleMeal(m)} className={`glass-card p-3 flex flex-col items-center justify-center gap-2 transition ${meals[m] ? 'bg-white/20 text-brand-accent' : 'hover:bg-white/10'}`}>
+                                    <Activity size={16} className={meals[m] ? '' : 'opacity-50'}/>
+                                    <span className="text-[10px] font-bold capitalize">{m}</span>
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-[10px] opacity-50 text-center mt-2">Partner B today: {Object.values(relationship.meals_b).filter(Boolean).length}/3 meals logged</p>
                     </div>
-                    <p className="text-[10px] opacity-50 text-center mt-2">Partner {view === 'A' ? 'B' : 'A'} today: {Object.values(view === 'A' ? relationship.meals_b : relationship.meals_a).filter(Boolean).length}/3 meals logged</p>
-                </div>
+                )}
 
                 <div className="glass-panel p-6 flex-1 flex flex-col">
                     <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-4">Memory Polaroid</h3>
@@ -241,7 +334,7 @@ const LifeBalance = ({ view, relationship, updateData }) => {
             data: {
                 labels: CATEGORIES,
                 datasets: [
-                    { label: `Partner ${view}`, data: scores, backgroundColor: 'rgba(234, 88, 12, 0.4)', borderColor: 'rgba(234, 88, 12, 1)', borderWidth: 2 },
+                    { label: `Partner ${view}`, data: scores, backgroundColor: 'rgba(249, 115, 22, 0.4)', borderColor: 'rgba(249, 115, 22, 1)', borderWidth: 2 },
                     { label: `Partner ${view === 'A'?'B':'A'}`, data: partnerScores, backgroundColor: 'transparent', borderColor: 'rgba(255, 255, 255, 0.3)', borderDash: [5,5], borderWidth: 1 }
                 ]
             },
@@ -310,7 +403,7 @@ const MoodSpace = ({ view, relationship, updateData }) => {
                 </div>
                 
                 <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="a fleeting note for the shared ledger..." className="glass-input min-h-[100px] mb-4"></textarea>
-                <button onClick={transmit} className="glass-button accent px-8 py-3 rounded-xl font-bold text-sm w-full md:w-auto">Transmit</button>
+                <button onClick={transmit} className="glass-button accent px-8 py-3 font-bold text-sm w-full md:w-auto">Transmit</button>
             </div>
             <div className="flex-1 glass-panel p-8 overflow-y-auto max-h-[70vh]">
                 <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Shared Ledger</h3>
@@ -354,7 +447,7 @@ const MemoryJournal = ({ relationship, updateData }) => {
                     <div className="timeline-line"></div>
                     {relationship.memories.map(mem => (
                         <div key={mem.id} className="relative mb-12">
-                            <div className="absolute -left-12 top-2 w-4 h-4 rounded-full border-2 border-brand-accent bg-sunset-indigo z-10 flex items-center justify-center"><div className="w-1.5 h-1.5 bg-brand-accent rounded-full"></div></div>
+                            <div className="absolute -left-12 top-2 w-4 h-4 rounded-full border-2 border-brand-accent bg-[#070b14] z-10 flex items-center justify-center"><div className="w-1.5 h-1.5 bg-brand-accent rounded-full"></div></div>
                             <h4 className="text-[10px] uppercase font-bold opacity-60 mb-1">{mem.chapter || 'Chapter'} • {mem.date}</h4>
                             <h3 className="text-xl font-serif mb-4">{mem.title}</h3>
                             <div className="glass-card p-2 rounded-xl">
@@ -374,7 +467,7 @@ const MemoryJournal = ({ relationship, updateData }) => {
                     <input type="text" placeholder="YYYY-MM-DD" className="glass-input" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
                     <input type="text" placeholder="Image URL" className="glass-input" value={form.url} onChange={e => setForm({...form, url: e.target.value})} />
                     <textarea placeholder="Caption..." className="glass-input min-h-[100px]" value={form.caption} onChange={e => setForm({...form, caption: e.target.value})}></textarea>
-                    <button onClick={addMemory} className="glass-button accent py-3 rounded-xl font-bold flex items-center justify-center gap-2"><Plus size={16}/> Add to arc</button>
+                    <button onClick={addMemory} className="glass-button accent py-3 font-bold flex items-center justify-center gap-2"><Plus size={16}/> Add to arc</button>
                 </div>
             </div>
         </div>
@@ -398,7 +491,7 @@ const Soundtrack = ({ relationship, updateData }) => {
                 <h2 className="text-2xl font-serif text-brand-accent mb-4">The frequency between us</h2>
                 <p className="text-sm opacity-70 mb-8">Paste any Spotify playlist, album, or track URL. We parse and embed it cleanly.</p>
                 <input type="text" placeholder="https://open.spotify.com/playlist/..." className="glass-input mb-4" value={url} onChange={e => setUrl(e.target.value)} />
-                <button onClick={() => { if(url) updateData({ spotify_url: url }); setUrl(''); }} className="glass-button accent px-8 py-3 rounded-xl font-bold w-full md:w-auto flex items-center justify-center gap-2"><Music size={16}/> Tune in</button>
+                <button onClick={() => { if(url) updateData({ spotify_url: url }); setUrl(''); }} className="glass-button accent px-8 py-3 font-bold w-full md:w-auto flex items-center justify-center gap-2"><Music size={16}/> Tune in</button>
             </div>
             <div className="flex-1 glass-panel p-6 flex flex-col justify-center">
                 {parseSpotifyUrl(relationship.spotify_url) ? (
@@ -411,68 +504,65 @@ const Soundtrack = ({ relationship, updateData }) => {
     );
 };
 
-const CycleLogger = ({ view, relationship, updateData }) => {
-    // Generate a simple dummy calendar array for visual representation
-    const days = Array.from({length: 30}, (_, i) => i + 1);
-    const [selectedDay, setSelectedDay] = useState(20);
+const CycleLogger = ({ relationship, updateData }) => {
+    // Specifically tailored for Partner A
+    const data = relationship.partnerA_cycleData || defaultState.partnerA_cycleData;
 
-    const logKey = view === 'A' ? 'cycle_logs_a' : 'cycle_logs_b';
-    const logs = relationship[logKey] || {};
-    const currentLog = logs[selectedDay] || { flow: 'None', energy: 5, notes: '' };
-
-    const updateLog = (updates) => {
-        const newLogs = { ...logs, [selectedDay]: { ...currentLog, ...updates } };
-        updateData({ [logKey]: newLogs });
+    const toggleSymptom = (sym) => {
+        const symptoms = data.symptoms.includes(sym) 
+            ? data.symptoms.filter(s => s !== sym) 
+            : [...data.symptoms, sym];
+        updateData({ partnerA_cycleData: { ...data, symptoms } });
     };
 
     return (
         <div className="flex flex-col lg:flex-row gap-6 h-full">
-            {/* Left: Calendar */}
-            <div className="flex-[3] glass-panel p-8">
+            <div className="flex-1 glass-panel p-8">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 flex items-center gap-2"><Calendar size={12}/> PRIVATE • STORED LOCALLY • PARTNER {view}</h3>
-                    <div className="flex gap-2">
-                        <button className="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center hover:bg-white/10 transition"><ChevronLeft size={16}/></button>
-                        <button className="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center hover:bg-white/10 transition"><ChevronRight size={16}/></button>
+                    <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 flex items-center gap-2"><Calendar size={12}/> PRIVATE • STORED LOCALLY • PARTNER A</h3>
+                </div>
+                <h2 className="text-3xl font-serif text-brand-accent mb-8">Cycle Workspace</h2>
+                
+                <div className="mb-8">
+                    <h4 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-4">Current Day</h4>
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => updateData({ partnerA_cycleData: { ...data, day: Math.max(1, data.day - 1) }})} className="w-10 h-10 rounded-full glass-card flex items-center justify-center hover:bg-white/10">-</button>
+                        <div className="text-4xl font-bold font-serif w-16 text-center">{data.day}</div>
+                        <button onClick={() => updateData({ partnerA_cycleData: { ...data, day: data.day + 1 }})} className="w-10 h-10 rounded-full glass-card flex items-center justify-center hover:bg-white/10">+</button>
                     </div>
                 </div>
-                <h2 className="text-3xl font-serif text-brand-accent mb-8">June 2026</h2>
-                
-                <div className="grid grid-cols-7 gap-4 text-center">
-                    {['MO','TU','WE','TH','FR','SA','SU'].map(d => <div key={d} className="text-[10px] uppercase font-bold opacity-50 mb-2">{d}</div>)}
-                    {days.map(d => (
-                        <button key={d} onClick={() => setSelectedDay(d)} className={`aspect-square rounded-2xl flex items-center justify-center transition ${selectedDay === d ? 'border-2 border-brand-accent text-brand-accent bg-brand-accent/5' : 'glass-card hover:bg-white/10'}`}>
-                            {d}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Right: Day Log */}
-            <div className="flex-[2] glass-panel p-8">
-                <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Day Log</h3>
-                <h2 className="text-2xl font-serif mb-8">Fri Jun {selectedDay} 2026</h2>
 
                 <div className="mb-8">
-                    <h4 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-4">Flow</h4>
-                    <div className="flex gap-2">
-                        {['None', 'Light', 'Medium', 'Heavy'].map(f => (
-                            <button key={f} onClick={() => updateLog({ flow: f })} className={`flex-1 py-2 rounded-full text-[10px] font-bold uppercase tracking-wider transition border ${currentLog.flow === f ? 'bg-brand-accent/20 border-brand-accent text-brand-accent' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}>
-                                {f}
+                    <h4 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-4">Symptoms Today</h4>
+                    <div className="flex flex-wrap gap-2">
+                        {['Tired', 'Cramps', 'Headache', 'Bloated'].map(sym => (
+                            <button key={sym} onClick={() => toggleSymptom(sym)} className={`px-4 py-2 rounded-full text-xs font-bold transition border ${data.symptoms.includes(sym) ? 'bg-brand-accent text-white border-brand-accent' : 'glass-card'}`}>
+                                {sym}
                             </button>
                         ))}
                     </div>
                 </div>
+            </div>
 
-                <div className="mb-8">
-                    <div className="flex justify-between items-center mb-4">
-                        <h4 className="text-[10px] uppercase tracking-widest font-bold opacity-60">Energy</h4>
-                        <span className="text-[10px] uppercase tracking-widest font-bold opacity-60">{currentLog.energy} / 10</span>
+            <div className="flex-1 glass-panel p-8 border border-white/10">
+                <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Quick Status Indicators</h3>
+                <h2 className="text-xl font-serif mb-8">Ping Partner B</h2>
+
+                <div className="flex flex-col gap-4">
+                    <div className="glass-card p-4 flex justify-between items-center">
+                        <span className="font-bold text-sm">Need space</span>
+                        <button onClick={() => updateData({ partnerA_cycleData: { ...data, needSpace: !data.needSpace }})} className={`w-12 h-6 rounded-full relative transition-colors ${data.needSpace ? 'bg-brand-accent' : 'bg-white/20'}`}>
+                            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${data.needSpace ? 'right-1' : 'left-1'}`}></div>
+                        </button>
                     </div>
-                    <input type="range" min="0" max="10" value={currentLog.energy} onChange={e => updateLog({ energy: parseInt(e.target.value) })} className="glass-slider" />
+                    <div className="glass-card p-4 flex justify-between items-center">
+                        <span className="font-bold text-sm flex items-center gap-2">Send snacks <Sparkles size={14} className="text-[#facc15]"/></span>
+                        <button onClick={() => updateData({ partnerA_cycleData: { ...data, sendSnacks: !data.sendSnacks }})} className={`w-12 h-6 rounded-full relative transition-colors ${data.sendSnacks ? 'bg-[#facc15]' : 'bg-white/20'}`}>
+                            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${data.sendSnacks ? 'right-1' : 'left-1'}`}></div>
+                        </button>
+                    </div>
                 </div>
-
-                <textarea value={currentLog.notes} onChange={e => updateLog({ notes: e.target.value })} placeholder="Notes for this day..." className="glass-input h-32"></textarea>
+                <p className="text-xs opacity-50 mt-6 leading-relaxed">Toggling these indicators will automatically surface a supportive notification on Partner B's main dashboard.</p>
             </div>
         </div>
     );
@@ -480,47 +570,53 @@ const CycleLogger = ({ view, relationship, updateData }) => {
 
 // --- APP ROOT ---
 const App = () => {
-    const [activePage, setActivePage] = useState('orbital');
-    const [view, setView] = useState('A');
+    const [relationship, setRelationship] = useState(() => loadState(defaultState));
     
-    const [relationship, setRelationship] = useState(() => loadState({
-        scores_a: [7, 6, 8, 5, 7, 9], scores_b: [6, 8, 7, 4, 8, 9],
-        meals_a: { breakfast: true, lunch: false, dinner: false }, meals_b: { breakfast: false, lunch: true, dinner: false },
-        memories: [{ id: 1, title: 'The Meeting', chapter: 'Chapter 1', date: '2023-04-12', caption: 'The first orbit aligned.', url: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=800&q=80' }],
-        moods: [], spotify_url: "https://open.spotify.com/playlist/37i9dQZF1EJH75B3mnDgmp",
-        distance: 6400, coRegulation: 62
-    }));
-
-    const [distance, setDistance] = useState(relationship.distance);
-    const [coRegulation, setCoRegulation] = useState(relationship.coRegulation);
+    // Ensure backwards compatibility if upgrading state shape
+    const state = { ...defaultState, ...relationship };
+    
+    const [activePage, setActivePage] = useState('orbital');
+    const [distance, setDistance] = useState(state.distance);
+    const [coRegulation, setCoRegulation] = useState(state.coRegulation);
 
     const updateData = (updates) => {
-        const next = { ...relationship, ...updates };
+        const next = { ...state, ...updates };
         setRelationship(next); saveState(next);
     };
 
+    // Update distance/coreg to storage periodically
     useEffect(() => {
         const t = setTimeout(() => updateData({ distance, coRegulation }), 1000);
         return () => clearTimeout(t);
     }, [distance, coRegulation]);
 
+    // Handle role selection
+    const handleSelectRole = (role) => {
+        updateData({ isRoleSelected: true, activeView: role });
+        setActivePage('orbital'); // reset to dashboard
+    };
+
     const renderPage = () => {
         switch(activePage) {
-            case 'orbital': return <OrbitalOverview distance={distance} setDistance={setDistance} coreg={coRegulation} setCoreg={setCoRegulation} view={view} relationship={relationship} updateData={updateData} />;
-            case 'balance': return <LifeBalance view={view} relationship={relationship} updateData={updateData} />;
-            case 'mood': return <MoodSpace view={view} relationship={relationship} updateData={updateData} />;
-            case 'journal': return <MemoryJournal relationship={relationship} updateData={updateData} />;
-            case 'soundtrack': return <Soundtrack relationship={relationship} updateData={updateData} />;
-            case 'cycle': return <CycleLogger view={view} relationship={relationship} updateData={updateData} />;
+            case 'orbital': return <OrbitalOverview distance={distance} setDistance={setDistance} coreg={coRegulation} setCoreg={setCoRegulation} view={state.activeView} relationship={state} updateData={updateData} />;
+            case 'balance': return <LifeBalance view={state.activeView} relationship={state} updateData={updateData} />;
+            case 'mood': return <MoodSpace view={state.activeView} relationship={state} updateData={updateData} />;
+            case 'journal': return <MemoryJournal relationship={state} updateData={updateData} />;
+            case 'soundtrack': return <Soundtrack relationship={state} updateData={updateData} />;
+            case 'cycle': return state.activeView === 'A' ? <CycleLogger relationship={state} updateData={updateData} /> : <div className="text-center mt-20 opacity-50">Unauthorized Access</div>;
             default: return null;
         }
     };
 
+    if (!state.isRoleSelected) {
+        return <OnboardingScreen selectRole={handleSelectRole} />;
+    }
+
     return (
         <div className="min-h-screen flex flex-col md:flex-row p-4 md:p-6 gap-6 relative">
-            <Sidebar activePage={activePage} setActivePage={setActivePage} />
+            <Sidebar activePage={activePage} setActivePage={setActivePage} view={state.activeView} resetRole={() => updateData({ isRoleSelected: false })} />
             <main className="flex-1 flex flex-col min-w-0">
-                <Header view={view} setView={setView} distance={distance} coreg={coRegulation} />
+                <Header view={state.activeView} setView={(v) => updateData({ activeView: v })} distance={distance} coreg={coRegulation} />
                 <div className="flex-1 overflow-y-auto">
                     {renderPage()}
                 </div>
