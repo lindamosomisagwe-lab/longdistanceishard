@@ -727,7 +727,7 @@ const App = () => {
         if (isReEntry) {
             document.body.style.setProperty('--bg-gradient', 'linear-gradient(to bottom, #1e1b4b 0%, #312e81 50%, #4c1d95 100%)');
         } else {
-            document.body.style.setProperty('--bg-gradient', 'linear-gradient(to bottom, #0f172a 0%, #6b21a8 40%, #ea580c 80%, #facc15 100%)');
+            document.body.style.setProperty('--bg-gradient', 'linear-gradient(to bottom, #070b14 0%, #101726 30%, #172033 70%, #1d273d 100%)');
         }
     }, [isReEntry]);
 
