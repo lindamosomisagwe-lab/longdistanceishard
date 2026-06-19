@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 // --- STORAGE ---
-const STORAGE_KEY = 'blue_hour_state';
+const STORAGE_KEY = 'between_us_state';
 const defaultState = {
     isRoleSelected: false,
     activeView: 'A', // 'A' or 'B'
@@ -57,7 +57,7 @@ const OnboardingScreen = ({ selectRole }) => {
                 <div className="w-16 h-16 rounded-full bg-brand-accent/10 flex items-center justify-center border border-brand-accent/30 mb-8 shadow-[0_0_30px_rgba(224,242,254,0.1)]">
                     <Star size={32} className="text-brand-accent" />
                 </div>
-                <h1 className="text-4xl font-serif mb-4 text-white">Welcome to The Blue Hour.</h1>
+                <h1 className="text-4xl font-serif mb-4 text-white">Welcome to Between Us.</h1>
                 <p className="text-lg opacity-70 mb-12 text-blue-100">Who is entering the space today?</p>
 
                 <div className="flex flex-col md:flex-row gap-6 w-full justify-center">
@@ -110,7 +110,7 @@ const Sidebar = ({ activePage, setActivePage, view, resetRole, isReEntry }) => {
                         <Moon size={20} className="text-white" />
                     </div>
                     <div>
-                        <h2 className="font-bold text-sm tracking-widest uppercase opacity-90 leading-tight">The Blue Hour</h2>
+                        <h2 className="font-bold text-sm tracking-widest uppercase opacity-90 leading-tight">Between Us</h2>
                         <p className="text-xs opacity-60">Digital Sanctuary</p>
                     </div>
                 </div>
