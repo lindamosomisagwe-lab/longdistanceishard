@@ -622,9 +622,11 @@ const Soundtrack = ({ relationship, updateData }) => {
 
 const SoftCare = ({ relationship, updateData }) => {
     const data = relationship.partnerA_cycleData || defaultState.partnerA_cycleData;
+    const symptoms = data.symptoms || []; // Realtime DB removes empty arrays, so we must fallback to []
+    
     const toggleSymptom = (sym) => {
-        const symptoms = data.symptoms.includes(sym) ? data.symptoms.filter(s => s !== sym) : [...data.symptoms, sym];
-        updateData({ partnerA_cycleData: { ...data, symptoms } });
+        const newSymptoms = symptoms.includes(sym) ? symptoms.filter(s => s !== sym) : [...symptoms, sym];
+        updateData({ partnerA_cycleData: { ...data, symptoms: newSymptoms } });
     };
 
     return (
@@ -644,7 +646,7 @@ const SoftCare = ({ relationship, updateData }) => {
                     <h4 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-4">How are you feeling today?</h4>
                     <div className="flex flex-wrap gap-3">
                         {['Tired', 'Cramps', 'Headache', 'Bloated'].map(sym => (
-                            <button key={sym} onClick={() => toggleSymptom(sym)} className={`px-5 py-3 rounded-full text-sm font-bold transition border ${data.symptoms.includes(sym) ? 'bg-brand-accent text-midnight-base border-brand-accent' : 'glass-card border-transparent'}`}>{sym}</button>
+                            <button key={sym} onClick={() => toggleSymptom(sym)} className={`px-5 py-3 rounded-full text-sm font-bold transition border ${symptoms.includes(sym) ? 'bg-brand-accent text-midnight-base border-brand-accent' : 'glass-card border-transparent'}`}>{sym}</button>
                         ))}
                     </div>
                 </div>
