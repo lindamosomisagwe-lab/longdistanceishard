@@ -15,8 +15,8 @@ import {
     signOut 
 } from 'firebase/auth';
 import { 
-    doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs 
-} from 'firebase/firestore';
+    ref, get, set, update, onValue 
+} from 'firebase/database';
 
 const defaultState = {
     scores_a: [7, 6, 8, 5, 7, 9], scores_b: [6, 8, 7, 4, 8, 9],
@@ -97,8 +97,8 @@ const PairingScreen = ({ user, setUserData }) => {
         setError('');
         try {
             const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-            await setDoc(doc(db, 'sanctuaries', code), { ...defaultState, partnerA: user.uid });
-            await setDoc(doc(db, 'users', user.uid), { sanctuaryId: code, role: 'A' });
+            await set(ref(db, 'sanctuaries/' + code), { ...defaultState, partnerA: user.uid });
+            await set(ref(db, 'users/' + user.uid), { sanctuaryId: code, role: 'A' });
             setUserData({ sanctuaryId: code, role: 'A' }); // Force immediate UI transition
         } catch (err) {
             console.error(err);
@@ -112,12 +112,13 @@ const PairingScreen = ({ user, setUserData }) => {
         setLoading(true);
         setError('');
         try {
-            const docRef = doc(db, 'sanctuaries', joinCode.toUpperCase());
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists() && !docSnap.data().partnerB) {
-                await updateDoc(docRef, { partnerB: user.uid });
-                await setDoc(doc(db, 'users', user.uid), { sanctuaryId: joinCode.toUpperCase(), role: 'B' });
-                setUserData({ sanctuaryId: joinCode.toUpperCase(), role: 'B' }); // Force immediate UI transition
+            const code = joinCode.toUpperCase();
+            const sanctuaryRef = ref(db, 'sanctuaries/' + code);
+            const snapshot = await get(sanctuaryRef);
+            if (snapshot.exists() && !snapshot.val().partnerB) {
+                await update(sanctuaryRef, { partnerB: user.uid });
+                await set(ref(db, 'users/' + user.uid), { sanctuaryId: code, role: 'B' });
+                setUserData({ sanctuaryId: code, role: 'B' }); // Force immediate UI transition
             } else {
                 setError('Invalid code or Sanctuary is full.');
             }
@@ -677,8 +678,9 @@ const App = () => {
             setUser(u);
             if (u) {
                 // Listen to user data (role & sanctuaryId) dynamically so creation triggers a re-render
-                unsubUser = onSnapshot(doc(db, 'users', u.uid), (docSnap) => {
-                    if (docSnap.exists()) setUserData(docSnap.data());
+                const userRef = ref(db, 'users/' + u.uid);
+                unsubUser = onValue(userRef, (snapshot) => {
+                    if (snapshot.exists()) setUserData(snapshot.val());
                     else setUserData(null);
                     setAuthLoading(false);
                 });
@@ -692,13 +694,14 @@ const App = () => {
         return () => { unsubAuth(); unsubUser(); };
     }, []);
 
-    // Firestore Realtime Listener for the shared Sanctuary
+    // Realtime Database Listener for the shared Sanctuary
     useEffect(() => {
         if (!userData?.sanctuaryId) return;
-        const unsub = onSnapshot(doc(db, 'sanctuaries', userData.sanctuaryId), (docSnap) => {
-            if (docSnap.exists()) setRelationship({ ...defaultState, ...docSnap.data() });
+        const sanctuaryRef = ref(db, 'sanctuaries/' + userData.sanctuaryId);
+        const unsubSanctuary = onValue(sanctuaryRef, (snapshot) => {
+            if (snapshot.exists()) setRelationship({ ...defaultState, ...snapshot.val() });
         });
-        return unsub;
+        return unsubSanctuary;
     }, [userData]);
 
     // Firebase Mutator
@@ -706,8 +709,8 @@ const App = () => {
         if (!userData?.sanctuaryId) return;
         const next = { ...relationship, ...updates };
         setRelationship(next); // optimistic local update
-        try { await updateDoc(doc(db, 'sanctuaries', userData.sanctuaryId), updates); }
-        catch (e) { console.error("Firestore update failed", e); }
+        try { await update(ref(db, 'sanctuaries/' + userData.sanctuaryId), updates); }
+        catch (e) { console.error("Database update failed", e); }
     };
 
     const isReEntry = relationship.reEntryEndTime && Date.now() < relationship.reEntryEndTime;
