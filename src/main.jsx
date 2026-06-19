@@ -3,11 +3,11 @@ import ReactDOM from 'react-dom/client';
 import { 
     Orbit, Activity, Smile, BookOpen, Music, Calendar, 
     Bell, Image as ImageIcon, ChevronLeft, ChevronRight, Plus, Moon,
-    User, Heart, Sparkles
+    User, Heart, Sparkles, Target, Cloud
 } from 'lucide-react';
 
 // --- STORAGE ---
-const STORAGE_KEY = 'lumina_v4_state';
+const STORAGE_KEY = 'lumina_v5_state';
 const defaultState = {
     isRoleSelected: false,
     activeView: 'A', // 'A' or 'B'
@@ -15,9 +15,13 @@ const defaultState = {
     meals_a: { breakfast: true, lunch: false, dinner: false }, 
     meals_b: { breakfast: false, lunch: true, dinner: false },
     memories: [{ id: 1, title: 'The Meeting', chapter: 'Chapter 1', date: '2023-04-12', caption: 'The first orbit aligned.', url: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=800&q=80' }],
-    moods: [], spotify_url: "https://open.spotify.com/playlist/37i9dQZF1EJH75B3mnDgmp",
+    moods: [], 
+    goals: [{ id: 1, text: 'Plan Anniversary Trip', completed: false }],
+    spotify_url: "https://open.spotify.com/playlist/37i9dQZF1EJH75B3mnDgmp",
     distance: 6400, coRegulation: 62,
-    partnerA_cycleData: { day: 14, symptoms: [], needSpace: false, sendSnacks: false }
+    partnerA_cycleData: { day: 14, symptoms: [], needSpace: false, sendSnacks: false },
+    reEntryEndTime: null, // 72-hour timer for atmospheric re-entry
+    wakes: { A: [], B: [] } // Asynchronous wakes
 };
 
 const loadState = (def) => {
@@ -48,9 +52,9 @@ const OnboardingScreen = ({ selectRole }) => {
     };
 
     return (
-        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-[#070b14]/80 backdrop-blur-3xl transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}>
+        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-[#0f172a]/80 backdrop-blur-3xl transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}>
             <div className="glass-panel p-12 max-w-4xl w-full text-center flex flex-col items-center">
-                <div className="w-16 h-16 rounded-full bg-brand-accent/20 flex items-center justify-center border border-brand-accent/50 mb-8 shadow-[0_0_30px_rgba(249,115,22,0.3)]">
+                <div className="w-16 h-16 rounded-full bg-brand-accent/20 flex items-center justify-center border border-brand-accent/50 mb-8 shadow-[0_0_30px_rgba(234,88,12,0.3)]">
                     <Orbit size={32} className="text-brand-accent" />
                 </div>
                 <h1 className="text-4xl font-serif mb-4">Welcome to your shared orbit.</h1>
@@ -84,25 +88,25 @@ const OnboardingScreen = ({ selectRole }) => {
     );
 };
 
-const Sidebar = ({ activePage, setActivePage, view, resetRole }) => {
+const Sidebar = ({ activePage, setActivePage, view, resetRole, isReEntry }) => {
     let navItems = [
         { id: 'orbital', label: 'Orbital Overview', icon: <Orbit size={18} /> },
         { id: 'balance', label: 'Life Balance', icon: <Activity size={18} /> },
         { id: 'mood', label: 'Mood Space', icon: <Smile size={18} /> },
+        { id: 'goals', label: 'Goal Tracker', icon: <Target size={18} /> },
         { id: 'journal', label: 'Memory Journal', icon: <BookOpen size={18} /> },
         { id: 'soundtrack', label: 'Synced Soundtrack', icon: <Music size={18} /> },
     ];
 
-    // Asymmetric UI: Only show Cycle Logger for Partner A (Female)
     if (view === 'A') {
         navItems.push({ id: 'cycle', label: 'Cycle Logger', icon: <Calendar size={18} /> });
     }
 
     return (
         <aside className="w-full md:w-64 shrink-0 flex flex-col gap-6">
-            <div className="glass-panel p-6 flex flex-col h-full relative">
+            <div className={`glass-panel p-6 flex flex-col h-full relative ${isReEntry ? 'border-purple-500/30' : ''}`}>
                 <div className="flex items-center gap-3 mb-10">
-                    <div className="w-10 h-10 rounded-full bg-brand-accent flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(249,115,22,0.4)]">
+                    <div className="w-10 h-10 rounded-full bg-brand-accent flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(234,88,12,0.4)]">
                         <Orbit size={20} className="text-white" />
                     </div>
                     <div>
@@ -126,9 +130,11 @@ const Sidebar = ({ activePage, setActivePage, view, resetRole }) => {
                 </nav>
 
                 <div className="mt-auto flex flex-col gap-2">
-                    <button className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl glass-button text-sm font-medium text-white/70">
-                        Collapse
-                    </button>
+                    {isReEntry && (
+                        <div className="mb-4 text-center text-xs font-bold text-purple-300 bg-purple-900/40 py-2 rounded border border-purple-500/30">
+                            Atmospheric Re-Entry Buffer Active
+                        </div>
+                    )}
                     <button onClick={resetRole} className="text-[10px] text-center opacity-40 hover:opacity-100 transition uppercase tracking-widest">
                         Change Role
                     </button>
@@ -138,7 +144,7 @@ const Sidebar = ({ activePage, setActivePage, view, resetRole }) => {
     );
 };
 
-const Header = ({ view, setView, distance, coreg }) => (
+const Header = ({ view, setView, distance, coreg, isReEntry }) => (
     <header className="glass-panel px-6 py-4 flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <div className="flex items-center gap-4">
             <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
@@ -150,29 +156,52 @@ const Header = ({ view, setView, distance, coreg }) => (
             </div>
         </div>
         
-        {/* Persistent Override Toggle */}
         <div className="flex bg-white/5 rounded-full p-1 border border-white/10">
             <button onClick={() => setView('A')} className={`px-6 py-1.5 rounded-full text-xs font-bold transition ${view === 'A' ? 'bg-brand-accent text-white' : 'text-white/60 hover:text-white'}`}>
-                Partner A View
+                Partner A
             </button>
             <button onClick={() => setView('B')} className={`px-6 py-1.5 rounded-full text-xs font-bold transition ${view === 'B' ? 'bg-[#38bdf8] text-white' : 'text-white/60 hover:text-white'}`}>
-                Partner B View
+                Partner B
             </button>
         </div>
 
         <div className="flex gap-6 text-xs font-bold tracking-wider opacity-80">
-            <span className="flex items-center gap-2"><Activity size={14} className="text-brand-accent"/> CO-REG {(coreg/100).toFixed(2)}</span>
-            <span>DIST {distance.toLocaleString()} km</span>
+            {isReEntry ? (
+                <span className="flex items-center gap-2 text-purple-300"><Moon size={14}/> RE-ENTRY BUFFER</span>
+            ) : (
+                <>
+                    <span className="flex items-center gap-2"><Activity size={14} className="text-brand-accent"/> CO-REG {(coreg/100).toFixed(2)}</span>
+                    <span>DIST {distance.toLocaleString()} km</span>
+                </>
+            )}
         </div>
     </header>
 );
 
 // --- TAB PAGES ---
 
-const OrbitalOverview = ({ distance, setDistance, coreg, setCoreg, view, relationship, updateData }) => {
+const OrbitalOverview = ({ distance, setDistance, coreg, setCoreg, view, relationship, updateData, isReEntry }) => {
     const [isSyncing, setIsSyncing] = useState(false);
     const syncInterval = useRef(null);
     const drainInterval = useRef(null);
+    const canvasRef = useRef(null);
+
+    // Physics constants
+    const inertia = isReEntry ? '3s' : '0.5s';
+
+    // Mood Logic: Find last mood per partner
+    const getMoodAura = (partnerId) => {
+        const partnerMoods = relationship.moods.filter(m => m.partner === partnerId);
+        if (partnerMoods.length === 0) return { filter: `blur(${isReEntry ? '8px' : '4px'})`, drift: 0 };
+        const lastMood = partnerMoods[0].mood; // newest first
+        if (lastMood === 'Stressed' || lastMood === 'Tired' || lastMood === 'Sad') {
+            return { filter: 'blur(12px)', drift: 10 }; // hazy, drifts further
+        }
+        return { filter: `blur(${isReEntry ? '8px' : '4px'})`, drift: 0 };
+    };
+
+    const auraA = getMoodAura('A');
+    const auraB = getMoodAura('B');
 
     useEffect(() => {
         if (isSyncing) {
@@ -196,14 +225,45 @@ const OrbitalOverview = ({ distance, setDistance, coreg, setCoreg, view, relatio
         updateData({ [view === 'A' ? 'meals_a' : 'meals_b']: { ...meals, [meal]: !meals[meal] } });
     };
 
-    const fogDensity = Math.max(0, 10 - (coreg / 10));
-    const sphereDist = 40 - (coreg * 0.35);
+    // Future Fog based on goals and memories instead of coreg
+    const completedGoals = relationship.goals.filter(g => g.completed).length;
+    const memoryCount = relationship.memories.length;
+    // Base fog is 24px blur. Each goal/memory reduces it.
+    const fogDensity = Math.max(0, 24 - (completedGoals * 4) - (memoryCount * 2));
     
+    // Calculate sphere positions based on coregulation, adding drift if stressed
+    let sphereDist = 40 - (coreg * 0.35);
+
     const partnerAData = relationship.partnerA_cycleData || defaultState.partnerA_cycleData;
+
+    // Asynchronous Wake Logic
+    const handleCanvasInteraction = (e) => {
+        if (!canvasRef.current) return;
+        const rect = canvasRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // Push wake particle
+        const newWake = { x, y, id: Date.now() };
+        const wakes = { ...relationship.wakes };
+        wakes[view] = [...(wakes[view] || []), newWake].slice(-10); // keep last 10
+        updateData({ wakes });
+
+        // Check if interacting with partner's wake
+        const partner = view === 'A' ? 'B' : 'A';
+        const partnerWakes = wakes[partner] || [];
+        partnerWakes.forEach(w => {
+            const dx = Math.abs(w.x - x);
+            const dy = Math.abs(w.y - y);
+            if (dx < 30 && dy < 30) {
+                // Kinetic attraction triggered!
+                setCoreg(prev => Math.min(100, prev + 5));
+            }
+        });
+    };
 
     return (
         <div className="flex flex-col lg:flex-row gap-6">
-            {/* Left: Canvas */}
             <div className="flex-1 glass-panel p-6 flex flex-col">
                 <div className="flex justify-between items-center mb-6">
                     <div>
@@ -211,28 +271,52 @@ const OrbitalOverview = ({ distance, setDistance, coreg, setCoreg, view, relatio
                         <h2 className="text-2xl font-serif text-brand-accent">Two bodies, one orbit</h2>
                     </div>
                     <div className="flex gap-2">
-                        <button 
-                            className={`glass-button px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 ${isSyncing ? 'accent scale-105' : ''}`}
-                            onMouseDown={() => setIsSyncing(true)} onMouseUp={() => setIsSyncing(false)} onMouseLeave={() => setIsSyncing(false)}
-                            onTouchStart={() => setIsSyncing(true)} onTouchEnd={() => setIsSyncing(false)}
-                        >
-                            <Orbit size={14} /> Sync Hold
-                        </button>
-                        <button className="glass-button px-4 py-2 rounded-full text-xs font-bold">Drift</button>
+                        {isReEntry ? (
+                            <button className="glass-button px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 border-purple-400 text-purple-200 bg-purple-900/30">
+                                <Heart size={14} /> Quiet Support Mode
+                            </button>
+                        ) : (
+                            <>
+                                <button 
+                                    className={`glass-button px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 ${isSyncing ? 'accent scale-105' : ''}`}
+                                    onMouseDown={() => setIsSyncing(true)} onMouseUp={() => setIsSyncing(false)} onMouseLeave={() => setIsSyncing(false)}
+                                    onTouchStart={() => setIsSyncing(true)} onTouchEnd={() => setIsSyncing(false)}
+                                >
+                                    <Orbit size={14} /> Hold to Sync
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
 
-                <div className="relative w-full h-80 rounded-2xl overflow-hidden border border-white/20 canvas-grid mb-6 flex items-center justify-center">
+                <div 
+                    ref={canvasRef}
+                    onMouseMove={handleCanvasInteraction}
+                    onTouchMove={(e) => handleCanvasInteraction(e.touches[0])}
+                    className="relative w-full h-80 rounded-2xl overflow-hidden border border-white/20 canvas-grid mb-6 flex items-center justify-center"
+                    style={{ '--inertia': inertia }}
+                >
                     <div className="ambient-fog" style={{ '--fog-density': `${fogDensity}px` }}></div>
-                    <div className="absolute top-4 left-4 text-xs font-bold opacity-60 z-30">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • {Math.floor(distance).toLocaleString()} KM</div>
+                    <div className="absolute top-4 left-4 text-xs font-bold opacity-60 z-30 flex items-center gap-2">
+                        {isReEntry && <Moon size={14} className="text-purple-300"/>}
+                        {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • {Math.floor(distance).toLocaleString()} KM
+                    </div>
                     <div className="absolute top-4 right-4 text-xs font-bold opacity-60 z-30 flex items-center gap-1"><Orbit size={12}/> {isSyncing ? 'SYNCING' : 'DRIFTING'}</div>
 
-                    {/* Connecting Line */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-0.5 bg-brand-accent/50 z-10" style={{ width: `calc(${sphereDist * 2}% + 3rem)` }}></div>
+                    {/* Wake Particles */}
+                    {(relationship.wakes['A'] || []).map(w => (
+                        <div key={`wa-${w.id}`} className="wake-particle bg-[#facc15]" style={{ left: w.x, top: w.y }}></div>
+                    ))}
+                    {(relationship.wakes['B'] || []).map(w => (
+                        <div key={`wb-${w.id}`} className="wake-particle bg-[#38bdf8]" style={{ left: w.x, top: w.y }}></div>
+                    ))}
 
-                    {/* Spheres */}
-                    <div className="partner-sphere sphere-a w-16 h-16 flex items-center justify-center font-bold text-lg" style={{ left: `calc(50% - 2rem - ${sphereDist}%)` }}>A</div>
-                    <div className="partner-sphere sphere-b w-16 h-16 flex items-center justify-center font-bold text-lg" style={{ right: `calc(50% - 2rem - ${sphereDist}%)` }}>B</div>
+                    {/* Connecting Line */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-0.5 bg-brand-accent/50 z-10" style={{ width: `calc(${(sphereDist*2) + auraA.drift + auraB.drift}% + 3rem)`, transition: `all ${inertia} ease` }}></div>
+
+                    {/* Spheres with Mood Auras */}
+                    <div className="partner-sphere sphere-a w-16 h-16 flex items-center justify-center font-bold text-lg" style={{ left: `calc(50% - 2rem - ${sphereDist + auraA.drift}%)`, filter: auraA.filter }}>A</div>
+                    <div className="partner-sphere sphere-b w-16 h-16 flex items-center justify-center font-bold text-lg" style={{ right: `calc(50% - 2rem - ${sphereDist + auraB.drift}%)`, filter: auraB.filter }}>B</div>
                 </div>
 
                 <div className="flex gap-4">
@@ -246,23 +330,15 @@ const OrbitalOverview = ({ distance, setDistance, coreg, setCoreg, view, relatio
                     <div className="flex-1 glass-card p-4 flex flex-col justify-between h-20">
                         <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Future Fog Density</span>
                         <div className="flex justify-between items-end">
-                            <div className="w-3/4 h-1 bg-white/20 rounded-full overflow-hidden"><div className="h-full bg-brand-accent" style={{width: `${(fogDensity/10)*100}%`}}></div></div>
-                            <span className="text-sm font-medium">{fogDensity.toFixed(2)}</span>
-                        </div>
-                    </div>
-                    <div className="flex-1 glass-card p-4 flex flex-col justify-between h-20">
-                        <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Distance (KM)</span>
-                        <div className="flex justify-end items-end">
-                            <span className="text-sm font-medium">{Math.floor(distance).toLocaleString()}</span>
+                            <div className="w-3/4 h-1 bg-white/20 rounded-full overflow-hidden"><div className="h-full bg-brand-accent" style={{width: `${(fogDensity/24)*100}%`}}></div></div>
+                            <span className="text-sm font-medium">{fogDensity}px</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Right: Asymmetric Widgets */}
             <div className="w-full lg:w-80 shrink-0 flex flex-col gap-6">
                 
-                {/* Asymmetric UI: Wellness Sync Card exclusively for Partner B */}
                 {view === 'B' ? (
                     <div className="glass-panel p-6 flex flex-col border border-[#38bdf8]/30 relative overflow-hidden">
                         <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#38bdf8]/10 rounded-full blur-2xl pointer-events-none"></div>
@@ -287,9 +363,8 @@ const OrbitalOverview = ({ distance, setDistance, coreg, setCoreg, view, relatio
                         <div className="flex justify-between items-start mb-2">
                             <div>
                                 <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-1">Daily Wellness Check</h3>
-                                <h2 className="text-lg font-serif">Have you eaten, Partner A?</h2>
+                                <h2 className="text-lg font-serif">Have you eaten?</h2>
                             </div>
-                            <button className="text-[10px] uppercase font-bold tracking-widest border border-white/20 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-white/10 transition"><Bell size={12}/> Remind</button>
                         </div>
                         <div className="grid grid-cols-3 gap-2">
                             {['breakfast', 'lunch', 'dinner'].map(m => (
@@ -299,7 +374,6 @@ const OrbitalOverview = ({ distance, setDistance, coreg, setCoreg, view, relatio
                                 </button>
                             ))}
                         </div>
-                        <p className="text-[10px] opacity-50 text-center mt-2">Partner B today: {Object.values(relationship.meals_b).filter(Boolean).length}/3 meals logged</p>
                     </div>
                 )}
 
@@ -313,6 +387,66 @@ const OrbitalOverview = ({ distance, setDistance, coreg, setCoreg, view, relatio
                         )}
                         <p className="absolute bottom-4 font-serif text-[#2F2E2C] text-sm text-center w-full">{relationship.memories[relationship.memories.length-1]?.caption || 'Suspended in time'}</p>
                     </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const GoalTracker = ({ relationship, updateData }) => {
+    const [newGoal, setNewGoal] = useState('');
+
+    const addGoal = () => {
+        if (!newGoal) return;
+        const goal = { id: Date.now(), text: newGoal, completed: false };
+        updateData({ goals: [...relationship.goals, goal] });
+        setNewGoal('');
+    };
+
+    const toggleGoal = (id, text) => {
+        const goals = relationship.goals.map(g => {
+            if (g.id === id) {
+                // If this is a major reunion milestone, trigger Re-Entry mode
+                if (!g.completed && (text.toLowerCase().includes('reunion') || text.toLowerCase().includes('visit') || text.toLowerCase().includes('trip'))) {
+                    // Set timer for 72 hours from now
+                    const reEntryEnd = Date.now() + (72 * 60 * 60 * 1000);
+                    updateData({ reEntryEndTime: reEntryEnd });
+                }
+                return { ...g, completed: !g.completed };
+            }
+            return g;
+        });
+        updateData({ goals });
+    };
+
+    return (
+        <div className="flex flex-col lg:flex-row gap-6 h-full">
+            <div className="flex-1 glass-panel p-8">
+                <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Collaborative Board</h3>
+                <h2 className="text-2xl font-serif text-brand-accent mb-8">Pin Future Dreams</h2>
+                <p className="text-sm opacity-70 mb-8">Clearing goals directly disperses the Future Fog over the Orbital Canvas. No strict deadlines, just gentle intentions.</p>
+                
+                <div className="flex gap-4 mb-8">
+                    <input type="text" placeholder="Plan Anniversary Trip..." className="glass-input flex-1" value={newGoal} onChange={e => setNewGoal(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addGoal()} />
+                    <button onClick={addGoal} className="glass-button accent px-6 py-3 font-bold"><Plus size={16}/></button>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                    {relationship.goals.map(g => (
+                        <div key={g.id} className={`glass-card p-4 flex items-center justify-between transition ${g.completed ? 'opacity-50' : ''}`}>
+                            <span className={`text-lg ${g.completed ? 'line-through' : ''}`}>{g.text}</span>
+                            <button onClick={() => toggleGoal(g.id, g.text)} className={`w-8 h-8 rounded-full flex items-center justify-center border transition ${g.completed ? 'bg-brand-accent border-brand-accent' : 'border-white/20 hover:bg-white/10'}`}>
+                                {g.completed && <div className="w-2 h-2 bg-white rounded-full"></div>}
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div className="flex-1 glass-panel p-8 flex items-center justify-center border border-brand-accent/20">
+                <div className="text-center">
+                    <Cloud size={48} className="mx-auto mb-4 opacity-50" />
+                    <h3 className="font-serif text-xl mb-2">Future Fog Status</h3>
+                    <p className="opacity-70 text-sm max-w-sm">Every pinned dream clears the mist in the orbital canvas. Marking a 'Reunion Trip' triggers a 72-hour Atmospheric Re-Entry buffer.</p>
                 </div>
             </div>
         </div>
@@ -334,7 +468,7 @@ const LifeBalance = ({ view, relationship, updateData }) => {
             data: {
                 labels: CATEGORIES,
                 datasets: [
-                    { label: `Partner ${view}`, data: scores, backgroundColor: 'rgba(249, 115, 22, 0.4)', borderColor: 'rgba(249, 115, 22, 1)', borderWidth: 2 },
+                    { label: `Partner ${view}`, data: scores, backgroundColor: 'rgba(234, 88, 12, 0.4)', borderColor: 'rgba(234, 88, 12, 1)', borderWidth: 2 },
                     { label: `Partner ${view === 'A'?'B':'A'}`, data: partnerScores, backgroundColor: 'transparent', borderColor: 'rgba(255, 255, 255, 0.3)', borderDash: [5,5], borderWidth: 1 }
                 ]
             },
@@ -373,7 +507,7 @@ const LifeBalance = ({ view, relationship, updateData }) => {
     );
 };
 
-const MoodSpace = ({ view, relationship, updateData }) => {
+const MoodSpace = ({ view, relationship, updateData, isReEntry }) => {
     const [note, setNote] = useState('');
     const moods = [
         { label: 'Happy', icon: <Smile size={24}/> }, { label: 'Calm', icon: <Activity size={24}/> }, { label: 'Stressed', icon: <Activity size={24}/> },
@@ -402,8 +536,17 @@ const MoodSpace = ({ view, relationship, updateData }) => {
                     ))}
                 </div>
                 
-                <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="a fleeting note for the shared ledger..." className="glass-input min-h-[100px] mb-4"></textarea>
-                <button onClick={transmit} className="glass-button accent px-8 py-3 font-bold text-sm w-full md:w-auto">Transmit</button>
+                {isReEntry ? (
+                    <div className="flex flex-col gap-4 border border-purple-500/30 p-4 rounded-xl bg-purple-900/20">
+                        <p className="text-xs opacity-70 italic text-purple-200">Re-Entry Buffer active. High-effort text is disabled to ease the emotional weight.</p>
+                        <button onClick={() => { setNote("Thinking of you in the quiet"); setSelectedMood("Calm"); setTimeout(transmit, 100); }} className="glass-button py-3 text-sm font-bold border-purple-500/50 hover:bg-purple-500/20">Send a quiet hug</button>
+                    </div>
+                ) : (
+                    <>
+                        <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="a fleeting note for the shared ledger..." className="glass-input min-h-[100px] mb-4"></textarea>
+                        <button onClick={transmit} className="glass-button accent px-8 py-3 font-bold text-sm w-full md:w-auto">Transmit</button>
+                    </>
+                )}
             </div>
             <div className="flex-1 glass-panel p-8 overflow-y-auto max-h-[70vh]">
                 <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Shared Ledger</h3>
@@ -505,7 +648,6 @@ const Soundtrack = ({ relationship, updateData }) => {
 };
 
 const CycleLogger = ({ relationship, updateData }) => {
-    // Specifically tailored for Partner A
     const data = relationship.partnerA_cycleData || defaultState.partnerA_cycleData;
 
     const toggleSymptom = (sym) => {
@@ -519,7 +661,7 @@ const CycleLogger = ({ relationship, updateData }) => {
         <div className="flex flex-col lg:flex-row gap-6 h-full">
             <div className="flex-1 glass-panel p-8">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 flex items-center gap-2"><Calendar size={12}/> PRIVATE • STORED LOCALLY • PARTNER A</h3>
+                    <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 flex items-center gap-2"><Calendar size={12}/> PRIVATE • STORED LOCALLY</h3>
                 </div>
                 <h2 className="text-3xl font-serif text-brand-accent mb-8">Cycle Workspace</h2>
                 
@@ -571,36 +713,45 @@ const CycleLogger = ({ relationship, updateData }) => {
 // --- APP ROOT ---
 const App = () => {
     const [relationship, setRelationship] = useState(() => loadState(defaultState));
-    
-    // Ensure backwards compatibility if upgrading state shape
     const state = { ...defaultState, ...relationship };
     
     const [activePage, setActivePage] = useState('orbital');
     const [distance, setDistance] = useState(state.distance);
     const [coRegulation, setCoRegulation] = useState(state.coRegulation);
 
+    // Re-entry logic
+    const isReEntry = state.reEntryEndTime && Date.now() < state.reEntryEndTime;
+
+    // Apply background shift directly to body if Re-entry is active
+    useEffect(() => {
+        if (isReEntry) {
+            document.body.style.setProperty('--bg-gradient', 'linear-gradient(to bottom, #1e1b4b 0%, #312e81 50%, #4c1d95 100%)');
+        } else {
+            document.body.style.setProperty('--bg-gradient', 'linear-gradient(to bottom, #0f172a 0%, #6b21a8 40%, #ea580c 80%, #facc15 100%)');
+        }
+    }, [isReEntry]);
+
     const updateData = (updates) => {
         const next = { ...state, ...updates };
         setRelationship(next); saveState(next);
     };
 
-    // Update distance/coreg to storage periodically
     useEffect(() => {
         const t = setTimeout(() => updateData({ distance, coRegulation }), 1000);
         return () => clearTimeout(t);
     }, [distance, coRegulation]);
 
-    // Handle role selection
     const handleSelectRole = (role) => {
         updateData({ isRoleSelected: true, activeView: role });
-        setActivePage('orbital'); // reset to dashboard
+        setActivePage('orbital');
     };
 
     const renderPage = () => {
         switch(activePage) {
-            case 'orbital': return <OrbitalOverview distance={distance} setDistance={setDistance} coreg={coRegulation} setCoreg={setCoRegulation} view={state.activeView} relationship={state} updateData={updateData} />;
+            case 'orbital': return <OrbitalOverview distance={distance} setDistance={setDistance} coreg={coRegulation} setCoreg={setCoRegulation} view={state.activeView} relationship={state} updateData={updateData} isReEntry={isReEntry} />;
             case 'balance': return <LifeBalance view={state.activeView} relationship={state} updateData={updateData} />;
-            case 'mood': return <MoodSpace view={state.activeView} relationship={state} updateData={updateData} />;
+            case 'mood': return <MoodSpace view={state.activeView} relationship={state} updateData={updateData} isReEntry={isReEntry} />;
+            case 'goals': return <GoalTracker relationship={state} updateData={updateData} />;
             case 'journal': return <MemoryJournal relationship={state} updateData={updateData} />;
             case 'soundtrack': return <Soundtrack relationship={state} updateData={updateData} />;
             case 'cycle': return state.activeView === 'A' ? <CycleLogger relationship={state} updateData={updateData} /> : <div className="text-center mt-20 opacity-50">Unauthorized Access</div>;
@@ -614,9 +765,9 @@ const App = () => {
 
     return (
         <div className="min-h-screen flex flex-col md:flex-row p-4 md:p-6 gap-6 relative">
-            <Sidebar activePage={activePage} setActivePage={setActivePage} view={state.activeView} resetRole={() => updateData({ isRoleSelected: false })} />
+            <Sidebar activePage={activePage} setActivePage={setActivePage} view={state.activeView} resetRole={() => updateData({ isRoleSelected: false })} isReEntry={isReEntry} />
             <main className="flex-1 flex flex-col min-w-0">
-                <Header view={state.activeView} setView={(v) => updateData({ activeView: v })} distance={distance} coreg={coRegulation} />
+                <Header view={state.activeView} setView={(v) => updateData({ activeView: v })} distance={distance} coreg={coRegulation} isReEntry={isReEntry} />
                 <div className="flex-1 overflow-y-auto">
                     {renderPage()}
                 </div>

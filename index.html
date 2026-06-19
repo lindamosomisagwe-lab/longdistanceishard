@@ -10,7 +10,7 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -23,15 +23,15 @@
             theme: {
                 extend: {
                     colors: {
-                        'sunset-indigo': '#101524',
-                        'sunset-violet': '#172033',
-                        'sunset-orange': '#1d273d',
-                        'sunset-yellow': '#23304c',
-                        'brand-accent': '#f97316'
+                        'sunset-indigo': '#0f172a',
+                        'sunset-violet': '#6b21a8',
+                        'sunset-orange': '#ea580c',
+                        'sunset-yellow': '#facc15',
+                        'brand-accent': '#ea580c'
                     },
                     fontFamily: {
                         'sans': ['Inter', 'sans-serif'],
-                        'serif': ['Inter', 'sans-serif']
+                        'serif': ['Playfair Display', 'serif']
                     }
                 }
             }
@@ -44,57 +44,57 @@
             color: #ffffff;
             margin: 0;
             overflow-x: hidden;
-            /* Deep Apple Weather Night Sky Gradient */
-            background: linear-gradient(
+            /* Apple Weather Living Sunset Gradient */
+            background: var(--bg-gradient, linear-gradient(
                 to bottom,
-                #070b14 0%,    
-                #101726 30%,   
-                #172033 70%,   
-                #1d273d 100%   
-            );
+                #0f172a 0%,    
+                #6b21a8 40%,   
+                #ea580c 80%,   
+                #facc15 100%   
+            ));
             background-attachment: fixed;
             min-height: 100vh;
+            transition: background 2s ease;
         }
 
-        /* Weather App Glass Panels */
+        /* Glassmorphism Classes */
         .glass-panel {
-            background: rgba(30, 41, 59, 0.4); /* Deep slate tint */
-            backdrop-filter: blur(40px);
-            -webkit-backdrop-filter: blur(40px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: 1.5rem;
-            box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15);
             transition: all 0.3s ease;
         }
 
         .glass-card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.04);
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 1rem;
         }
 
         .glass-button {
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             transition: all 0.2s;
-            border-radius: 9999px;
         }
         .glass-button:hover {
-            background: rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.15);
         }
         .glass-button.active {
-            background: #ffffff;
+            background: rgba(255, 255, 255, 0.9);
             color: #0f172a;
         }
         .glass-button.accent {
-            background: rgba(255, 255, 255, 0.12);
+            background: rgba(234, 88, 12, 0.8);
             color: white;
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
         }
 
         .glass-input {
-            background: rgba(0, 0, 0, 0.15);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             color: white;
             outline: none;
             border-radius: 0.75rem;
@@ -102,8 +102,8 @@
             width: 100%;
         }
         .glass-input:focus {
-            background: rgba(0, 0, 0, 0.25);
-            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.4);
         }
 
         /* Ambient Fog for Orbital Canvas */
@@ -112,7 +112,7 @@
             inset: 0;
             pointer-events: none;
             backdrop-filter: blur(var(--fog-density, 0px));
-            transition: backdrop-filter 0.5s ease;
+            transition: backdrop-filter 1s ease;
             z-index: 10;
         }
 
@@ -120,39 +120,55 @@
         .partner-sphere {
             position: absolute;
             border-radius: 50%;
-            filter: blur(2px);
-            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all var(--inertia, 0.5s) cubic-bezier(0.4, 0, 0.2, 1);
             animation: pulse-glow 4s infinite alternate;
             z-index: 20;
+            cursor: pointer;
         }
         @keyframes pulse-glow {
-            0% { transform: scale(1); opacity: 0.85; }
-            100% { transform: scale(1.05); opacity: 1; }
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(1.1); opacity: 1; }
         }
 
         .sphere-a {
-            background: radial-gradient(circle, #f97316 0%, rgba(249, 115, 22, 0.7) 60%, transparent 100%);
-            box-shadow: 0 0 24px rgba(249, 115, 22, 0.5);
+            background: radial-gradient(circle, #facc15 0%, rgba(234, 88, 12, 0.8) 70%, transparent 100%);
+            box-shadow: 0 0 30px rgba(250, 204, 21, 0.6);
         }
 
         .sphere-b {
-            background: radial-gradient(circle, #38bdf8 0%, rgba(56, 189, 248, 0.7) 60%, transparent 100%);
-            box-shadow: 0 0 24px rgba(56, 189, 248, 0.5);
+            background: radial-gradient(circle, #38bdf8 0%, rgba(59, 130, 246, 0.8) 70%, transparent 100%);
+            box-shadow: 0 0 30px rgba(56, 189, 248, 0.6);
+        }
+        
+        .wake-particle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+            pointer-events: none;
+            z-index: 15;
+            animation: fade-wake 4s forwards;
+        }
+        
+        @keyframes fade-wake {
+            0% { opacity: 0.8; transform: scale(1); }
+            100% { opacity: 0; transform: scale(3); }
         }
 
         /* Grid Background for Orbital Canvas */
         .canvas-grid {
             background-image: 
-                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+                linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
             background-size: 20px 20px;
-            background-color: rgba(0, 0, 0, 0.1);
         }
 
         /* Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 3px; }
 
         /* Range Sliders */
         input[type=range] {
@@ -167,14 +183,14 @@
             border-radius: 50%;
             background: #ffffff;
             cursor: pointer;
-            box-shadow: 0 0 8px rgba(0,0,0,0.5);
+            box-shadow: 0 0 10px rgba(255,255,255,0.5);
             margin-top: -6px;
         }
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%;
             height: 4px;
             cursor: pointer;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.2);
             border-radius: 2px;
         }
         
@@ -185,7 +201,7 @@
             top: 24px;
             bottom: 0;
             width: 2px;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.2);
             z-index: 0;
         }
     </style>
