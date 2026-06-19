@@ -683,6 +683,9 @@ const App = () => {
                     if (snapshot.exists()) setUserData(snapshot.val());
                     else setUserData(null);
                     setAuthLoading(false);
+                }, (error) => {
+                    console.error("Database connection or permission error:", error);
+                    setAuthLoading(false); // Prevent infinite loading screen
                 });
             } else {
                 unsubUser();
@@ -700,6 +703,8 @@ const App = () => {
         const sanctuaryRef = ref(db, 'sanctuaries/' + userData.sanctuaryId);
         const unsubSanctuary = onValue(sanctuaryRef, (snapshot) => {
             if (snapshot.exists()) setRelationship({ ...defaultState, ...snapshot.val() });
+        }, (error) => {
+            console.error("Sanctuary sync error:", error);
         });
         return unsubSanctuary;
     }, [userData]);
