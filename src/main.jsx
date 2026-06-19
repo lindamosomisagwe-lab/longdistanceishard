@@ -222,10 +222,15 @@ const SettingsModal = ({ relationship, updateData, close }) => {
     const [nameA, setNameA] = useState(relationship.nameA || '');
     const [nameB, setNameB] = useState(relationship.nameB || '');
     const [baseDistance, setBaseDistance] = useState(relationship.baseDistance || 6400);
-    const [cycleUser, setCycleUser] = useState(relationship.cycleUser || 'A');
+    const [genderA, setGenderA] = useState(relationship.genderA || (relationship.cycleUser === 'A' ? 'Female' : 'Male'));
+    const [genderB, setGenderB] = useState(relationship.genderB || (relationship.cycleUser === 'B' ? 'Female' : 'Male'));
 
     const save = () => {
-        updateData({ nameA, nameB, baseDistance: Number(baseDistance), cycleUser });
+        let cycleUser = 'None';
+        if (genderA === 'Female') cycleUser = 'A';
+        else if (genderB === 'Female') cycleUser = 'B';
+        
+        updateData({ nameA, nameB, baseDistance: Number(baseDistance), genderA, genderB, cycleUser });
         close();
     };
 
@@ -234,25 +239,35 @@ const SettingsModal = ({ relationship, updateData, close }) => {
             <div className="glass-panel p-8 max-w-md w-full max-h-[90vh] overflow-y-auto">
                 <h2 className="text-2xl font-serif text-brand-accent mb-6">Space Settings</h2>
                 <div className="flex flex-col gap-4 mb-6">
-                    <div>
-                        <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Partner A's Name</label>
-                        <input type="text" className="glass-input w-full" value={nameA} onChange={e => setNameA(e.target.value)} placeholder="e.g. Linda" />
+                    <div className="flex gap-4">
+                        <div className="flex-1">
+                            <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Partner A's Name</label>
+                            <input type="text" className="glass-input w-full" value={nameA} onChange={e => setNameA(e.target.value)} placeholder="e.g. Linda" />
+                        </div>
+                        <div className="w-1/3">
+                            <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Gender</label>
+                            <select className="glass-input w-full text-black" value={genderA} onChange={e => setGenderA(e.target.value)}>
+                                <option value="Female">Female</option>
+                                <option value="Male">Male</option>
+                            </select>
+                        </div>
                     </div>
-                    <div>
-                        <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Partner B's Name</label>
-                        <input type="text" className="glass-input w-full" value={nameB} onChange={e => setNameB(e.target.value)} placeholder="e.g. John" />
+                    <div className="flex gap-4">
+                        <div className="flex-1">
+                            <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Partner B's Name</label>
+                            <input type="text" className="glass-input w-full" value={nameB} onChange={e => setNameB(e.target.value)} placeholder="e.g. John" />
+                        </div>
+                        <div className="w-1/3">
+                            <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Gender</label>
+                            <select className="glass-input w-full text-black" value={genderB} onChange={e => setGenderB(e.target.value)}>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                        </div>
                     </div>
                     <div>
                         <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Distance Apart (KM)</label>
                         <input type="number" className="glass-input w-full" value={baseDistance} onChange={e => setBaseDistance(e.target.value)} />
-                    </div>
-                    <div>
-                        <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Who tracks their cycle? (Soft Care tab)</label>
-                        <select className="glass-input w-full text-black" value={cycleUser} onChange={e => setCycleUser(e.target.value)}>
-                            <option value="A">Partner A</option>
-                            <option value="B">Partner B</option>
-                            <option value="None">Neither</option>
-                        </select>
                     </div>
                 </div>
                 <div className="flex justify-end gap-4">
