@@ -87,19 +87,22 @@ const AuthScreen = () => {
 };
 
 // --- FIREBASE PAIRING SCREEN ---
-const PairingScreen = ({ user }) => {
+const PairingScreen = ({ user, setUserData }) => {
     const [joinCode, setJoinCode] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     const createSanctuary = async () => {
         setLoading(true);
+        setError('');
         try {
             const code = Math.random().toString(36).substring(2, 8).toUpperCase();
             await setDoc(doc(db, 'sanctuaries', code), { ...defaultState, partnerA: user.uid });
             await setDoc(doc(db, 'users', user.uid), { sanctuaryId: code, role: 'A' });
+            setUserData({ sanctuaryId: code, role: 'A' }); // Force immediate UI transition
         } catch (err) {
-            setError(err.message);
+            console.error(err);
+            setError(err.message || 'Failed to create sanctuary. Check your connection or Firebase rules.');
         }
         setLoading(false);
     };
@@ -107,17 +110,20 @@ const PairingScreen = ({ user }) => {
     const joinSanctuary = async () => {
         if (!joinCode) return;
         setLoading(true);
+        setError('');
         try {
             const docRef = doc(db, 'sanctuaries', joinCode.toUpperCase());
             const docSnap = await getDoc(docRef);
             if (docSnap.exists() && !docSnap.data().partnerB) {
                 await updateDoc(docRef, { partnerB: user.uid });
                 await setDoc(doc(db, 'users', user.uid), { sanctuaryId: joinCode.toUpperCase(), role: 'B' });
+                setUserData({ sanctuaryId: joinCode.toUpperCase(), role: 'B' }); // Force immediate UI transition
             } else {
                 setError('Invalid code or Sanctuary is full.');
             }
         } catch (err) {
-            setError(err.message);
+            console.error(err);
+            setError(err.message || 'Failed to join sanctuary. Check the code and try again.');
         }
         setLoading(false);
     };
@@ -721,7 +727,7 @@ const App = () => {
     
     // Auth & Pairing Flow
     if (!user) return <AuthScreen />;
-    if (!userData?.sanctuaryId) return <PairingScreen user={user} />;
+    if (!userData?.sanctuaryId) return <PairingScreen user={user} setUserData={setUserData} />;
 
     const renderPage = () => {
         switch(activePage) {
