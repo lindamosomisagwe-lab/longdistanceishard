@@ -522,6 +522,42 @@ const Scrapbook = React.memo(({ relationship, updateData }) => {
         setForm({ chapter: '', title: '', date: '', url: '', caption: '' });
     };
 
+    const deleteMemory = (id) => {
+        updateData({ memories: relationship.memories.filter(m => m.id !== id) });
+    };
+
+    // Google Photos links are NOT direct image URLs — they're web pages.
+    // We detect them and show a tap-to-view link instead of a broken <img>.
+    const isGooglePhotos = (url) => url && (url.includes('photos.google.com') || url.includes('photos.app.goo.gl'));
+    const isDirectImage = (url) => url && !isGooglePhotos(url) && /\.(jpg|jpeg|png|gif|webp|avif|svg)(\?|$)/i.test(url);
+
+    const renderImage = (url) => {
+        if (!url) return null;
+        if (isGooglePhotos(url)) {
+            return (
+                <div className="w-full rounded-xl mb-4 bg-white/5 border border-white/10 p-4 text-center">
+                    <p className="text-xs opacity-60 mb-3">Google Photos links can't be embedded directly.</p>
+                    <a href={url} target="_blank" rel="noopener noreferrer"
+                        className="glass-button accent px-4 py-2 text-sm font-bold inline-flex items-center gap-2">
+                        <ImageIcon size={14}/> Open Photo ↗
+                    </a>
+                    <p className="text-[10px] opacity-40 mt-3">Tip: use the photo's "Download" URL or upload to imgur.com for embedding.</p>
+                </div>
+            );
+        }
+        if (isDirectImage(url)) {
+            return <img src={url} alt="memory" className="w-full h-64 object-cover rounded-xl mb-4" onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='block'; }} />;
+        }
+        // Unknown URL — show as a link
+        return (
+            <div className="w-full rounded-xl mb-4 bg-white/5 border border-white/10 p-4 text-center">
+                <a href={url} target="_blank" rel="noopener noreferrer" className="glass-button accent px-4 py-2 text-sm font-bold inline-flex items-center gap-2">
+                    <ImageIcon size={14}/> View Image ↗
+                </a>
+            </div>
+        );
+    };
+
     return (
         <div className="flex flex-col lg:flex-row gap-6 h-full">
             <div className="flex-1 glass-panel p-8 relative overflow-y-auto max-h-[75vh]">
@@ -530,13 +566,25 @@ const Scrapbook = React.memo(({ relationship, updateData }) => {
                 
                 <div className="relative pl-12">
                     <div className="timeline-line"></div>
+                    {relationship.memories.length === 0 && (
+                        <p className="text-sm opacity-50 italic">No memories yet. Add your first one →</p>
+                    )}
                     {relationship.memories.map(mem => (
-                        <div key={mem.id} className="relative mb-12">
+                        <div key={mem.id} className="relative mb-12 group">
                             <div className="absolute -left-12 top-2 w-4 h-4 rounded-full border border-white/30 bg-midnight-mid z-10 flex items-center justify-center"><div className="w-1.5 h-1.5 bg-brand-accent rounded-full"></div></div>
-                            <h4 className="text-[10px] uppercase font-bold opacity-60 mb-1">{mem.chapter || 'Chapter'} • {mem.date}</h4>
+                            <div className="flex justify-between items-start mb-1">
+                                <h4 className="text-[10px] uppercase font-bold opacity-60">{mem.chapter || 'Chapter'} • {mem.date}</h4>
+                                <button
+                                    onClick={() => deleteMemory(mem.id)}
+                                    className="opacity-0 group-hover:opacity-100 transition text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded-lg hover:bg-red-400/10"
+                                    title="Remove this memory">
+                                    Remove
+                                </button>
+                            </div>
                             <h3 className="text-xl font-serif mb-4">{mem.title}</h3>
                             <div className="glass-card p-2 rounded-2xl">
-                                {mem.url && <img src={mem.url} className="w-full h-64 object-cover rounded-xl mb-4" />}
+                                {renderImage(mem.url)}
+                                <span style={{display:'none'}} className="block text-xs text-red-400 px-3 pb-2">Image failed to load. Check the URL.</span>
                                 <p className="text-sm opacity-80 px-3 pb-3 pt-1">{mem.caption}</p>
                             </div>
                         </div>
@@ -550,7 +598,10 @@ const Scrapbook = React.memo(({ relationship, updateData }) => {
                     <input type="text" placeholder="Chapter 3..." className="glass-input" value={form.chapter} onChange={e => setForm({...form, chapter: e.target.value})} />
                     <input type="text" placeholder="Title" className="glass-input" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
                     <input type="text" placeholder="YYYY-MM-DD" className="glass-input" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
-                    <input type="text" placeholder="Image URL" className="glass-input" value={form.url} onChange={e => setForm({...form, url: e.target.value})} />
+                    <div>
+                        <input type="text" placeholder="Image URL (direct link or imgur)" className="glass-input" value={form.url} onChange={e => setForm({...form, url: e.target.value})} />
+                        <p className="text-[10px] opacity-40 mt-1 px-1">Google Photos links won't embed — try imgur.com or a direct .jpg link</p>
+                    </div>
                     <textarea placeholder="Caption..." className="glass-input min-h-[120px]" value={form.caption} onChange={e => setForm({...form, caption: e.target.value})}></textarea>
                     <button onClick={addMemory} className="glass-button accent py-4 font-bold flex items-center justify-center gap-2 mt-2"><Plus size={16}/> Add to scrapbook</button>
                 </div>
