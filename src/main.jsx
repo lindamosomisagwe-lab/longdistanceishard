@@ -45,44 +45,63 @@ const EchoesOverlay = React.memo(({ moods, view }) => {
 const Sidebar = React.memo(({ activePage, setActivePage, view, isReEntry, spaceId, relationship }) => {
     const cycleUser = relationship.cycleUser || 'A';
     let navItems = [
-        { id: 'orbital', label: 'Our Space', icon: <Star size={18} /> },
-        { id: 'balance', label: 'Our Rhythm', icon: <Activity size={18} /> },
-        { id: 'mood', label: 'Heartbeats', icon: <Heart size={18} /> },
-        { id: 'goals', label: 'Future Dreams', icon: <Cloud size={18} /> },
-        { id: 'journal', label: 'Scrapbook', icon: <BookOpen size={18} /> },
-        { id: 'soundtrack', label: 'Soundtrack', icon: <Music size={18} /> },
+        { id: 'orbital', label: 'Home', icon: <Star size={20} /> },
+        { id: 'balance', label: 'Rhythm', icon: <Activity size={20} /> },
+        { id: 'mood', label: 'Heartbeats', icon: <Heart size={20} /> },
+        { id: 'goals', label: 'Dreams', icon: <Cloud size={20} /> },
+        { id: 'journal', label: 'Scrapbook', icon: <BookOpen size={20} /> },
+        { id: 'soundtrack', label: 'Music', icon: <Music size={20} /> },
     ];
-    if (cycleUser !== 'None' && view === cycleUser) navItems.push({ id: 'cycle', label: 'Soft Care', icon: <Calendar size={18} /> });
+    if (cycleUser !== 'None' && view === cycleUser) navItems.push({ id: 'cycle', label: 'Soft Care', icon: <Calendar size={20} /> });
 
     return (
-        <aside className="w-full md:w-64 shrink-0 flex flex-col gap-6 relative z-10">
-            <div className={`glass-panel p-6 flex flex-col h-full relative ${isReEntry ? 'border-indigo-500/30' : ''}`}>
-                <div className="flex items-center gap-3 mb-10">
-                    <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(255,255,255,0.1)] border border-white/20">
-                        <Moon size={20} className="text-white" />
+        <>
+            {/* ── Desktop sidebar ── */}
+            <aside className="hidden md:flex w-64 shrink-0 flex-col gap-6 relative z-10">
+                <div className={`glass-panel p-6 flex flex-col h-full relative ${isReEntry ? 'border-indigo-500/30' : ''}`}>
+                    <div className="flex items-center gap-3 mb-10">
+                        <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(255,255,255,0.1)] border border-white/20">
+                            <Moon size={20} className="text-white" />
+                        </div>
+                        <div>
+                            <h2 className="font-bold text-sm tracking-widest uppercase opacity-90 leading-tight">Between Us</h2>
+                            <p className="text-[10px] opacity-60">CODE: {spaceId}</p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="font-bold text-sm tracking-widest uppercase opacity-90 leading-tight">Between Us</h2>
-                        <p className="text-[10px] opacity-60">CODE: {spaceId}</p>
-                    </div>
-                </div>
-
-                <nav className="flex flex-col gap-2 flex-1">
-                    {navItems.map(item => (
-                        <button key={item.id} onClick={() => setActivePage(item.id)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition font-medium text-sm text-left ${activePage === item.id ? 'bg-white/10 text-white border border-white/20' : 'text-white/60 hover:bg-white/5 hover:text-white'}`}>
-                            {item.icon} {item.label}
+                    <nav className="flex flex-col gap-2 flex-1">
+                        {navItems.map(item => (
+                            <button key={item.id} onClick={() => setActivePage(item.id)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition font-medium text-sm text-left ${activePage === item.id ? 'bg-white/10 text-white border border-white/20' : 'text-white/60 hover:bg-white/5 hover:text-white'}`}>
+                                {item.icon} {item.label}
+                            </button>
+                        ))}
+                    </nav>
+                    <div className="mt-auto flex flex-col gap-2">
+                        {isReEntry && <div className="mb-4 text-center text-xs font-bold text-indigo-200 bg-indigo-900/40 py-3 rounded-xl border border-indigo-500/30">The Warmth is active.</div>}
+                        <button onClick={() => signOut(auth)} className="flex items-center justify-center gap-2 text-xs text-center opacity-40 hover:opacity-100 transition uppercase tracking-widest mt-4">
+                            <LogOut size={14}/> Sign Out
                         </button>
-                    ))}
-                </nav>
-
-                <div className="mt-auto flex flex-col gap-2">
-                    {isReEntry && <div className="mb-4 text-center text-xs font-bold text-indigo-200 bg-indigo-900/40 py-3 rounded-xl border border-indigo-500/30">The Warmth is active.</div>}
-                    <button onClick={() => signOut(auth)} className="flex items-center justify-center gap-2 text-xs text-center opacity-40 hover:opacity-100 transition uppercase tracking-widest mt-4">
-                        <LogOut size={14}/> Sign Out
-                    </button>
+                    </div>
                 </div>
-            </div>
-        </aside>
+            </aside>
+
+            {/* ── Mobile bottom tab bar ── */}
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-2 py-2"
+                style={{background:'rgba(5,10,20,0.92)', backdropFilter:'blur(24px)', borderTop:'1px solid rgba(255,255,255,0.08)'}}>
+                {navItems.map(item => (
+                    <button key={item.id} onClick={() => setActivePage(item.id)}
+                        className={`flex flex-col items-center gap-1 px-2 py-1 rounded-xl transition min-w-0 flex-1 ${
+                            activePage === item.id ? 'text-brand-accent' : 'text-white/40'
+                        }`}>
+                        {item.icon}
+                        <span className="text-[9px] font-bold tracking-wide truncate w-full text-center">{item.label}</span>
+                    </button>
+                ))}
+                <button onClick={() => signOut(auth)} className="flex flex-col items-center gap-1 px-2 py-1 text-white/30 min-w-0 flex-1">
+                    <LogOut size={20}/>
+                    <span className="text-[9px] font-bold tracking-wide">Out</span>
+                </button>
+            </nav>
+        </>
     );
 });
 
@@ -879,11 +898,12 @@ const App = () => {
                     <h1 className="text-4xl md:text-6xl font-serif text-orange-200 animate-pulse tracking-wide drop-shadow-2xl">They are with you.</h1>
                 </div>
             )}
-            <div className={`flex flex-col md:flex-row h-screen p-4 md:p-6 gap-6 relative z-10 transition-opacity duration-1000 ${relationship.isThermalBlanketActive && userData.role === cycleUser && cycleUser !== 'None' ? 'opacity-20' : 'opacity-100 text-white/90'}`}>
-                <Sidebar activePage={activePage} setActivePage={setActivePage} view={userData.role} isReEntry={isReEntry} spaceId={userData.spaceId} relationship={relationship} />
-                <main className="flex-1 flex flex-col min-w-0">
+            {/* Sidebar renders both desktop sidebar + mobile bottom nav */}
+            <Sidebar activePage={activePage} setActivePage={setActivePage} view={userData.role} isReEntry={isReEntry} spaceId={userData.spaceId} relationship={relationship} />
+            <div className={`flex flex-row min-h-screen md:h-screen p-3 md:p-6 gap-6 relative z-10 transition-opacity duration-1000 ${relationship.isThermalBlanketActive && userData.role === cycleUser && cycleUser !== 'None' ? 'opacity-20' : 'opacity-100 text-white/90'}`}>
+                <main className="flex-1 flex flex-col min-w-0 pb-24 md:pb-0">
                     <Header view={userData.role} distance={distance} isReEntry={isReEntry} spaceId={userData.spaceId} relationship={relationship} updateData={updateData} />
-                    <div className="flex-1 overflow-y-auto pb-6 pr-2">
+                    <div className="flex-1 overflow-y-auto pb-4 pr-1">
                         {renderPage()}
                     </div>
                 </main>
