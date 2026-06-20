@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Custom styles — Tailwind loaded via CDN in index.html */
 
 body {
     font-family: 'Inter', sans-serif;
