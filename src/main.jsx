@@ -514,6 +514,52 @@ const Heartbeats = React.memo(({ view, relationship, updateData, isReEntry }) =>
 
 const Scrapbook = React.memo(({ relationship, updateData }) => {
     const [form, setForm] = useState({ chapter: '', title: '', date: '', url: '', caption: '' });
+    const [uploading, setUploading] = useState(false);
+
+    // ⚙️ Replace these two values with your own from cloudinary.com
+    const CLOUDINARY_CLOUD_NAME = 'di6mrsvzh';
+    const CLOUDINARY_UPLOAD_PRESET = 'scrapbook_preset';
+
+    const openUploadWidget = () => {
+        if (!window.cloudinary) {
+            alert('Upload widget is still loading. Please try again in a moment.');
+            return;
+        }
+        setUploading(true);
+        window.cloudinary.openUploadWidget(
+            {
+                cloudName: CLOUDINARY_CLOUD_NAME,
+                uploadPreset: CLOUDINARY_UPLOAD_PRESET,
+                sources: ['local', 'camera', 'url'],
+                multiple: false,
+                cropping: false,
+                showAdvancedOptions: false,
+                styles: {
+                    palette: {
+                        window: '#050a14',
+                        windowBorder: '#1e3a5f',
+                        tabIcon: '#e0f2fe',
+                        menuIcons: '#e0f2fe',
+                        textDark: '#ffffff',
+                        textLight: '#ffffff',
+                        link: '#38bdf8',
+                        action: '#38bdf8',
+                        inactiveTabIcon: '#4a7a9b',
+                        error: '#f44235',
+                        inProgress: '#38bdf8',
+                        complete: '#4caf50',
+                        sourceBg: '#0a1020',
+                    },
+                },
+            },
+            (error, result) => {
+                setUploading(false);
+                if (!error && result && result.event === 'success') {
+                    setForm(prev => ({ ...prev, url: result.info.secure_url }));
+                }
+            }
+        );
+    };
 
     const addMemory = () => {
         if (!form.title) return;
@@ -526,29 +572,27 @@ const Scrapbook = React.memo(({ relationship, updateData }) => {
         updateData({ memories: relationship.memories.filter(m => m.id !== id) });
     };
 
-    // Google Photos links are NOT direct image URLs — they're web pages.
-    // We detect them and show a tap-to-view link instead of a broken <img>.
-    const isGooglePhotos = (url) => url && (url.includes('photos.google.com') || url.includes('photos.app.goo.gl'));
-    const isDirectImage = (url) => url && !isGooglePhotos(url) && /\.(jpg|jpeg|png|gif|webp|avif|svg)(\?|$)/i.test(url);
+    // Cloudinary and other CDN URLs serve images even without a file extension
+    const isCloudinary = (url) => url && url.includes('cloudinary.com');
+    const isGooglePhotos = (url) => url && (url.includes('photos.google.com') || url.includes('photos.app.goo.gl') || url.includes('usercontent.google.com'));
+    const isDirectImage = (url) => url && !isGooglePhotos(url) && (/\.(jpg|jpeg|png|gif|webp|avif|svg)(\?|$)/i.test(url) || isCloudinary(url));
 
     const renderImage = (url) => {
         if (!url) return null;
         if (isGooglePhotos(url)) {
             return (
                 <div className="w-full rounded-xl mb-4 bg-white/5 border border-white/10 p-4 text-center">
-                    <p className="text-xs opacity-60 mb-3">Google Photos links can't be embedded directly.</p>
+                    <p className="text-xs opacity-60 mb-3">Google Photos links can't be embedded. Use the Upload button instead.</p>
                     <a href={url} target="_blank" rel="noopener noreferrer"
                         className="glass-button accent px-4 py-2 text-sm font-bold inline-flex items-center gap-2">
                         <ImageIcon size={14}/> Open Photo ↗
                     </a>
-                    <p className="text-[10px] opacity-40 mt-3">Tip: use the photo's "Download" URL or upload to imgur.com for embedding.</p>
                 </div>
             );
         }
         if (isDirectImage(url)) {
             return <img src={url} alt="memory" className="w-full h-64 object-cover rounded-xl mb-4" onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='block'; }} />;
         }
-        // Unknown URL — show as a link
         return (
             <div className="w-full rounded-xl mb-4 bg-white/5 border border-white/10 p-4 text-center">
                 <a href={url} target="_blank" rel="noopener noreferrer" className="glass-button accent px-4 py-2 text-sm font-bold inline-flex items-center gap-2">
@@ -563,7 +607,6 @@ const Scrapbook = React.memo(({ relationship, updateData }) => {
             <div className="flex-1 glass-panel p-8 relative overflow-y-auto max-h-[75vh]">
                 <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Our Story</h3>
                 <h2 className="text-2xl font-serif text-brand-accent mb-10">The timeline of our love</h2>
-                
                 <div className="relative pl-12">
                     <div className="timeline-line"></div>
                     {relationship.memories.length === 0 && (
@@ -574,17 +617,15 @@ const Scrapbook = React.memo(({ relationship, updateData }) => {
                             <div className="absolute -left-12 top-2 w-4 h-4 rounded-full border border-white/30 bg-midnight-mid z-10 flex items-center justify-center"><div className="w-1.5 h-1.5 bg-brand-accent rounded-full"></div></div>
                             <div className="flex justify-between items-start mb-1">
                                 <h4 className="text-[10px] uppercase font-bold opacity-60">{mem.chapter || 'Chapter'} • {mem.date}</h4>
-                                <button
-                                    onClick={() => deleteMemory(mem.id)}
-                                    className="opacity-0 group-hover:opacity-100 transition text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded-lg hover:bg-red-400/10"
-                                    title="Remove this memory">
+                                <button onClick={() => deleteMemory(mem.id)}
+                                    className="opacity-0 group-hover:opacity-100 transition text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded-lg hover:bg-red-400/10">
                                     Remove
                                 </button>
                             </div>
                             <h3 className="text-xl font-serif mb-4">{mem.title}</h3>
                             <div className="glass-card p-2 rounded-2xl">
                                 {renderImage(mem.url)}
-                                <span style={{display:'none'}} className="block text-xs text-red-400 px-3 pb-2">Image failed to load. Check the URL.</span>
+                                <span style={{display:'none'}} className="block text-xs text-red-400 px-3 pb-2">Image failed to load.</span>
                                 <p className="text-sm opacity-80 px-3 pb-3 pt-1">{mem.caption}</p>
                             </div>
                         </div>
@@ -598,10 +639,29 @@ const Scrapbook = React.memo(({ relationship, updateData }) => {
                     <input type="text" placeholder="Chapter 3..." className="glass-input" value={form.chapter} onChange={e => setForm({...form, chapter: e.target.value})} />
                     <input type="text" placeholder="Title" className="glass-input" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
                     <input type="text" placeholder="YYYY-MM-DD" className="glass-input" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+
+                    {/* Photo upload section */}
                     <div>
-                        <input type="text" placeholder="Image URL (direct link or imgur)" className="glass-input" value={form.url} onChange={e => setForm({...form, url: e.target.value})} />
-                        <p className="text-[10px] opacity-40 mt-1 px-1">Google Photos links won't embed — try imgur.com or a direct .jpg link</p>
+                        <button onClick={openUploadWidget} disabled={uploading}
+                            className="glass-button accent w-full py-3 font-bold flex items-center justify-center gap-2 mb-2">
+                            <ImageIcon size={16}/>
+                            {uploading ? 'Opening uploader...' : '📸 Upload Photo from Device'}
+                        </button>
+                        {form.url && (
+                            <div className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2">
+                                <img src={form.url} alt="preview" className="w-10 h-10 object-cover rounded-lg shrink-0" />
+                                <span className="text-xs opacity-60 truncate flex-1">Photo ready ✓</span>
+                                <button onClick={() => setForm({...form, url: ''})} className="text-red-400 text-xs hover:text-red-300">✕</button>
+                            </div>
+                        )}
+                        <div className="flex items-center gap-2 my-2">
+                            <div className="flex-1 h-px bg-white/10"></div>
+                            <span className="text-[10px] opacity-40">or paste a URL</span>
+                            <div className="flex-1 h-px bg-white/10"></div>
+                        </div>
+                        <input type="text" placeholder="https://..." className="glass-input" value={form.url} onChange={e => setForm({...form, url: e.target.value})} />
                     </div>
+
                     <textarea placeholder="Caption..." className="glass-input min-h-[120px]" value={form.caption} onChange={e => setForm({...form, caption: e.target.value})}></textarea>
                     <button onClick={addMemory} className="glass-button accent py-4 font-bold flex items-center justify-center gap-2 mt-2"><Plus size={16}/> Add to scrapbook</button>
                 </div>
@@ -609,6 +669,7 @@ const Scrapbook = React.memo(({ relationship, updateData }) => {
         </div>
     );
 });
+
 
 const Soundtrack = React.memo(({ relationship, updateData }) => {
     const [url, setUrl] = useState('');
