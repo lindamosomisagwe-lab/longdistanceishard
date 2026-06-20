@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
+import './index.css';
 import { 
     Home, Activity, Smile, BookOpen, Music, Calendar, 
     Bell, Image as ImageIcon, ChevronLeft, ChevronRight, Plus, Moon,
     User, Heart, Sparkles, Target, Cloud, Star, LogOut
 } from 'lucide-react';
+import { defaultState, CATEGORIES } from './constants';
+import AuthScreen from './pages/AuthScreen';
+import PairingScreen from './pages/PairingScreen';
+import SettingsModal from './components/SettingsModal';
 
 // FIREBASE
 import { auth, db } from './firebase';
@@ -18,147 +23,10 @@ import {
     ref, get, set, update, onValue 
 } from 'firebase/database';
 
-const defaultState = {
-    scores_a: [7, 6, 8, 5, 7, 9], scores_b: [6, 8, 7, 4, 8, 9],
-    meals_a: { breakfast: true, lunch: false, dinner: false }, 
-    meals_b: { breakfast: false, lunch: true, dinner: false },
-    memories: [{ id: 1, title: 'The Meeting', chapter: 'Chapter 1', date: '2023-04-12', caption: 'The first orbit aligned.', url: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=800&q=80' }],
-    moods: [], 
-    goals: [{ id: 1, text: 'Plan Anniversary Trip', completed: false }],
-    spotify_url: "https://open.spotify.com/playlist/37i9dQZF1EJH75B3mnDgmp",
-    distance: 6400, coRegulation: 62,
-    partnerA_cycleData: { day: 14, symptoms: [], needSpace: false, sendSnacks: false },
-    reunionEndTime: null,
-    wakes: { A: [], B: [] },
-    isThermalBlanketActive: false,
-    liftForce: { A: 0, B: 0 }
-};
-
-const CATEGORIES = ['Romance', 'Physical & Mental Health', 'Personal Growth', 'Career & Business', 'Finances', 'Leisure'];
-
-// --- FIREBASE AUTH SCREEN ---
-const AuthScreen = () => {
-    const [isLogin, setIsLogin] = useState(true);
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-        try {
-            if (isLogin) {
-                await signInWithEmailAndPassword(auth, email, password);
-            } else {
-                await createUserWithEmailAndPassword(auth, email, password);
-            }
-        } catch (err) {
-            setError(err.message);
-        }
-        setLoading(false);
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-3xl">
-            <div className="glass-panel p-12 max-w-md w-full text-center flex flex-col items-center">
-                <div className="w-16 h-16 rounded-full bg-brand-accent/10 flex items-center justify-center border border-brand-accent/30 mb-8 shadow-[0_0_30px_rgba(224,242,254,0.1)]">
-                    <Home size={32} className="text-brand-accent" />
-                </div>
-                <h1 className="text-3xl font-serif mb-2 text-white">Between Us</h1>
-                <p className="text-sm opacity-70 mb-8 text-blue-100">{isLogin ? 'Welcome back to the space.' : 'Create a new space.'}</p>
-                
-                {error && <div className="text-xs text-red-400 bg-red-400/10 p-3 rounded-lg mb-4 w-full">{error}</div>}
-                
-                <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
-                    <input type="email" placeholder="Email" required className="glass-input" value={email} onChange={e => setEmail(e.target.value)} />
-                    <input type="password" placeholder="Password" required className="glass-input" value={password} onChange={e => setPassword(e.target.value)} />
-                    <button type="submit" disabled={loading} className="glass-button accent py-3 mt-2 font-bold w-full">
-                        {loading ? 'Authenticating...' : (isLogin ? 'Enter' : 'Create')}
-                    </button>
-                </form>
-                
-                <button onClick={() => setIsLogin(!isLogin)} className="mt-6 text-xs opacity-60 hover:opacity-100 transition">
-                    {isLogin ? 'Need an account? Sign up' : 'Already have an account? Log in'}
-                </button>
-            </div>
-        </div>
-    );
-};
-
-// --- FIREBASE PAIRING SCREEN ---
-const PairingScreen = ({ user, setUserData }) => {
-    const [joinCode, setJoinCode] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-
-    const createSpace = async () => {
-        setLoading(true);
-        setError('');
-        try {
-            const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-            await set(ref(db, 'sanctuaries/' + code), { ...defaultState, partnerA: user.uid });
-            await set(ref(db, 'users/' + user.uid), { spaceId: code, role: 'A' });
-            setUserData({ spaceId: code, role: 'A' }); // Force immediate UI transition
-        } catch (err) {
-            console.error(err);
-            setError(err.message || 'Failed to create space. Check your connection or Firebase rules.');
-        }
-        setLoading(false);
-    };
-
-    const joinSpace = async () => {
-        if (!joinCode) return;
-        setLoading(true);
-        setError('');
-        try {
-            const code = joinCode.toUpperCase();
-            const spaceRef = ref(db, 'sanctuaries/' + code);
-            const snapshot = await get(spaceRef);
-            if (snapshot.exists() && !snapshot.val().partnerB) {
-                await update(spaceRef, { partnerB: user.uid });
-                await set(ref(db, 'users/' + user.uid), { spaceId: code, role: 'B' });
-                setUserData({ spaceId: code, role: 'B' }); // Force immediate UI transition
-            } else {
-                setError('Invalid code or Space is full.');
-            }
-        } catch (err) {
-            console.error(err);
-            setError(err.message || 'Failed to join space. Check the code and try again.');
-        }
-        setLoading(false);
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-3xl">
-            <div className="glass-panel p-12 max-w-2xl w-full flex flex-col items-center">
-                <h1 className="text-3xl font-serif mb-8 text-white text-center">Establish Connection</h1>
-                {error && <div className="text-xs text-red-400 bg-red-400/10 p-3 rounded-lg mb-4 w-full text-center">{error}</div>}
-                
-                <div className="flex flex-col md:flex-row gap-6 w-full">
-                    <div className="flex-1 glass-card p-6 flex flex-col items-center text-center">
-                        <div className="w-12 h-12 rounded-full bg-yellow-400/10 flex items-center justify-center mb-4"><Star className="text-yellow-400"/></div>
-                        <h2 className="text-lg font-bold mb-2">Create Space</h2>
-                        <p className="text-xs opacity-60 mb-6">Start a new space and get a Connection Code to give to your partner. You will be Partner A.</p>
-                        <button onClick={createSpace} disabled={loading} className="glass-button accent py-2 px-6 font-bold w-full mt-auto">Create</button>
-                    </div>
-
-                    <div className="flex-1 glass-card p-6 flex flex-col items-center text-center">
-                        <div className="w-12 h-12 rounded-full bg-sky-400/10 flex items-center justify-center mb-4"><Home className="text-sky-400"/></div>
-                        <h2 className="text-lg font-bold mb-2">Join Space</h2>
-                        <p className="text-xs opacity-60 mb-6">Enter a Connection Code from your partner to link your accounts. You will be Partner B.</p>
-                        <input type="text" placeholder="6-Digit Code" className="glass-input mb-4 text-center tracking-widest uppercase" value={joinCode} onChange={e => setJoinCode(e.target.value)} />
-                        <button onClick={joinSpace} disabled={loading} className="glass-button w-full py-2 font-bold">Connect</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
+// Extracted to external files;
 
 // --- ECHOES OVERLAY ---
-const EchoesOverlay = ({ moods, view }) => {
+const EchoesOverlay = React.memo(({ moods, view }) => {
     const otherPartner = view === 'A' ? 'B' : 'A';
     const recentEchoes = (moods || []).filter(m => m.partner === otherPartner && m.note).slice(0, 3);
 
@@ -171,10 +39,10 @@ const EchoesOverlay = ({ moods, view }) => {
             ))}
         </div>
     );
-};
+});
 
 // --- COMPONENTS ---
-const Sidebar = ({ activePage, setActivePage, view, isReEntry, spaceId, relationship }) => {
+const Sidebar = React.memo(({ activePage, setActivePage, view, isReEntry, spaceId, relationship }) => {
     const cycleUser = relationship.cycleUser || 'A';
     let navItems = [
         { id: 'orbital', label: 'Our Space', icon: <Star size={18} /> },
@@ -216,75 +84,11 @@ const Sidebar = ({ activePage, setActivePage, view, isReEntry, spaceId, relation
             </div>
         </aside>
     );
-};
+});
 
-const SettingsModal = ({ relationship, updateData, close }) => {
-    const [nameA, setNameA] = useState(relationship.nameA || '');
-    const [nameB, setNameB] = useState(relationship.nameB || '');
-    const [baseDistance, setBaseDistance] = useState(relationship.baseDistance || 6400);
-    const [genderA, setGenderA] = useState(relationship.genderA || (relationship.cycleUser === 'A' ? 'Female' : 'Male'));
-    const [genderB, setGenderB] = useState(relationship.genderB || (relationship.cycleUser === 'B' ? 'Female' : 'Male'));
+// SettingsModal extracted
 
-    const isFormValid = nameA.trim() !== '' && nameB.trim() !== '';
-
-    const save = () => {
-        if (!isFormValid) return;
-        
-        let cycleUser = 'None';
-        if (genderA === 'Female') cycleUser = 'A';
-        else if (genderB === 'Female') cycleUser = 'B';
-        
-        updateData({ nameA, nameB, baseDistance: Number(baseDistance), genderA, genderB, cycleUser });
-        close();
-    };
-
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-3xl">
-            <div className="glass-panel p-8 max-w-md w-full max-h-[90vh] overflow-y-auto">
-                <h2 className="text-2xl font-serif text-brand-accent mb-6">Space Settings</h2>
-                <div className="flex flex-col gap-4 mb-6">
-                    <div className="flex gap-4">
-                        <div className="flex-1">
-                            <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Partner A's Name</label>
-                            <input type="text" className="glass-input w-full" value={nameA} onChange={e => setNameA(e.target.value)} placeholder="e.g. Linda" />
-                        </div>
-                        <div className="w-1/3">
-                            <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Gender</label>
-                            <select className="glass-input w-full text-white bg-transparent" value={genderA} onChange={e => setGenderA(e.target.value)}>
-                                <option value="Female" className="text-black">Female</option>
-                                <option value="Male" className="text-black">Male</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div className="flex gap-4">
-                        <div className="flex-1">
-                            <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Partner B's Name</label>
-                            <input type="text" className="glass-input w-full" value={nameB} onChange={e => setNameB(e.target.value)} placeholder="e.g. John" />
-                        </div>
-                        <div className="w-1/3">
-                            <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Gender</label>
-                            <select className="glass-input w-full text-white bg-transparent" value={genderB} onChange={e => setGenderB(e.target.value)}>
-                                <option value="Male" className="text-black">Male</option>
-                                <option value="Female" className="text-black">Female</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <label className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">Distance Apart (KM)</label>
-                        <input type="number" className="glass-input w-full" value={baseDistance} onChange={e => setBaseDistance(e.target.value)} />
-                    </div>
-                </div>
-                {!isFormValid && <p className="text-red-400 text-xs mb-4">Please fill out both names to continue.</p>}
-                <div className="flex justify-end gap-4">
-                    <button onClick={close} className="px-4 py-2 text-sm opacity-60 hover:opacity-100 transition">Cancel</button>
-                    <button onClick={save} disabled={!isFormValid} className={`glass-button accent px-6 py-2 font-bold ${!isFormValid ? 'opacity-50 cursor-not-allowed' : ''}`}>Save</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const Header = ({ view, distance, isReEntry, spaceId, relationship, updateData }) => {
+const Header = React.memo(({ view, distance, isReEntry, spaceId, relationship, updateData }) => {
     const [showSettings, setShowSettings] = useState(false);
     
     const myName = view === 'A' ? relationship.nameA : relationship.nameB;
@@ -325,11 +129,11 @@ const Header = ({ view, distance, isReEntry, spaceId, relationship, updateData }
             </header>
         </>
     );
-};
+});
 
 // --- TAB PAGES ---
 
-const PoeticStatus = ({ view, relationship }) => {
+const PoeticStatus = React.memo(({ view, relationship }) => {
     const otherPartner = view === 'A' ? 'B' : 'A';
     const moods = (relationship.moods || []).filter(m => m.partner === otherPartner);
     const lastMood = moods.length > 0 ? moods[0].mood.toLowerCase() : 'quiet';
@@ -355,9 +159,9 @@ const PoeticStatus = ({ view, relationship }) => {
             "{pronoun} is feeling {lastMood} right now. {pronoun} {mealStatus}{cycleStatus}"
         </div>
     );
-};
+});
 
-const OurSpace = ({ distance, setDistance, harmony, setCoreg, view, relationship, updateData, isReEntry }) => {
+const OurSpace = React.memo(({ distance, setDistance, harmony, setCoreg, view, relationship, updateData, isReEntry }) => {
     const [isSyncing, setIsSyncing] = useState(false);
     const syncInterval = useRef(null);
     const drainInterval = useRef(null);
@@ -546,9 +350,9 @@ const OurSpace = ({ distance, setDistance, harmony, setCoreg, view, relationship
             </div>
         </div>
     );
-};
+});
 
-const FutureDreams = ({ relationship, updateData }) => {
+const FutureDreams = React.memo(({ relationship, updateData }) => {
     const [newGoal, setNewGoal] = useState('');
     const addGoal = () => {
         if (!newGoal) return;
@@ -598,13 +402,18 @@ const FutureDreams = ({ relationship, updateData }) => {
             </div>
         </div>
     );
-};
+});
 
-const OurRhythm = ({ view, relationship, updateData }) => {
+const OurRhythm = React.memo(({ view, relationship, updateData }) => {
     const canvasRef = useRef(null);
     const chartRef = useRef(null);
     const scores = view === 'A' ? relationship.scores_a : relationship.scores_b;
     const partnerScores = view === 'A' ? relationship.scores_b : relationship.scores_a;
+    const [localScores, setLocalScores] = useState(scores);
+
+    useEffect(() => {
+        setLocalScores(scores);
+    }, [scores]);
 
     useEffect(() => {
         if (!canvasRef.current || !window.Chart) return;
@@ -614,13 +423,23 @@ const OurRhythm = ({ view, relationship, updateData }) => {
             data: {
                 labels: CATEGORIES,
                 datasets: [
-                    { label: `Partner ${view}`, data: scores, backgroundColor: 'rgba(224, 242, 254, 0.2)', borderColor: 'rgba(224, 242, 254, 0.8)', borderWidth: 2 },
+                    { label: `Partner ${view}`, data: localScores, backgroundColor: 'rgba(224, 242, 254, 0.2)', borderColor: 'rgba(224, 242, 254, 0.8)', borderWidth: 2 },
                     { label: `Partner ${view === 'A'?'B':'A'}`, data: partnerScores, backgroundColor: 'transparent', borderColor: 'rgba(255, 255, 255, 0.2)', borderDash: [5,5], borderWidth: 1 }
                 ]
             },
             options: { responsive: true, maintainAspectRatio: false, scales: { r: { min: 0, max: 10, ticks: { display: false }, grid: { color: 'rgba(255,255,255,0.05)' }, angleLines: { color: 'rgba(255,255,255,0.05)' }, pointLabels: { color: 'rgba(255,255,255,0.5)', font: { family: 'Inter', size: 10 } } } }, plugins: { legend: { position: 'bottom', labels: { color: 'white', boxWidth: 10 } } } }
         });
-    }, [scores, partnerScores, view]);
+    }, [localScores, partnerScores, view]);
+
+    const handleSliderChange = (i, val) => {
+        const newS = [...localScores];
+        newS[i] = parseFloat(val);
+        setLocalScores(newS);
+    };
+
+    const handleSliderCommit = () => {
+        updateData({ [view === 'A' ? 'scores_a' : 'scores_b']: localScores });
+    };
 
     return (
         <div className="flex flex-col lg:flex-row gap-6 h-full relative z-10">
@@ -630,8 +449,8 @@ const OurRhythm = ({ view, relationship, updateData }) => {
                 <div className="flex flex-col gap-8">
                     {CATEGORIES.map((cat, i) => (
                         <div key={i}>
-                            <div className="flex justify-between text-xs font-bold uppercase tracking-wider opacity-80 mb-3"><span>{cat}</span><span>{scores[i].toFixed(1)} / 10</span></div>
-                            <input type="range" min="0" max="10" step="0.5" value={scores[i]} onChange={(e) => { const newS = [...scores]; newS[i] = parseFloat(e.target.value); updateData({ [view==='A'?'scores_a':'scores_b']: newS }); }} />
+                            <div className="flex justify-between text-xs font-bold uppercase tracking-wider opacity-80 mb-3"><span>{cat}</span><span>{localScores[i].toFixed(1)} / 10</span></div>
+                            <input type="range" min="0" max="10" step="0.5" value={localScores[i]} onChange={(e) => handleSliderChange(i, e.target.value)} onMouseUp={handleSliderCommit} onTouchEnd={handleSliderCommit} />
                         </div>
                     ))}
                 </div>
@@ -639,9 +458,9 @@ const OurRhythm = ({ view, relationship, updateData }) => {
             <div className="flex-1 glass-panel p-8 flex flex-col"><div className="flex-1 relative min-h-[300px]"><canvas ref={canvasRef}></canvas></div></div>
         </div>
     );
-};
+});
 
-const Heartbeats = ({ view, relationship, updateData, isReEntry }) => {
+const Heartbeats = React.memo(({ view, relationship, updateData, isReEntry }) => {
     const [note, setNote] = useState('');
     const moods = [
         { label: 'Happy', icon: <Smile size={24}/> }, { label: 'Calm', icon: <Moon size={24}/> }, { label: 'Stressed', icon: <Activity size={24}/> },
@@ -691,9 +510,9 @@ const Heartbeats = ({ view, relationship, updateData, isReEntry }) => {
             </div>
         </div>
     );
-};
+});
 
-const Scrapbook = ({ relationship, updateData }) => {
+const Scrapbook = React.memo(({ relationship, updateData }) => {
     const [form, setForm] = useState({ chapter: '', title: '', date: '', url: '', caption: '' });
 
     const addMemory = () => {
@@ -738,9 +557,9 @@ const Scrapbook = ({ relationship, updateData }) => {
             </div>
         </div>
     );
-};
+});
 
-const Soundtrack = ({ relationship, updateData }) => {
+const Soundtrack = React.memo(({ relationship, updateData }) => {
     const [url, setUrl] = useState('');
     
     const parseSpotifyUrl = (u) => {
@@ -768,9 +587,9 @@ const Soundtrack = ({ relationship, updateData }) => {
             </div>
         </div>
     );
-};
+});
 
-const SoftCare = ({ relationship, updateData }) => {
+const SoftCare = React.memo(({ relationship, updateData }) => {
     const data = relationship.partnerA_cycleData || defaultState.partnerA_cycleData;
     const symptoms = data.symptoms || []; // Realtime DB removes empty arrays, so we must fallback to []
     
@@ -811,7 +630,7 @@ const SoftCare = ({ relationship, updateData }) => {
             </div>
         </div>
     );
-};
+});
 
 // --- APP ROOT ---
 const App = () => {
@@ -862,13 +681,15 @@ const App = () => {
     }, [userData]);
 
     // Firebase Mutator
-    const updateData = async (updates) => {
+    const updateData = React.useCallback(async (updates) => {
         if (!userData?.spaceId) return;
-        const next = { ...relationship, ...updates };
-        setRelationship(next); // optimistic local update
+        setRelationship(prev => {
+            const next = { ...prev, ...updates };
+            return next;
+        }); // optimistic local update
         try { await update(ref(db, 'sanctuaries/' + userData.spaceId), updates); }
         catch (e) { console.error("Database update failed", e); }
-    };
+    }, [userData?.spaceId]);
 
     const isReEntry = relationship.reunionEndTime && Date.now() < relationship.reunionEndTime;
 
