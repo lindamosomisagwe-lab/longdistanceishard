@@ -693,6 +693,40 @@ const App = () => {
 
     const isReEntry = relationship.reunionEndTime && Date.now() < relationship.reunionEndTime;
 
+    // --- Daily Reset ---
+    // Runs whenever the relationship data loads. Checks if today is a new day
+    // compared to the last stored reset date, and if so, wipes daily fields.
+    useEffect(() => {
+        if (!userData?.spaceId || !relationship.lastResetDate) {
+            // First time ever — just stamp today's date, don't wipe anything
+            if (userData?.spaceId) {
+                const today = new Date().toISOString().slice(0, 10);
+                updateData({ lastResetDate: today });
+            }
+            return;
+        }
+
+        const today = new Date().toISOString().slice(0, 10);
+        if (relationship.lastResetDate !== today) {
+            // It's a new day — reset daily fields
+            updateData({
+                lastResetDate: today,
+                // Meals reset for both partners
+                meals_a: { breakfast: false, lunch: false, dinner: false },
+                meals_b: { breakfast: false, lunch: false, dinner: false },
+                // Clear today's mood log (keep history in moods array — don't wipe that)
+                // Clear Soft Care daily signals
+                partnerA_cycleData: {
+                    ...(relationship.partnerA_cycleData || {}),
+                    needSpace: false,
+                    sendSnacks: false,
+                    symptoms: [],
+                },
+            });
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [relationship.lastResetDate, userData?.spaceId]);
+
     // Background CSS
     useEffect(() => {
         if (relationship.isThermalBlanketActive && userData?.role === 'A') {
